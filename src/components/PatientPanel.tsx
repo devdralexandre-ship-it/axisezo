@@ -1,9 +1,10 @@
-import { Patient, DECISION_LABELS, DecisionStatus, STAGE_LABELS } from '@/data/types';
+import { Patient, DECISION_LABELS, DecisionStatus, STAGE_LABELS, OWNERS, Owner, PatientTask, getTaskUrgency } from '@/data/types';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
 import { FollowUpTimeline } from './FollowUpTimeline';
-import { Calendar, UserRound, Stethoscope, DollarSign, ArrowRight, Clock } from 'lucide-react';
+import { Calendar, UserRound, Stethoscope, DollarSign, Clock, Plus, CheckCircle2, Circle } from 'lucide-react';
 
 const decisionColors: Record<string, string> = {
   waiting: 'bg-muted text-muted-foreground',
@@ -12,14 +13,23 @@ const decisionColors: Record<string, string> = {
   confirmed: 'bg-pipeline-green/15 text-pipeline-green border-pipeline-green/30',
 };
 
+const urgencyColors: Record<string, string> = {
+  green: 'text-pipeline-green',
+  yellow: 'text-pipeline-amber',
+  red: 'text-destructive',
+};
+
 interface PatientPanelProps {
   patient: Patient | null;
   open: boolean;
   onClose: () => void;
   onUpdateDecision: (patientId: string, status: DecisionStatus) => void;
+  onUpdateOwner: (patientId: string, owner: Owner) => void;
+  onCompleteTask: (patientId: string, taskId: string) => void;
+  onAddTask: (patientId: string) => void;
 }
 
-export function PatientPanel({ patient, open, onClose, onUpdateDecision }: PatientPanelProps) {
+export function PatientPanel({ patient, open, onClose, onUpdateDecision, onUpdateOwner, onCompleteTask, onAddTask }: PatientPanelProps) {
   if (!patient) return null;
 
   const formatCurrency = (value: number | null) => {
@@ -32,6 +42,9 @@ export function PatientPanel({ patient, open, onClose, onUpdateDecision }: Patie
     const d = new Date(dateStr + 'T12:00:00');
     return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
   };
+
+  const pendingTasks = patient.tasks.filter((t) => !t.completed).sort((a, b) => new Date(`${a.dueDate}T${a.dueTime}`).getTime() - new Date(`${b.dueDate}T${b.dueTime}`).getTime());
+  const completedTasks = patient.tasks.filter((t) => t.completed);
 
   return (
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
@@ -52,16 +65,22 @@ export function PatientPanel({ patient, open, onClose, onUpdateDecision }: Patie
         </SheetHeader>
 
         <div className="p-6 space-y-6">
+          {/* Owner */}
+          <div className="space-y-2">
+            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Responsável</label>
+            <Select value={patient.owner} onValueChange={(v) => onUpdateOwner(patient.id, v as Owner)}>
+              <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {OWNERS.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+
           {/* Decision Status */}
           <div className="space-y-2">
             <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Status da Decisão</label>
-            <Select
-              value={patient.decisionStatus}
-              onValueChange={(v) => onUpdateDecision(patient.id, v as DecisionStatus)}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
+            <Select value={patient.decisionStatus} onValueChange={(v) => onUpdateDecision(patient.id, v as DecisionStatus)}>
+              <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {(Object.keys(DECISION_LABELS) as DecisionStatus[]).map((s) => (
                   <SelectItem key={s} value={s}>{DECISION_LABELS[s]}</SelectItem>
@@ -79,12 +98,42 @@ export function PatientPanel({ patient, open, onClose, onUpdateDecision }: Patie
             <InfoItem icon={Clock} label="Próximo Follow-up" value={formatDate(patient.nextFollowUpDate)} />
           </div>
 
-          {/* Next Action */}
-          <div className="space-y-2">
-            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Próxima Ação</label>
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-primary/5 border border-primary/10">
-              <ArrowRight className="h-4 w-4 text-primary shrink-0" />
-              <span className="text-sm text-foreground">{patient.nextAction}</span>
+          {/* Tasks */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                Tarefas ({pendingTasks.length} pendente{pendingTasks.length !== 1 ? 's' : ''})
+              </label>
+              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => onAddTask(patient.id)}>
+                <Plus className="h-3 w-3 mr-1" /> Nova
+              </Button>
+            </div>
+            <div className="space-y-1.5">
+              {pendingTasks.map((task) => {
+                const urgency = getTaskUrgency(task);
+                return (
+                  <div key={task.id} className="flex items-center gap-2 p-2 rounded-lg bg-muted/50 group">
+                    <button onClick={() => onCompleteTask(patient.id, task.id)} className="shrink-0 hover:scale-110 transition-transform">
+                      <Circle className={`h-4 w-4 ${urgencyColors[urgency]}`} />
+                    </button>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm text-foreground truncate">{task.title}</p>
+                      <p className="text-[11px] text-muted-foreground">{formatDate(task.dueDate)} {task.dueTime} • {task.responsible}</p>
+                    </div>
+                  </div>
+                );
+              })}
+              {completedTasks.length > 0 && (
+                <div className="pt-2 space-y-1.5">
+                  <p className="text-[11px] text-muted-foreground">Concluídas ({completedTasks.length})</p>
+                  {completedTasks.map((task) => (
+                    <div key={task.id} className="flex items-center gap-2 p-2 rounded-lg opacity-50">
+                      <CheckCircle2 className="h-4 w-4 text-pipeline-green shrink-0" />
+                      <p className="text-sm text-foreground line-through truncate">{task.title}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 

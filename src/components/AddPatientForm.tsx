@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Patient, PIPELINE_STAGES, STAGE_LABELS } from '@/data/types';
+import { Patient, PIPELINE_STAGES, STAGE_LABELS, OWNERS, Owner } from '@/data/types';
 
 interface AddPatientFormProps {
   open: boolean;
@@ -19,6 +19,7 @@ export function AddPatientForm({ open, onClose, onAdd, surgeons, concierges }: A
   const [procedure, setProcedure] = useState('');
   const [surgeon, setSurgeon] = useState(surgeons[0] || '');
   const [concierge, setConcierge] = useState(concierges[0] || '');
+  const [owner, setOwner] = useState<Owner>(OWNERS[0]);
   const [stage, setStage] = useState(PIPELINE_STAGES[0]);
   const [value, setValue] = useState('');
   const [phone, setPhone] = useState('');
@@ -33,21 +34,22 @@ export function AddPatientForm({ open, onClose, onAdd, surgeons, concierges }: A
       procedure,
       surgeon,
       concierge,
+      owner,
       stage,
+      stageEnteredAt: today,
       decisionStatus: 'waiting',
       estimatedValue: value ? parseFloat(value) : null,
       lastInteractionDate: today,
-      nextAction: 'Agendar consulta inicial',
       nextFollowUpDate: null,
       phone,
       email,
       contacts: [
         { id: crypto.randomUUID(), date: today, type: 'phone', note: 'Cadastro inicial no sistema.', by: concierge },
       ],
+      tasks: [],
       createdAt: today,
     };
     onAdd(patient);
-    // Reset
     setName(''); setProcedure(''); setValue(''); setPhone(''); setEmail('');
     onClose();
   };
@@ -86,6 +88,15 @@ export function AddPatientForm({ open, onClose, onAdd, surgeons, concierges }: A
                 </SelectContent>
               </Select>
             </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Responsável</Label>
+            <Select value={owner} onValueChange={(v) => setOwner(v as Owner)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {OWNERS.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-2">
             <Label>Etapa Inicial</Label>
