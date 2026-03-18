@@ -1,6 +1,7 @@
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Search } from 'lucide-react';
+import { OWNERS, Owner } from '@/data/types';
 
 interface FilterBarProps {
   search: string;
@@ -9,6 +10,8 @@ interface FilterBarProps {
   onSurgeonChange: (v: string) => void;
   concierge: string;
   onConciergeChange: (v: string) => void;
+  owner: string;
+  onOwnerChange: (v: string) => void;
   surgeons: string[];
   concierges: string[];
 }
@@ -17,6 +20,7 @@ export function FilterBar({
   search, onSearchChange,
   surgeon, onSurgeonChange,
   concierge, onConciergeChange,
+  owner, onOwnerChange,
   surgeons, concierges,
 }: FilterBarProps) {
   return (
@@ -30,6 +34,17 @@ export function FilterBar({
           className="pl-9"
         />
       </div>
+      <Select value={owner} onValueChange={onOwnerChange}>
+        <SelectTrigger className="w-[200px]">
+          <SelectValue placeholder="Responsável" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Todos responsáveis</SelectItem>
+          {OWNERS.map((o) => (
+            <SelectItem key={o} value={o}>{o}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
       <Select value={surgeon} onValueChange={onSurgeonChange}>
         <SelectTrigger className="w-[180px]">
           <SelectValue placeholder="Cirurgião" />
