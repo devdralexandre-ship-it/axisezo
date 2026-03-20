@@ -32,6 +32,7 @@ export function AddPatientForm({ open, onClose, onAdd, surgeons, concierges }: A
       id: crypto.randomUUID(),
       name,
       procedure,
+      procedureCategory: '',
       surgeon,
       concierge,
       owner,
@@ -48,6 +49,16 @@ export function AddPatientForm({ open, onClose, onAdd, surgeons, concierges }: A
       ],
       tasks: [],
       createdAt: today,
+      indicationDate: today,
+      indicationLocation: null,
+      payer: null,
+      contactReference: null,
+      desiredHospital: null,
+      notes: null,
+      lossReason: null,
+      lossReasonDetail: null,
+      specialFlag: null,
+      preOpChecklist: { preop_labs: false, cardiology_clearance: false, preanesthesia: false, surgical_request: false, authorization: false, surgery_scheduling: false },
     };
     onAdd(patient);
     setName(''); setProcedure(''); setValue(''); setPhone(''); setEmail('');

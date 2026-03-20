@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
-import { Patient, PIPELINE_STAGES, DecisionStatus, Owner, Notification, PatientTask, getNextPendingTask, getTaskUrgency } from '@/data/types';
+import { Patient, PIPELINE_STAGES, PipelineStage, DecisionStatus, Owner, Notification, PatientTask, PreOpChecklistItem, getNextPendingTask, getTaskUrgency, STAGE_LABELS, LossReason } from '@/data/types';
 import { mockPatients } from '@/data/mockPatients';
 import { PipelineColumn } from './PipelineColumn';
 import { PatientPanel } from './PatientPanel';
@@ -7,10 +7,14 @@ import { FilterBar } from './FilterBar';
 import { AddPatientForm } from './AddPatientForm';
 import { AddTaskDialog } from './AddTaskDialog';
 import { NotificationBell } from './NotificationBell';
+import { LossReasonDialog } from './LossReasonDialog';
 import { Button } from '@/components/ui/button';
 import { Plus, Users, DollarSign, TrendingUp } from 'lucide-react';
 import { DragDropContext, DropResult } from '@hello-pangea/dnd';
 import { toast } from 'sonner';
+
+// Active pipeline stages (exclude 'lost' from main columns — shown as a separate column at end)
+const ACTIVE_STAGES = PIPELINE_STAGES.filter((s) => s !== 'lost') as PipelineStage[];
 
 export function PipelineDashboard() {
   const [patients, setPatients] = useState<Patient[]>(mockPatients);
@@ -25,6 +29,10 @@ export function PipelineDashboard() {
   const [ownerFilter, setOwnerFilter] = useState('all');
   const [notifications, setNotifications] = useState<Notification[]>([]);
 
+  // Loss reason dialog state
+  const [lossDialogOpen, setLossDialogOpen] = useState(false);
+  const [pendingLossDrag, setPendingLossDrag] = useState<{ patientId: string; fromStage: PipelineStage } | null>(null);
+
   const surgeons = useMemo(() => [...new Set(patients.map((p) => p.surgeon))], [patients]);
   const concierges = useMemo(() => [...new Set(patients.map((p) => p.concierge))], [patients]);
 
@@ -32,6 +40,7 @@ export function PipelineDashboard() {
   useEffect(() => {
     const notifs: Notification[] = [];
     patients.forEach((p) => {
+      if (p.stage === 'lost') return; // skip lost patients
       const nextTask = getNextPendingTask(p);
       const urgency = getTaskUrgency(nextTask);
       if (urgency === 'red' && nextTask) {
@@ -67,7 +76,6 @@ export function PipelineDashboard() {
       }
     });
     setNotifications((prev) => {
-      // Preserve read status from previous
       const readMap = new Map(prev.map((n) => [n.id, n.read]));
       return notifs.map((n) => ({ ...n, read: readMap.get(n.id) ?? false }));
     });
@@ -83,9 +91,11 @@ export function PipelineDashboard() {
     });
   }, [patients, search, surgeonFilter, conciergeFilter, ownerFilter]);
 
-  const totalValue = useMemo(() => filtered.reduce((s, p) => s + (p.estimatedValue || 0), 0), [filtered]);
-  const completedCount = filtered.filter((p) => p.stage === 'surgery_completed').length;
-  const conversionRate = filtered.length > 0 ? Math.round((completedCount / filtered.length) * 100) : 0;
+  const activeFiltered = filtered.filter((p) => p.stage !== 'lost');
+  const totalValue = useMemo(() => activeFiltered.reduce((s, p) => s + (p.estimatedValue || 0), 0), [activeFiltered]);
+  const completedCount = activeFiltered.filter((p) => p.stage === 'surgery_completed').length;
+  const lostCount = filtered.filter((p) => p.stage === 'lost').length;
+  const conversionRate = (activeFiltered.length + lostCount) > 0 ? Math.round((completedCount / (activeFiltered.length + lostCount)) * 100) : 0;
 
   const formatCurrency = (v: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(v);
@@ -97,14 +107,24 @@ export function PipelineDashboard() {
 
   const handleDragEnd = useCallback((result: DropResult) => {
     if (!result.destination) return;
-    const { draggableId, destination } = result;
-    const newStage = destination.droppableId as typeof PIPELINE_STAGES[number];
-    const today = new Date().toISOString().split('T')[0];
+    const { draggableId, destination, source } = result;
+    const newStage = destination.droppableId as PipelineStage;
+    const oldStage = source.droppableId as PipelineStage;
 
+    if (oldStage === newStage) return;
+
+    // If moving to "lost", open the loss reason dialog
+    if (newStage === 'lost') {
+      setPendingLossDrag({ patientId: draggableId, fromStage: oldStage });
+      setLossDialogOpen(true);
+      return;
+    }
+
+    const today = new Date().toISOString().split('T')[0];
     setPatients((prev) =>
       prev.map((p) =>
-        p.id === draggableId && p.stage !== newStage
-          ? { ...p, stage: newStage, stageEnteredAt: today }
+        p.id === draggableId
+          ? { ...p, stage: newStage, stageEnteredAt: today, lossReason: null, lossReasonDetail: null }
           : p
       )
     );
@@ -112,13 +132,12 @@ export function PipelineDashboard() {
       prev && prev.id === draggableId ? { ...prev, stage: newStage, stageEnteredAt: today } : prev
     );
 
-    // Add stage change notification
     const patient = patients.find((p) => p.id === draggableId);
-    if (patient && patient.stage !== newStage) {
+    if (patient) {
       setNotifications((prev) => [
         {
           id: `stage-${draggableId}-${Date.now()}`,
-          message: `Movido para "${PIPELINE_STAGES.includes(newStage) ? newStage : newStage}"`,
+          message: `Movido para "${STAGE_LABELS[newStage]}"`,
           patientId: draggableId,
           patientName: patient.name,
           type: 'stage_changed',
@@ -129,6 +148,36 @@ export function PipelineDashboard() {
       ]);
     }
   }, [patients]);
+
+  const handleLossConfirm = useCallback((reason: LossReason, detail: string | null) => {
+    if (!pendingLossDrag) return;
+    const today = new Date().toISOString().split('T')[0];
+    const { patientId } = pendingLossDrag;
+
+    setPatients((prev) =>
+      prev.map((p) =>
+        p.id === patientId
+          ? { ...p, stage: 'lost' as PipelineStage, stageEnteredAt: today, lossReason: reason, lossReasonDetail: detail }
+          : p
+      )
+    );
+    setSelectedPatient((prev) =>
+      prev && prev.id === patientId ? { ...prev, stage: 'lost' as PipelineStage, stageEnteredAt: today, lossReason: reason, lossReasonDetail: detail } : prev
+    );
+
+    const patient = patients.find((p) => p.id === patientId);
+    if (patient) {
+      toast.info(`${patient.name} marcado como perdido`);
+    }
+
+    setLossDialogOpen(false);
+    setPendingLossDrag(null);
+  }, [pendingLossDrag, patients]);
+
+  const handleLossCancel = useCallback(() => {
+    setLossDialogOpen(false);
+    setPendingLossDrag(null);
+  }, []);
 
   const handleUpdateDecision = useCallback((patientId: string, status: DecisionStatus) => {
     setPatients((prev) => prev.map((p) => (p.id === patientId ? { ...p, decisionStatus: status } : p)));
@@ -182,6 +231,21 @@ export function PipelineDashboard() {
     );
   }, [taskPatientId]);
 
+  const handleTogglePreOpItem = useCallback((patientId: string, item: PreOpChecklistItem) => {
+    setPatients((prev) =>
+      prev.map((p) =>
+        p.id === patientId
+          ? { ...p, preOpChecklist: { ...p.preOpChecklist, [item]: !p.preOpChecklist[item] } }
+          : p
+      )
+    );
+    setSelectedPatient((prev) =>
+      prev && prev.id === patientId
+        ? { ...prev, preOpChecklist: { ...prev.preOpChecklist, [item]: !prev.preOpChecklist[item] } }
+        : prev
+    );
+  }, []);
+
   const handleAddPatient = useCallback((patient: Patient) => {
     setPatients((prev) => [...prev, patient]);
   }, []);
@@ -203,6 +267,7 @@ export function PipelineDashboard() {
   }, [patients]);
 
   const taskPatient = taskPatientId ? patients.find((p) => p.id === taskPatientId) : null;
+  const lossDialogPatient = pendingLossDrag ? patients.find((p) => p.id === pendingLossDrag.patientId) : null;
 
   return (
     <div className="flex flex-col h-screen bg-background">
@@ -231,8 +296,8 @@ export function PipelineDashboard() {
         <div className="flex items-center gap-6 mb-4">
           <div className="flex items-center gap-2 text-sm">
             <Users className="h-4 w-4 text-muted-foreground" />
-            <span className="text-muted-foreground">Pacientes:</span>
-            <span className="font-semibold text-foreground">{filtered.length}</span>
+            <span className="text-muted-foreground">Ativos:</span>
+            <span className="font-semibold text-foreground">{activeFiltered.length}</span>
           </div>
           <div className="flex items-center gap-2 text-sm">
             <DollarSign className="h-4 w-4 text-muted-foreground" />
@@ -244,6 +309,12 @@ export function PipelineDashboard() {
             <span className="text-muted-foreground">Conversão:</span>
             <span className="font-semibold text-foreground">{conversionRate}%</span>
           </div>
+          {lostCount > 0 && (
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-muted-foreground">Perdidos:</span>
+              <span className="font-semibold text-destructive">{lostCount}</span>
+            </div>
+          )}
         </div>
 
         <FilterBar
@@ -264,7 +335,7 @@ export function PipelineDashboard() {
       <DragDropContext onDragEnd={handleDragEnd}>
         <div className="flex-1 overflow-x-auto overflow-y-hidden">
           <div className="flex gap-4 p-6 h-full min-w-max">
-            {PIPELINE_STAGES.map((stage) => (
+            {ACTIVE_STAGES.map((stage) => (
               <PipelineColumn
                 key={stage}
                 stage={stage}
@@ -273,6 +344,15 @@ export function PipelineDashboard() {
                 onCompleteTask={handleCompleteTask}
               />
             ))}
+            {/* Lost column — visually distinct */}
+            <PipelineColumn
+              key="lost"
+              stage="lost"
+              patients={filtered.filter((p) => p.stage === 'lost')}
+              onPatientClick={handlePatientClick}
+              onCompleteTask={handleCompleteTask}
+              variant="lost"
+            />
           </div>
         </div>
       </DragDropContext>
@@ -286,6 +366,7 @@ export function PipelineDashboard() {
         onUpdateOwner={handleUpdateOwner}
         onCompleteTask={handleCompleteTask}
         onAddTask={handleAddTask}
+        onTogglePreOpItem={handleTogglePreOpItem}
       />
 
       {/* Add Patient Dialog */}
@@ -304,6 +385,14 @@ export function PipelineDashboard() {
         onAdd={handleTaskCreated}
         patientName={taskPatient?.name || ''}
         defaultResponsible={taskPatient?.owner}
+      />
+
+      {/* Loss Reason Dialog */}
+      <LossReasonDialog
+        open={lossDialogOpen}
+        patientName={lossDialogPatient?.name || ''}
+        onConfirm={handleLossConfirm}
+        onCancel={handleLossCancel}
       />
     </div>
   );

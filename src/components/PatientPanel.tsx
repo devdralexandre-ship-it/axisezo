@@ -1,10 +1,11 @@
-import { Patient, DECISION_LABELS, DecisionStatus, STAGE_LABELS, OWNERS, Owner, PatientTask, getTaskUrgency } from '@/data/types';
+import { Patient, DECISION_LABELS, DecisionStatus, STAGE_LABELS, OWNERS, Owner, PatientTask, getTaskUrgency, LOSS_REASON_LABELS, PreOpChecklistItem } from '@/data/types';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { FollowUpTimeline } from './FollowUpTimeline';
-import { Calendar, UserRound, Stethoscope, DollarSign, Clock, Plus, CheckCircle2, Circle } from 'lucide-react';
+import { PreOpChecklist } from './PreOpChecklist';
+import { Calendar, UserRound, Stethoscope, DollarSign, Clock, Plus, CheckCircle2, Circle, Building2, CreditCard, MapPin, Flag } from 'lucide-react';
 
 const decisionColors: Record<string, string> = {
   waiting: 'bg-muted text-muted-foreground',
@@ -27,9 +28,10 @@ interface PatientPanelProps {
   onUpdateOwner: (patientId: string, owner: Owner) => void;
   onCompleteTask: (patientId: string, taskId: string) => void;
   onAddTask: (patientId: string) => void;
+  onTogglePreOpItem: (patientId: string, item: PreOpChecklistItem) => void;
 }
 
-export function PatientPanel({ patient, open, onClose, onUpdateDecision, onUpdateOwner, onCompleteTask, onAddTask }: PatientPanelProps) {
+export function PatientPanel({ patient, open, onClose, onUpdateDecision, onUpdateOwner, onCompleteTask, onAddTask, onTogglePreOpItem }: PatientPanelProps) {
   if (!patient) return null;
 
   const formatCurrency = (value: number | null) => {
@@ -54,14 +56,30 @@ export function PatientPanel({ patient, open, onClose, onUpdateDecision, onUpdat
             <div>
               <SheetTitle className="text-lg">{patient.name}</SheetTitle>
               <p className="text-sm text-muted-foreground mt-1">{patient.procedure}</p>
+              {patient.procedureCategory && (
+                <p className="text-xs text-muted-foreground">{patient.procedureCategory}</p>
+              )}
             </div>
-            <Badge variant="outline" className={`shrink-0 ${decisionColors[patient.decisionStatus]}`}>
-              {DECISION_LABELS[patient.decisionStatus]}
-            </Badge>
+            <div className="flex flex-col items-end gap-1.5 shrink-0">
+              <Badge variant="outline" className={`${decisionColors[patient.decisionStatus]}`}>
+                {DECISION_LABELS[patient.decisionStatus]}
+              </Badge>
+              {patient.specialFlag && (
+                <Badge variant="outline" className="bg-pipeline-amber/10 text-pipeline-amber border-pipeline-amber/30 text-[10px]">
+                  <Flag className="h-2.5 w-2.5 mr-1" />{patient.specialFlag}
+                </Badge>
+              )}
+            </div>
           </div>
           <p className="text-xs text-muted-foreground mt-2">
             Etapa: <span className="font-medium text-foreground">{STAGE_LABELS[patient.stage]}</span>
           </p>
+          {patient.stage === 'lost' && patient.lossReason && (
+            <p className="text-xs text-destructive mt-1">
+              Motivo: {LOSS_REASON_LABELS[patient.lossReason]}
+              {patient.lossReasonDetail && ` — ${patient.lossReasonDetail}`}
+            </p>
+          )}
         </SheetHeader>
 
         <div className="p-6 space-y-6">
@@ -96,7 +114,26 @@ export function PatientPanel({ patient, open, onClose, onUpdateDecision, onUpdat
             <InfoItem icon={DollarSign} label="Valor Estimado" value={formatCurrency(patient.estimatedValue)} />
             <InfoItem icon={Calendar} label="Última Interação" value={formatDate(patient.lastInteractionDate)} />
             <InfoItem icon={Clock} label="Próximo Follow-up" value={formatDate(patient.nextFollowUpDate)} />
+            {patient.payer && <InfoItem icon={CreditCard} label="Convênio/Pagador" value={patient.payer} />}
+            {patient.desiredHospital && <InfoItem icon={Building2} label="Hospital" value={patient.desiredHospital} />}
+            {patient.indicationLocation && <InfoItem icon={MapPin} label="Origem" value={patient.indicationLocation} />}
           </div>
+
+          {/* Notes */}
+          {patient.notes && (
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Observações</label>
+              <p className="text-sm text-foreground bg-muted/50 p-3 rounded-lg">{patient.notes}</p>
+            </div>
+          )}
+
+          {/* Pre-op Checklist — only for preop_preparation stage */}
+          {patient.stage === 'preop_preparation' && (
+            <PreOpChecklist
+              checklist={patient.preOpChecklist}
+              onToggle={(item) => onTogglePreOpItem(patient.id, item)}
+            />
+          )}
 
           {/* Tasks */}
           <div className="space-y-3">
