@@ -8,6 +8,7 @@ export const PIPELINE_STAGES = [
   'preop_preparation',
   'surgery_scheduled',
   'surgery_completed',
+  'lost',
 ] as const;
 
 export type PipelineStage = typeof PIPELINE_STAGES[number];
@@ -22,6 +23,7 @@ export const STAGE_LABELS: Record<PipelineStage, string> = {
   preop_preparation: 'Preparo Pré-operatório',
   surgery_scheduled: 'Cirurgia Agendada',
   surgery_completed: 'Cirurgia Realizada',
+  lost: 'Perdido / Não Procedeu',
 };
 
 export type DecisionStatus = 'waiting' | 'thinking' | 'negotiating' | 'confirmed';
@@ -31,6 +33,44 @@ export const DECISION_LABELS: Record<DecisionStatus, string> = {
   thinking: 'Pensando',
   negotiating: 'Negociando',
   confirmed: 'Confirmado',
+};
+
+export const LOSS_REASONS = [
+  'price',
+  'delay',
+  'clinical_contraindication',
+  'chose_another',
+  'other',
+] as const;
+
+export type LossReason = typeof LOSS_REASONS[number];
+
+export const LOSS_REASON_LABELS: Record<LossReason, string> = {
+  price: 'Preço',
+  delay: 'Demora / Falta de urgência',
+  clinical_contraindication: 'Contraindicação clínica',
+  chose_another: 'Escolheu outro prestador',
+  other: 'Outro',
+};
+
+export const PREOP_CHECKLIST_ITEMS = [
+  'preop_labs',
+  'cardiology_clearance',
+  'preanesthesia',
+  'surgical_request',
+  'authorization',
+  'surgery_scheduling',
+] as const;
+
+export type PreOpChecklistItem = typeof PREOP_CHECKLIST_ITEMS[number];
+
+export const PREOP_CHECKLIST_LABELS: Record<PreOpChecklistItem, string> = {
+  preop_labs: 'Exames pré-operatórios',
+  cardiology_clearance: 'Risco cirúrgico / Parecer especialista',
+  preanesthesia: 'Consulta pré-anestésica',
+  surgical_request: 'Pedido cirúrgico',
+  authorization: 'Autorização',
+  surgery_scheduling: 'Agendamento da cirurgia',
 };
 
 export const OWNERS = [
@@ -62,8 +102,8 @@ export const OWNER_COLORS: Record<Owner, string> = {
 export interface PatientTask {
   id: string;
   title: string;
-  dueDate: string; // ISO date
-  dueTime: string; // HH:mm
+  dueDate: string;
+  dueTime: string;
   responsible: Owner;
   completed: boolean;
   completedAt: string | null;
@@ -90,15 +130,28 @@ export interface Notification {
   createdAt: string;
 }
 
+export type PreOpChecklist = Record<PreOpChecklistItem, boolean>;
+
+export const DEFAULT_PREOP_CHECKLIST: PreOpChecklist = {
+  preop_labs: false,
+  cardiology_clearance: false,
+  preanesthesia: false,
+  surgical_request: false,
+  authorization: false,
+  surgery_scheduling: false,
+};
+
+// Spreadsheet-compatible patient model
 export interface Patient {
   id: string;
   name: string;
   procedure: string;
+  procedureCategory: string; // e.g. "Urologia oncológica", "Endourologia"
   surgeon: string;
   concierge: string;
   owner: Owner;
   stage: PipelineStage;
-  stageEnteredAt: string; // ISO date for "days in stage"
+  stageEnteredAt: string;
   decisionStatus: DecisionStatus;
   estimatedValue: number | null;
   lastInteractionDate: string;
@@ -108,6 +161,18 @@ export interface Patient {
   contacts: ContactRecord[];
   tasks: PatientTask[];
   createdAt: string;
+
+  // Spreadsheet migration fields
+  indicationDate: string | null;
+  indicationLocation: string | null; // source of referral
+  payer: string | null; // convênio / particular
+  contactReference: string | null; // who referred
+  desiredHospital: string | null;
+  notes: string | null;
+  lossReason: LossReason | null;
+  lossReasonDetail: string | null; // free text for "other"
+  specialFlag: string | null; // e.g. "VIP", "Urgente", "Retorno"
+  preOpChecklist: PreOpChecklist;
 }
 
 export function getNextPendingTask(patient: Patient): PatientTask | undefined {
@@ -121,7 +186,7 @@ export function getNextPendingTask(patient: Patient): PatientTask | undefined {
 }
 
 export function getTaskUrgency(task: PatientTask | undefined): UrgencyLevel {
-  if (!task) return 'red'; // no task = red
+  if (!task) return 'red';
   const now = new Date();
   const due = new Date(`${task.dueDate}T${task.dueTime}`);
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -136,4 +201,10 @@ export function getDaysInStage(stageEnteredAt: string): number {
   const entered = new Date(stageEnteredAt + 'T00:00:00');
   const now = new Date();
   return Math.max(0, Math.floor((now.getTime() - entered.getTime()) / (1000 * 60 * 60 * 24)));
+}
+
+export function getPreOpProgress(checklist: PreOpChecklist): { done: number; total: number } {
+  const total = PREOP_CHECKLIST_ITEMS.length;
+  const done = PREOP_CHECKLIST_ITEMS.filter((k) => checklist[k]).length;
+  return { done, total };
 }
