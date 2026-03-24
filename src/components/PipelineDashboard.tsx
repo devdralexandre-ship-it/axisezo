@@ -177,12 +177,12 @@ export function PipelineDashboard() {
   }, [addPatientMutation]);
 
   const handleMarkNotificationRead = useCallback((id: string) => {
-    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
+    setReadNotifications((prev) => new Set(prev).add(id));
   }, []);
 
   const handleMarkAllRead = useCallback(() => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-  }, []);
+    setReadNotifications(new Set(notifications.map((n) => n.id)));
+  }, [notifications]);
 
   const handleNotificationClick = useCallback((patientId: string) => {
     const patient = patients.find((p) => p.id === patientId);
