@@ -54,6 +54,9 @@ export type Database = {
       }
       patients: {
         Row: {
+          age: number | null
+          alerts: string | null
+          billing_type: string | null
           concierge: string
           contact_reference: string | null
           created_at: string
@@ -67,10 +70,12 @@ export type Database = {
           last_interaction_date: string
           loss_reason: Database["public"]["Enums"]["loss_reason"] | null
           loss_reason_detail: string | null
+          medical_fees: number | null
           name: string
           next_follow_up_date: string | null
           notes: string | null
           owner: string
+          patient_type: string | null
           payer: string | null
           phone: string | null
           procedure_category: string | null
@@ -79,9 +84,13 @@ export type Database = {
           stage: Database["public"]["Enums"]["pipeline_stage"]
           stage_entered_at: string
           surgeon: string
+          surgical_approach: string | null
           updated_at: string
         }
         Insert: {
+          age?: number | null
+          alerts?: string | null
+          billing_type?: string | null
           concierge?: string
           contact_reference?: string | null
           created_at?: string
@@ -95,10 +104,12 @@ export type Database = {
           last_interaction_date?: string
           loss_reason?: Database["public"]["Enums"]["loss_reason"] | null
           loss_reason_detail?: string | null
+          medical_fees?: number | null
           name: string
           next_follow_up_date?: string | null
           notes?: string | null
           owner?: string
+          patient_type?: string | null
           payer?: string | null
           phone?: string | null
           procedure_category?: string | null
@@ -107,9 +118,13 @@ export type Database = {
           stage?: Database["public"]["Enums"]["pipeline_stage"]
           stage_entered_at?: string
           surgeon: string
+          surgical_approach?: string | null
           updated_at?: string
         }
         Update: {
+          age?: number | null
+          alerts?: string | null
+          billing_type?: string | null
           concierge?: string
           contact_reference?: string | null
           created_at?: string
@@ -123,10 +138,12 @@ export type Database = {
           last_interaction_date?: string
           loss_reason?: Database["public"]["Enums"]["loss_reason"] | null
           loss_reason_detail?: string | null
+          medical_fees?: number | null
           name?: string
           next_follow_up_date?: string | null
           notes?: string | null
           owner?: string
+          patient_type?: string | null
           payer?: string | null
           phone?: string | null
           procedure_category?: string | null
@@ -135,9 +152,45 @@ export type Database = {
           stage?: Database["public"]["Enums"]["pipeline_stage"]
           stage_entered_at?: string
           surgeon?: string
+          surgical_approach?: string | null
           updated_at?: string
         }
         Relationships: []
+      }
+      pending_items: {
+        Row: {
+          checked: boolean
+          created_at: string
+          id: string
+          patient_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          checked?: boolean
+          created_at?: string
+          id?: string
+          patient_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          checked?: boolean
+          created_at?: string
+          id?: string
+          patient_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pending_items_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       preop_checklist_items: {
         Row: {
