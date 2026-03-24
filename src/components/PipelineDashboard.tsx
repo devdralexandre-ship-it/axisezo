@@ -45,33 +45,31 @@ export function PipelineDashboard() {
   const concierges = useMemo(() => [...new Set(patients.map((p) => p.concierge))], [patients]);
 
   // Keep selected patient in sync with data
+  const selectedPatientId = selectedPatient?.id;
   useEffect(() => {
-    if (selectedPatient) {
-      const updated = patients.find((p) => p.id === selectedPatient.id);
+    if (selectedPatientId) {
+      const updated = patients.find((p) => p.id === selectedPatientId);
       if (updated) setSelectedPatient(updated);
     }
-  }, [patients]);
+  }, [patients, selectedPatientId]);
 
-  // Generate notifications
-  useEffect(() => {
+  // Generate notifications as derived state
+  const notifications = useMemo(() => {
     const notifs: Notification[] = [];
     patients.forEach((p) => {
       if (p.stage === 'lost') return;
       const nextTask = getNextPendingTask(p);
       const urgency = getTaskUrgency(nextTask);
       if (urgency === 'red' && nextTask) {
-        notifs.push({ id: `overdue-${p.id}-${nextTask.id}`, message: `Tarefa atrasada: "${nextTask.title}"`, patientId: p.id, patientName: p.name, type: 'task_overdue', read: false, createdAt: new Date().toISOString() });
+        notifs.push({ id: `overdue-${p.id}-${nextTask.id}`, message: `Tarefa atrasada: "${nextTask.title}"`, patientId: p.id, patientName: p.name, type: 'task_overdue', read: readNotifications.has(`overdue-${p.id}-${nextTask.id}`), createdAt: new Date().toISOString() });
       } else if (urgency === 'red' && !nextTask) {
-        notifs.push({ id: `no-task-${p.id}`, message: 'Paciente sem tarefa pendente', patientId: p.id, patientName: p.name, type: 'task_overdue', read: false, createdAt: new Date().toISOString() });
+        notifs.push({ id: `no-task-${p.id}`, message: 'Paciente sem tarefa pendente', patientId: p.id, patientName: p.name, type: 'task_overdue', read: readNotifications.has(`no-task-${p.id}`), createdAt: new Date().toISOString() });
       } else if (urgency === 'yellow' && nextTask) {
-        notifs.push({ id: `today-${p.id}-${nextTask.id}`, message: `Tarefa vence hoje: "${nextTask.title}"`, patientId: p.id, patientName: p.name, type: 'task_due_today', read: false, createdAt: new Date().toISOString() });
+        notifs.push({ id: `today-${p.id}-${nextTask.id}`, message: `Tarefa vence hoje: "${nextTask.title}"`, patientId: p.id, patientName: p.name, type: 'task_due_today', read: readNotifications.has(`today-${p.id}-${nextTask.id}`), createdAt: new Date().toISOString() });
       }
     });
-    setNotifications((prev) => {
-      const readMap = new Map(prev.map((n) => [n.id, n.read]));
-      return notifs.map((n) => ({ ...n, read: readMap.get(n.id) ?? false }));
-    });
-  }, [patients]);
+    return notifs;
+  }, [patients, readNotifications]);
 
   const filtered = useMemo(() => {
     return patients.filter((p) => {
