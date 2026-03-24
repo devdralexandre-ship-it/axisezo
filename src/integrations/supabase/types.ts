@@ -14,16 +14,289 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      contact_records: {
+        Row: {
+          by_whom: string
+          contact_date: string
+          created_at: string
+          id: string
+          note: string
+          patient_id: string
+          type: Database["public"]["Enums"]["contact_type"]
+        }
+        Insert: {
+          by_whom?: string
+          contact_date?: string
+          created_at?: string
+          id?: string
+          note?: string
+          patient_id: string
+          type?: Database["public"]["Enums"]["contact_type"]
+        }
+        Update: {
+          by_whom?: string
+          contact_date?: string
+          created_at?: string
+          id?: string
+          note?: string
+          patient_id?: string
+          type?: Database["public"]["Enums"]["contact_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_records_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      patients: {
+        Row: {
+          concierge: string
+          contact_reference: string | null
+          created_at: string
+          decision_status: Database["public"]["Enums"]["decision_status"]
+          desired_hospital: string | null
+          email: string | null
+          estimated_value: number | null
+          id: string
+          indication_date: string | null
+          indication_location: string | null
+          last_interaction_date: string
+          loss_reason: Database["public"]["Enums"]["loss_reason"] | null
+          loss_reason_detail: string | null
+          name: string
+          next_follow_up_date: string | null
+          notes: string | null
+          owner: string
+          payer: string | null
+          phone: string | null
+          procedure_category: string | null
+          procedure_name: string
+          special_flag: string | null
+          stage: Database["public"]["Enums"]["pipeline_stage"]
+          stage_entered_at: string
+          surgeon: string
+          updated_at: string
+        }
+        Insert: {
+          concierge?: string
+          contact_reference?: string | null
+          created_at?: string
+          decision_status?: Database["public"]["Enums"]["decision_status"]
+          desired_hospital?: string | null
+          email?: string | null
+          estimated_value?: number | null
+          id?: string
+          indication_date?: string | null
+          indication_location?: string | null
+          last_interaction_date?: string
+          loss_reason?: Database["public"]["Enums"]["loss_reason"] | null
+          loss_reason_detail?: string | null
+          name: string
+          next_follow_up_date?: string | null
+          notes?: string | null
+          owner?: string
+          payer?: string | null
+          phone?: string | null
+          procedure_category?: string | null
+          procedure_name: string
+          special_flag?: string | null
+          stage?: Database["public"]["Enums"]["pipeline_stage"]
+          stage_entered_at?: string
+          surgeon: string
+          updated_at?: string
+        }
+        Update: {
+          concierge?: string
+          contact_reference?: string | null
+          created_at?: string
+          decision_status?: Database["public"]["Enums"]["decision_status"]
+          desired_hospital?: string | null
+          email?: string | null
+          estimated_value?: number | null
+          id?: string
+          indication_date?: string | null
+          indication_location?: string | null
+          last_interaction_date?: string
+          loss_reason?: Database["public"]["Enums"]["loss_reason"] | null
+          loss_reason_detail?: string | null
+          name?: string
+          next_follow_up_date?: string | null
+          notes?: string | null
+          owner?: string
+          payer?: string | null
+          phone?: string | null
+          procedure_category?: string | null
+          procedure_name?: string
+          special_flag?: string | null
+          stage?: Database["public"]["Enums"]["pipeline_stage"]
+          stage_entered_at?: string
+          surgeon?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      preop_checklist_items: {
+        Row: {
+          checked: boolean
+          id: string
+          item_key: string
+          patient_id: string
+          updated_at: string
+        }
+        Insert: {
+          checked?: boolean
+          id?: string
+          item_key: string
+          patient_id: string
+          updated_at?: string
+        }
+        Update: {
+          checked?: boolean
+          id?: string
+          item_key?: string
+          patient_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "preop_checklist_items_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          display_name: string | null
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      tasks: {
+        Row: {
+          completed: boolean
+          completed_at: string | null
+          created_at: string
+          due_date: string
+          due_time: string
+          id: string
+          patient_id: string
+          responsible: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          completed?: boolean
+          completed_at?: string | null
+          created_at?: string
+          due_date: string
+          due_time?: string
+          id?: string
+          patient_id: string
+          responsible?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          completed?: boolean
+          completed_at?: string | null
+          created_at?: string
+          due_date?: string
+          due_time?: string
+          id?: string
+          patient_id?: string
+          responsible?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "surgeon" | "concierge" | "call_center"
+      contact_type: "phone" | "whatsapp" | "email" | "in_person"
+      decision_status: "waiting" | "thinking" | "negotiating" | "confirmed"
+      loss_reason:
+        | "price"
+        | "delay"
+        | "clinical_contraindication"
+        | "chose_another"
+        | "other"
+      pipeline_stage:
+        | "indication"
+        | "first_contact"
+        | "budget_preparation"
+        | "budget_sent"
+        | "decision_pending"
+        | "followup_negotiation"
+        | "preop_preparation"
+        | "surgery_scheduled"
+        | "surgery_completed"
+        | "lost"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +423,29 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "surgeon", "concierge", "call_center"],
+      contact_type: ["phone", "whatsapp", "email", "in_person"],
+      decision_status: ["waiting", "thinking", "negotiating", "confirmed"],
+      loss_reason: [
+        "price",
+        "delay",
+        "clinical_contraindication",
+        "chose_another",
+        "other",
+      ],
+      pipeline_stage: [
+        "indication",
+        "first_contact",
+        "budget_preparation",
+        "budget_sent",
+        "decision_pending",
+        "followup_negotiation",
+        "preop_preparation",
+        "surgery_scheduled",
+        "surgery_completed",
+        "lost",
+      ],
+    },
   },
 } as const
