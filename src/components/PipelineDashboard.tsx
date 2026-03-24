@@ -36,7 +36,7 @@ export function PipelineDashboard() {
   const [surgeonFilter, setSurgeonFilter] = useState('all');
   const [conciergeFilter, setConciergeFilter] = useState('all');
   const [ownerFilter, setOwnerFilter] = useState('all');
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [readNotifications, setReadNotifications] = useState<Set<string>>(new Set());
 
   const [lossDialogOpen, setLossDialogOpen] = useState(false);
   const [pendingLossDrag, setPendingLossDrag] = useState<{ patientId: string; fromStage: PipelineStage } | null>(null);
