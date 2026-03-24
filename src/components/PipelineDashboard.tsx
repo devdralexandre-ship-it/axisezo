@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Patient, PIPELINE_STAGES, PipelineStage, DecisionStatus, Owner, Notification, PatientTask, PreOpChecklistItem, getNextPendingTask, getTaskUrgency, STAGE_LABELS, LossReason } from '@/data/types';
-import { usePatients, useUpdatePatientStage, useUpdatePatientField, useCompleteTask, useAddTask, useTogglePreOpItem, useAddPatient } from '@/hooks/usePatients';
+import { usePatients, useUpdatePatientStage, useUpdatePatientField, useUpdatePatientFields, useCompleteTask, useAddTask, useTogglePreOpItem, useAddPatient, useAddPendingItem, useTogglePendingItem, useDeletePendingItem } from '@/hooks/usePatients';
 import { PipelineColumn } from './PipelineColumn';
 import { PatientPanel } from './PatientPanel';
 import { FilterBar } from './FilterBar';
@@ -21,10 +21,14 @@ export function PipelineDashboard() {
   const { data: patients = [], isLoading } = usePatients();
   const updateStage = useUpdatePatientStage();
   const updateField = useUpdatePatientField();
+  const updateFields = useUpdatePatientFields();
   const completeTaskMutation = useCompleteTask();
   const addTaskMutation = useAddTask();
   const togglePreOp = useTogglePreOpItem();
   const addPatientMutation = useAddPatient();
+  const addPendingItemMutation = useAddPendingItem();
+  const togglePendingItemMutation = useTogglePendingItem();
+  const deletePendingItemMutation = useDeletePendingItem();
   const { signOut, user } = useAuth();
 
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
@@ -35,7 +39,9 @@ export function PipelineDashboard() {
   const [search, setSearch] = useState('');
   const [surgeonFilter, setSurgeonFilter] = useState('all');
   const [conciergeFilter, setConciergeFilter] = useState('all');
-  const [ownerFilter, setOwnerFilter] = useState('all');
+  const [procedureFilter, setProcedureFilter] = useState('all');
+  const [patientTypeFilter, setPatientTypeFilter] = useState('all');
+  const [surgicalApproachFilter, setSurgicalApproachFilter] = useState('all');
   const [readNotifications, setReadNotifications] = useState<Set<string>>(new Set());
 
   const [lossDialogOpen, setLossDialogOpen] = useState(false);
@@ -76,10 +82,12 @@ export function PipelineDashboard() {
       if (search && !p.name.toLowerCase().includes(search.toLowerCase()) && !p.procedure.toLowerCase().includes(search.toLowerCase())) return false;
       if (surgeonFilter !== 'all' && p.surgeon !== surgeonFilter) return false;
       if (conciergeFilter !== 'all' && p.concierge !== conciergeFilter) return false;
-      if (ownerFilter !== 'all' && p.owner !== ownerFilter) return false;
+      if (procedureFilter !== 'all' && p.procedure !== procedureFilter) return false;
+      if (patientTypeFilter !== 'all' && p.patientType !== patientTypeFilter) return false;
+      if (surgicalApproachFilter !== 'all' && p.surgicalApproach !== surgicalApproachFilter) return false;
       return true;
     });
-  }, [patients, search, surgeonFilter, conciergeFilter, ownerFilter]);
+  }, [patients, search, surgeonFilter, conciergeFilter, procedureFilter, patientTypeFilter, surgicalApproachFilter]);
 
   const activeFiltered = filtered.filter((p) => p.stage !== 'lost');
   const totalValue = useMemo(() => activeFiltered.reduce((s, p) => s + (p.estimatedValue || 0), 0), [activeFiltered]);
@@ -138,6 +146,10 @@ export function PipelineDashboard() {
     updateField.mutate({ id: patientId, field: 'owner', value: owner });
   }, [updateField]);
 
+  const handleUpdateFields = useCallback((patientId: string, fields: Record<string, any>) => {
+    updateFields.mutate({ id: patientId, fields });
+  }, [updateFields]);
+
   const handleCompleteTask = useCallback((patientId: string, taskId: string) => {
     completeTaskMutation.mutate(taskId, {
       onSuccess: () => {
@@ -172,9 +184,21 @@ export function PipelineDashboard() {
     togglePreOp.mutate({ patientId, itemKey: item, checked: !currentValue });
   }, [patients, togglePreOp]);
 
-  const handleAddPatient = useCallback((patient: Patient) => {
+  const handleAddPatient = useCallback((patient: Partial<Patient> & { name: string; procedure: string; surgeon: string }) => {
     addPatientMutation.mutate(patient);
   }, [addPatientMutation]);
+
+  const handleAddPendingItem = useCallback((patientId: string, title: string) => {
+    addPendingItemMutation.mutate({ patientId, title });
+  }, [addPendingItemMutation]);
+
+  const handleTogglePendingItem = useCallback((id: string, checked: boolean) => {
+    togglePendingItemMutation.mutate({ id, checked });
+  }, [togglePendingItemMutation]);
+
+  const handleDeletePendingItem = useCallback((id: string) => {
+    deletePendingItemMutation.mutate(id);
+  }, [deletePendingItemMutation]);
 
   const handleMarkNotificationRead = useCallback((id: string) => {
     setReadNotifications((prev) => new Set(prev).add(id));
@@ -260,8 +284,9 @@ export function PipelineDashboard() {
           search={search} onSearchChange={setSearch}
           surgeon={surgeonFilter} onSurgeonChange={setSurgeonFilter}
           concierge={conciergeFilter} onConciergeChange={setConciergeFilter}
-          owner={ownerFilter} onOwnerChange={setOwnerFilter}
-          surgeons={surgeons} concierges={concierges}
+          procedure={procedureFilter} onProcedureChange={setProcedureFilter}
+          patientType={patientTypeFilter} onPatientTypeChange={setPatientTypeFilter}
+          surgicalApproach={surgicalApproachFilter} onSurgicalApproachChange={setSurgicalApproachFilter}
         />
       </header>
 
@@ -276,8 +301,21 @@ export function PipelineDashboard() {
         </div>
       </DragDropContext>
 
-      <PatientPanel patient={selectedPatient} open={panelOpen} onClose={() => setPanelOpen(false)} onUpdateDecision={handleUpdateDecision} onUpdateOwner={handleUpdateOwner} onCompleteTask={handleCompleteTask} onAddTask={handleAddTask} onTogglePreOpItem={handleTogglePreOpItem} />
-      <AddPatientForm open={addOpen} onClose={() => setAddOpen(false)} onAdd={handleAddPatient} surgeons={surgeons} concierges={concierges} />
+      <PatientPanel
+        patient={selectedPatient}
+        open={panelOpen}
+        onClose={() => setPanelOpen(false)}
+        onUpdateDecision={handleUpdateDecision}
+        onUpdateOwner={handleUpdateOwner}
+        onCompleteTask={handleCompleteTask}
+        onAddTask={handleAddTask}
+        onTogglePreOpItem={handleTogglePreOpItem}
+        onUpdateFields={handleUpdateFields}
+        onAddPendingItem={handleAddPendingItem}
+        onTogglePendingItem={handleTogglePendingItem}
+        onDeletePendingItem={handleDeletePendingItem}
+      />
+      <AddPatientForm open={addOpen} onClose={() => setAddOpen(false)} onAdd={handleAddPatient} />
       <AddTaskDialog open={addTaskOpen} onClose={() => setAddTaskOpen(false)} onAdd={handleTaskCreated} patientName={taskPatient?.name || ''} defaultResponsible={taskPatient?.owner} />
       <LossReasonDialog open={lossDialogOpen} patientName={lossDialogPatient?.name || ''} onConfirm={handleLossConfirm} onCancel={handleLossCancel} />
     </div>
