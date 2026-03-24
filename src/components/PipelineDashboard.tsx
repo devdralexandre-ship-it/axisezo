@@ -41,8 +41,8 @@ export function PipelineDashboard() {
   const [lossDialogOpen, setLossDialogOpen] = useState(false);
   const [pendingLossDrag, setPendingLossDrag] = useState<{ patientId: string; fromStage: PipelineStage } | null>(null);
 
-  const surgeons = useMemo(() => [...new Set(patients.map((p) => p.surgeon))], [patients]);
-  const concierges = useMemo(() => [...new Set(patients.map((p) => p.concierge))], [patients]);
+  const surgeons = useMemo(() => [...new Set(patients.map((p) => p.surgeon).filter(Boolean))], [patients]);
+  const concierges = useMemo(() => [...new Set(patients.map((p) => p.concierge).filter(Boolean))], [patients]);
 
   // Keep selected patient in sync with data
   const selectedPatientId = selectedPatient?.id;
