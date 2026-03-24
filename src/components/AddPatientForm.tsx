@@ -17,8 +17,8 @@ interface AddPatientFormProps {
 export function AddPatientForm({ open, onClose, onAdd, surgeons, concierges }: AddPatientFormProps) {
   const [name, setName] = useState('');
   const [procedure, setProcedure] = useState('');
-  const [surgeon, setSurgeon] = useState(surgeons[0] || '');
-  const [concierge, setConcierge] = useState(concierges[0] || '');
+  const [surgeon, setSurgeon] = useState('');
+  const [concierge, setConcierge] = useState('');
   const [owner, setOwner] = useState<Owner>(OWNERS[0]);
   const [stage, setStage] = useState(PIPELINE_STAGES[0]);
   const [value, setValue] = useState('');
@@ -26,7 +26,7 @@ export function AddPatientForm({ open, onClose, onAdd, surgeons, concierges }: A
   const [email, setEmail] = useState('');
 
   const handleSubmit = () => {
-    if (!name || !procedure) return;
+    if (!name || !procedure || !surgeon) return;
     const today = new Date().toISOString().split('T')[0];
     const patient: Patient = {
       id: crypto.randomUUID(),
@@ -61,7 +61,7 @@ export function AddPatientForm({ open, onClose, onAdd, surgeons, concierges }: A
       preOpChecklist: { preop_labs: false, cardiology_clearance: false, preanesthesia: false, surgical_request: false, authorization: false, surgery_scheduling: false },
     };
     onAdd(patient);
-    setName(''); setProcedure(''); setValue(''); setPhone(''); setEmail('');
+    setName(''); setProcedure(''); setSurgeon(''); setConcierge(''); setValue(''); setPhone(''); setEmail('');
     onClose();
   };
 
@@ -78,26 +78,26 @@ export function AddPatientForm({ open, onClose, onAdd, surgeons, concierges }: A
           </div>
           <div className="space-y-2">
             <Label>Procedimento *</Label>
-            <Input value={procedure} onChange={(e) => setProcedure(e.target.value)} placeholder="Ex: Rinoplastia" />
+            <Input value={procedure} onChange={(e) => setProcedure(e.target.value)} placeholder="Ex: Prostatectomia" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label>Cirurgião</Label>
-              <Select value={surgeon} onValueChange={setSurgeon}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {surgeons.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <Label>Cirurgião *</Label>
+              <Input value={surgeon} onChange={(e) => setSurgeon(e.target.value)} placeholder="Nome do cirurgião" list="surgeon-list" />
+              {surgeons.length > 0 && (
+                <datalist id="surgeon-list">
+                  {surgeons.map((s) => <option key={s} value={s} />)}
+                </datalist>
+              )}
             </div>
             <div className="space-y-2">
               <Label>Concierge</Label>
-              <Select value={concierge} onValueChange={setConcierge}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {concierges.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <Input value={concierge} onChange={(e) => setConcierge(e.target.value)} placeholder="Nome do concierge" list="concierge-list" />
+              {concierges.length > 0 && (
+                <datalist id="concierge-list">
+                  {concierges.map((c) => <option key={c} value={c} />)}
+                </datalist>
+              )}
             </div>
           </div>
           <div className="space-y-2">
@@ -135,7 +135,7 @@ export function AddPatientForm({ open, onClose, onAdd, surgeons, concierges }: A
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button onClick={handleSubmit} disabled={!name || !procedure}>Adicionar</Button>
+          <Button onClick={handleSubmit} disabled={!name || !procedure || !surgeon}>Adicionar</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
