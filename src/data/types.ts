@@ -99,6 +99,12 @@ export const OWNER_COLORS: Record<Owner, string> = {
   'Call Center': 'bg-muted text-muted-foreground',
 };
 
+export interface PendingItem {
+  id: string;
+  title: string;
+  checked: boolean;
+}
+
 export interface PatientTask {
   id: string;
   title: string;
@@ -141,12 +147,14 @@ export const DEFAULT_PREOP_CHECKLIST: PreOpChecklist = {
   surgery_scheduling: false,
 };
 
-// Spreadsheet-compatible patient model
 export interface Patient {
   id: string;
   name: string;
+  age: number | null;
+  patientType: string; // 'adult' | 'pediatric'
   procedure: string;
-  procedureCategory: string; // e.g. "Urologia oncológica", "Endourologia"
+  procedureCategory: string;
+  surgicalApproach: string | null;
   surgeon: string;
   concierge: string;
   owner: Owner;
@@ -160,18 +168,21 @@ export interface Patient {
   email: string;
   contacts: ContactRecord[];
   tasks: PatientTask[];
+  pendingItems: PendingItem[];
   createdAt: string;
 
-  // Spreadsheet migration fields
   indicationDate: string | null;
-  indicationLocation: string | null; // source of referral
-  payer: string | null; // convênio / particular
-  contactReference: string | null; // who referred
+  indicationLocation: string | null;
+  payer: string | null;
+  billingType: string | null;
+  medicalFees: number | null;
+  contactReference: string | null;
   desiredHospital: string | null;
   notes: string | null;
+  alerts: string | null;
   lossReason: LossReason | null;
-  lossReasonDetail: string | null; // free text for "other"
-  specialFlag: string | null; // e.g. "VIP", "Urgente", "Retorno"
+  lossReasonDetail: string | null;
+  specialFlag: string | null;
   preOpChecklist: PreOpChecklist;
 }
 

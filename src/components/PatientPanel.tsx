@@ -1,11 +1,17 @@
-import { Patient, DECISION_LABELS, DecisionStatus, STAGE_LABELS, OWNERS, Owner, PatientTask, getTaskUrgency, LOSS_REASON_LABELS, PreOpChecklistItem } from '@/data/types';
+import { useState } from 'react';
+import { Patient, DECISION_LABELS, DecisionStatus, STAGE_LABELS, OWNERS, Owner, PatientTask, getTaskUrgency, LOSS_REASON_LABELS, PreOpChecklistItem, PendingItem } from '@/data/types';
+import { PROCEDURES, SURGEONS, CONCIERGES, PAYERS, BILLING_TYPES, SURGICAL_APPROACHES, PATIENT_TYPE_LABELS, procedureNeedsApproach } from '@/data/constants';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 import { FollowUpTimeline } from './FollowUpTimeline';
 import { PreOpChecklist } from './PreOpChecklist';
-import { Calendar, UserRound, Stethoscope, DollarSign, Clock, Plus, CheckCircle2, Circle, Building2, CreditCard, MapPin, Flag } from 'lucide-react';
+import { Calendar, UserRound, Stethoscope, DollarSign, Clock, Plus, CheckCircle2, Circle, Building2, CreditCard, MapPin, Flag, Pencil, Save, X, AlertTriangle, Baby, User, Trash2 } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const decisionColors: Record<string, string> = {
   waiting: 'bg-muted text-muted-foreground',
@@ -29,10 +35,67 @@ interface PatientPanelProps {
   onCompleteTask: (patientId: string, taskId: string) => void;
   onAddTask: (patientId: string) => void;
   onTogglePreOpItem: (patientId: string, item: PreOpChecklistItem) => void;
+  onUpdateFields: (patientId: string, fields: Record<string, any>) => void;
+  onAddPendingItem: (patientId: string, title: string) => void;
+  onTogglePendingItem: (id: string, checked: boolean) => void;
+  onDeletePendingItem: (id: string) => void;
 }
 
-export function PatientPanel({ patient, open, onClose, onUpdateDecision, onUpdateOwner, onCompleteTask, onAddTask, onTogglePreOpItem }: PatientPanelProps) {
+export function PatientPanel({ patient, open, onClose, onUpdateDecision, onUpdateOwner, onCompleteTask, onAddTask, onTogglePreOpItem, onUpdateFields, onAddPendingItem, onTogglePendingItem, onDeletePendingItem }: PatientPanelProps) {
+  const [editing, setEditing] = useState(false);
+  const [editData, setEditData] = useState<Record<string, any>>({});
+  const [newPendingTitle, setNewPendingTitle] = useState('');
+
   if (!patient) return null;
+
+  const startEditing = () => {
+    setEditData({
+      name: patient.name,
+      age: patient.age,
+      patient_type: patient.patientType,
+      procedure_name: patient.procedure,
+      surgical_approach: patient.surgicalApproach,
+      surgeon: patient.surgeon,
+      concierge: patient.concierge,
+      phone: patient.phone,
+      email: patient.email,
+      payer: patient.payer || '',
+      billing_type: patient.billingType || '',
+      medical_fees: patient.medicalFees,
+      estimated_value: patient.estimatedValue,
+      desired_hospital: patient.desiredHospital || '',
+      indication_location: patient.indicationLocation || '',
+      contact_reference: patient.contactReference || '',
+      notes: patient.notes || '',
+      alerts: patient.alerts || '',
+      special_flag: patient.specialFlag || '',
+    });
+    setEditing(true);
+  };
+
+  const saveEditing = () => {
+    const fields: Record<string, any> = {};
+    for (const [key, val] of Object.entries(editData)) {
+      if (val === '') {
+        fields[key] = null;
+      } else {
+        fields[key] = val;
+      }
+    }
+    onUpdateFields(patient.id, fields);
+    setEditing(false);
+  };
+
+  const cancelEditing = () => {
+    setEditing(false);
+    setEditData({});
+  };
+
+  const handleAddPending = () => {
+    if (!newPendingTitle.trim()) return;
+    onAddPendingItem(patient.id, newPendingTitle.trim());
+    setNewPendingTitle('');
+  };
 
   const formatCurrency = (value: number | null) => {
     if (value === null) return '—';
@@ -47,18 +110,27 @@ export function PatientPanel({ patient, open, onClose, onUpdateDecision, onUpdat
 
   const pendingTasks = patient.tasks.filter((t) => !t.completed).sort((a, b) => new Date(`${a.dueDate}T${a.dueTime}`).getTime() - new Date(`${b.dueDate}T${b.dueTime}`).getTime());
   const completedTasks = patient.tasks.filter((t) => t.completed);
+  const showApproach = procedureNeedsApproach(editing ? editData.procedure_name : patient.procedure);
 
   return (
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent className="w-full sm:max-w-[480px] overflow-y-auto p-0">
+      <SheetContent className="w-full sm:max-w-[500px] overflow-y-auto p-0">
         <SheetHeader className="p-6 pb-4 border-b border-border">
           <div className="flex items-start justify-between gap-3">
             <div>
               <SheetTitle className="text-lg">{patient.name}</SheetTitle>
-              <p className="text-sm text-muted-foreground mt-1">{patient.procedure}</p>
-              {patient.procedureCategory && (
-                <p className="text-xs text-muted-foreground">{patient.procedureCategory}</p>
-              )}
+              <div className="flex items-center gap-2 mt-1">
+                <p className="text-sm text-muted-foreground">{patient.procedure}</p>
+                {patient.surgicalApproach && (
+                  <Badge variant="outline" className="text-[10px]">{patient.surgicalApproach}</Badge>
+                )}
+              </div>
+              <div className="flex items-center gap-2 mt-1">
+                {patient.age && <span className="text-xs text-muted-foreground">{patient.age} anos</span>}
+                <Badge variant="outline" className="text-[10px]">
+                  {patient.patientType === 'pediatric' ? <><Baby className="h-2.5 w-2.5 mr-1" />Pediátrico</> : <><User className="h-2.5 w-2.5 mr-1" />Adulto</>}
+                </Badge>
+              </div>
             </div>
             <div className="flex flex-col items-end gap-1.5 shrink-0">
               <Badge variant="outline" className={`${decisionColors[patient.decisionStatus]}`}>
@@ -83,51 +155,217 @@ export function PatientPanel({ patient, open, onClose, onUpdateDecision, onUpdat
         </SheetHeader>
 
         <div className="p-6 space-y-6">
-          {/* Owner */}
-          <div className="space-y-2">
-            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Responsável</label>
-            <Select value={patient.owner} onValueChange={(v) => onUpdateOwner(patient.id, v as Owner)}>
-              <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {OWNERS.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Decision Status */}
-          <div className="space-y-2">
-            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Status da Decisão</label>
-            <Select value={patient.decisionStatus} onValueChange={(v) => onUpdateDecision(patient.id, v as DecisionStatus)}>
-              <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {(Object.keys(DECISION_LABELS) as DecisionStatus[]).map((s) => (
-                  <SelectItem key={s} value={s}>{DECISION_LABELS[s]}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Info Grid */}
-          <div className="grid grid-cols-2 gap-4">
-            <InfoItem icon={Stethoscope} label="Cirurgião" value={patient.surgeon} />
-            <InfoItem icon={UserRound} label="Concierge" value={patient.concierge} />
-            <InfoItem icon={DollarSign} label="Valor Estimado" value={formatCurrency(patient.estimatedValue)} />
-            <InfoItem icon={Calendar} label="Última Interação" value={formatDate(patient.lastInteractionDate)} />
-            <InfoItem icon={Clock} label="Próximo Follow-up" value={formatDate(patient.nextFollowUpDate)} />
-            {patient.payer && <InfoItem icon={CreditCard} label="Convênio/Pagador" value={patient.payer} />}
-            {patient.desiredHospital && <InfoItem icon={Building2} label="Hospital" value={patient.desiredHospital} />}
-            {patient.indicationLocation && <InfoItem icon={MapPin} label="Origem" value={patient.indicationLocation} />}
-          </div>
-
-          {/* Notes */}
-          {patient.notes && (
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Observações</label>
-              <p className="text-sm text-foreground bg-muted/50 p-3 rounded-lg">{patient.notes}</p>
+          {/* Alerts */}
+          {patient.alerts && (
+            <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-destructive mb-1">
+                <AlertTriangle className="h-3.5 w-3.5" />
+                Alertas
+              </div>
+              <p className="text-sm text-destructive">{patient.alerts}</p>
             </div>
           )}
 
-          {/* Pre-op Checklist — only for preop_preparation stage */}
+          {/* Edit toggle */}
+          <div className="flex justify-end">
+            {editing ? (
+              <div className="flex gap-2">
+                <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={cancelEditing}>
+                  <X className="h-3 w-3 mr-1" />Cancelar
+                </Button>
+                <Button size="sm" className="h-7 text-xs" onClick={saveEditing}>
+                  <Save className="h-3 w-3 mr-1" />Salvar
+                </Button>
+              </div>
+            ) : (
+              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={startEditing}>
+                <Pencil className="h-3 w-3 mr-1" />Editar
+              </Button>
+            )}
+          </div>
+
+          {editing ? (
+            <div className="space-y-4">
+              <EditField label="Nome" value={editData.name} onChange={(v) => setEditData({ ...editData, name: v })} />
+              <div className="grid grid-cols-2 gap-3">
+                <EditField label="Idade" type="number" value={editData.age || ''} onChange={(v) => setEditData({ ...editData, age: v ? parseInt(v) : null })} />
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-muted-foreground">Tipo</label>
+                  <Select value={editData.patient_type} onValueChange={(v) => setEditData({ ...editData, patient_type: v })}>
+                    <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="adult">{PATIENT_TYPE_LABELS.adult}</SelectItem>
+                      <SelectItem value="pediatric">{PATIENT_TYPE_LABELS.pediatric}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-muted-foreground">Procedimento</label>
+                <Select value={editData.procedure_name} onValueChange={(v) => setEditData({ ...editData, procedure_name: v, surgical_approach: procedureNeedsApproach(v) ? editData.surgical_approach : null })}>
+                  <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {PROCEDURES.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              {showApproach && (
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-muted-foreground">Via Cirúrgica</label>
+                  <Select value={editData.surgical_approach || ''} onValueChange={(v) => setEditData({ ...editData, surgical_approach: v })}>
+                    <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                    <SelectContent>
+                      {SURGICAL_APPROACHES.map((a) => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-muted-foreground">Cirurgião</label>
+                  <Select value={editData.surgeon} onValueChange={(v) => setEditData({ ...editData, surgeon: v })}>
+                    <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {SURGEONS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-muted-foreground">Concierge</label>
+                  <Select value={editData.concierge} onValueChange={(v) => setEditData({ ...editData, concierge: v })}>
+                    <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {CONCIERGES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <EditField label="Telefone" value={editData.phone} onChange={(v) => setEditData({ ...editData, phone: v })} />
+                <EditField label="Email" value={editData.email} onChange={(v) => setEditData({ ...editData, email: v })} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-muted-foreground">Convênio</label>
+                <Select value={editData.payer || 'none'} onValueChange={(v) => setEditData({ ...editData, payer: v === 'none' ? '' : v })}>
+                  <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Nenhum</SelectItem>
+                    {PAYERS.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-muted-foreground">Faturamento</label>
+                  <Select value={editData.billing_type || 'none'} onValueChange={(v) => setEditData({ ...editData, billing_type: v === 'none' ? '' : v })}>
+                    <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Nenhum</SelectItem>
+                      {BILLING_TYPES.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <EditField label="Honorários (R$)" type="number" value={editData.medical_fees || ''} onChange={(v) => setEditData({ ...editData, medical_fees: v ? parseFloat(v) : null })} />
+              </div>
+              <EditField label="Valor Estimado (R$)" type="number" value={editData.estimated_value || ''} onChange={(v) => setEditData({ ...editData, estimated_value: v ? parseFloat(v) : null })} />
+              <EditField label="Hospital" value={editData.desired_hospital} onChange={(v) => setEditData({ ...editData, desired_hospital: v })} />
+              <EditField label="Origem / Indicação" value={editData.indication_location} onChange={(v) => setEditData({ ...editData, indication_location: v })} />
+              <EditField label="Referência de Contato" value={editData.contact_reference} onChange={(v) => setEditData({ ...editData, contact_reference: v })} />
+              <EditField label="Flag Especial" value={editData.special_flag} onChange={(v) => setEditData({ ...editData, special_flag: v })} />
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-muted-foreground">Alertas</label>
+                <Textarea value={editData.alerts} onChange={(e) => setEditData({ ...editData, alerts: e.target.value })} rows={2} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-muted-foreground">Observações</label>
+                <Textarea value={editData.notes} onChange={(e) => setEditData({ ...editData, notes: e.target.value })} rows={3} />
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Owner */}
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Responsável</label>
+                <Select value={patient.owner} onValueChange={(v) => onUpdateOwner(patient.id, v as Owner)}>
+                  <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {OWNERS.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Decision Status */}
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Status da Decisão</label>
+                <Select value={patient.decisionStatus} onValueChange={(v) => onUpdateDecision(patient.id, v as DecisionStatus)}>
+                  <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {(Object.keys(DECISION_LABELS) as DecisionStatus[]).map((s) => (
+                      <SelectItem key={s} value={s}>{DECISION_LABELS[s]}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Info Grid */}
+              <div className="grid grid-cols-2 gap-4">
+                <InfoItem icon={Stethoscope} label="Cirurgião" value={patient.surgeon} />
+                <InfoItem icon={UserRound} label="Concierge" value={patient.concierge || '—'} />
+                <InfoItem icon={DollarSign} label="Valor Estimado" value={formatCurrency(patient.estimatedValue)} />
+                <InfoItem icon={Calendar} label="Última Interação" value={formatDate(patient.lastInteractionDate)} />
+                <InfoItem icon={Clock} label="Próximo Follow-up" value={formatDate(patient.nextFollowUpDate)} />
+                {patient.payer && <InfoItem icon={CreditCard} label="Convênio" value={patient.payer} />}
+                {patient.billingType && <InfoItem icon={CreditCard} label="Faturamento" value={patient.billingType} />}
+                {patient.medicalFees && <InfoItem icon={DollarSign} label="Honorários" value={formatCurrency(patient.medicalFees)} />}
+                {patient.desiredHospital && <InfoItem icon={Building2} label="Hospital" value={patient.desiredHospital} />}
+                {patient.indicationLocation && <InfoItem icon={MapPin} label="Origem" value={patient.indicationLocation} />}
+              </div>
+
+              {/* Notes */}
+              {patient.notes && (
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Observações</label>
+                  <p className="text-sm text-foreground bg-muted/50 p-3 rounded-lg">{patient.notes}</p>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Pending Items */}
+          <div className="space-y-3">
+            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              Pendências ({patient.pendingItems.filter((i) => !i.checked).length})
+            </label>
+            <div className="flex gap-2">
+              <Input
+                value={newPendingTitle}
+                onChange={(e) => setNewPendingTitle(e.target.value)}
+                placeholder="Nova pendência..."
+                className="h-8 text-sm"
+                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddPending())}
+              />
+              <Button variant="outline" size="sm" className="h-8 shrink-0" onClick={handleAddPending}>
+                <Plus className="h-3 w-3" />
+              </Button>
+            </div>
+            <div className="space-y-1">
+              {patient.pendingItems.map((item) => (
+                <div key={item.id} className="flex items-center gap-2 p-2 rounded bg-muted/50 group">
+                  <Checkbox
+                    checked={item.checked}
+                    onCheckedChange={(checked) => onTogglePendingItem(item.id, !!checked)}
+                    className="shrink-0"
+                  />
+                  <span className={`text-sm flex-1 ${item.checked ? 'line-through text-muted-foreground' : ''}`}>{item.title}</span>
+                  <button onClick={() => onDeletePendingItem(item.id)} className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity">
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Pre-op Checklist */}
           {patient.stage === 'preop_preparation' && (
             <PreOpChecklist
               checklist={patient.preOpChecklist}
@@ -178,8 +416,8 @@ export function PatientPanel({ patient, open, onClose, onUpdateDecision, onUpdat
           <div className="space-y-2">
             <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Contato</label>
             <div className="text-sm text-foreground space-y-1">
-              <p>{patient.phone}</p>
-              <p className="text-muted-foreground">{patient.email}</p>
+              <p>{patient.phone || '—'}</p>
+              <p className="text-muted-foreground">{patient.email || '—'}</p>
             </div>
           </div>
 
@@ -193,6 +431,15 @@ export function PatientPanel({ patient, open, onClose, onUpdateDecision, onUpdat
         </div>
       </SheetContent>
     </Sheet>
+  );
+}
+
+function EditField({ label, value, onChange, type = 'text' }: { label: string; value: any; onChange: (v: string) => void; type?: string }) {
+  return (
+    <div className="space-y-1">
+      <label className="text-xs font-semibold text-muted-foreground">{label}</label>
+      <Input type={type} value={value || ''} onChange={(e) => onChange(e.target.value)} className="h-8 text-sm" />
+    </div>
   );
 }
 
