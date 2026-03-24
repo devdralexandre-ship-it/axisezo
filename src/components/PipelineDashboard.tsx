@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Patient, PIPELINE_STAGES, PipelineStage, DecisionStatus, Owner, Notification, PatientTask, PreOpChecklistItem, getNextPendingTask, getTaskUrgency, STAGE_LABELS, LossReason } from '@/data/types';
-import { mockPatients } from '@/data/mockPatients';
+import { usePatients, useUpdatePatientStage, useUpdatePatientField, useCompleteTask, useAddTask, useTogglePreOpItem, useAddPatient } from '@/hooks/usePatients';
 import { PipelineColumn } from './PipelineColumn';
 import { PatientPanel } from './PatientPanel';
 import { FilterBar } from './FilterBar';
@@ -9,15 +9,24 @@ import { AddTaskDialog } from './AddTaskDialog';
 import { NotificationBell } from './NotificationBell';
 import { LossReasonDialog } from './LossReasonDialog';
 import { Button } from '@/components/ui/button';
-import { Plus, Users, DollarSign, TrendingUp } from 'lucide-react';
+import { Plus, Users, DollarSign, TrendingUp, LogOut } from 'lucide-react';
 import { DragDropContext, DropResult } from '@hello-pangea/dnd';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
+import { Skeleton } from '@/components/ui/skeleton';
 
-// Active pipeline stages (exclude 'lost' from main columns — shown as a separate column at end)
 const ACTIVE_STAGES = PIPELINE_STAGES.filter((s) => s !== 'lost') as PipelineStage[];
 
 export function PipelineDashboard() {
-  const [patients, setPatients] = useState<Patient[]>(mockPatients);
+  const { data: patients = [], isLoading } = usePatients();
+  const updateStage = useUpdatePatientStage();
+  const updateField = useUpdatePatientField();
+  const completeTaskMutation = useCompleteTask();
+  const addTaskMutation = useAddTask();
+  const togglePreOp = useTogglePreOpItem();
+  const addPatientMutation = useAddPatient();
+  const { signOut, user } = useAuth();
+
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
@@ -29,50 +38,33 @@ export function PipelineDashboard() {
   const [ownerFilter, setOwnerFilter] = useState('all');
   const [notifications, setNotifications] = useState<Notification[]>([]);
 
-  // Loss reason dialog state
   const [lossDialogOpen, setLossDialogOpen] = useState(false);
   const [pendingLossDrag, setPendingLossDrag] = useState<{ patientId: string; fromStage: PipelineStage } | null>(null);
 
   const surgeons = useMemo(() => [...new Set(patients.map((p) => p.surgeon))], [patients]);
   const concierges = useMemo(() => [...new Set(patients.map((p) => p.concierge))], [patients]);
 
-  // Generate notifications for overdue/due-today tasks
+  // Keep selected patient in sync with data
+  useEffect(() => {
+    if (selectedPatient) {
+      const updated = patients.find((p) => p.id === selectedPatient.id);
+      if (updated) setSelectedPatient(updated);
+    }
+  }, [patients]);
+
+  // Generate notifications
   useEffect(() => {
     const notifs: Notification[] = [];
     patients.forEach((p) => {
-      if (p.stage === 'lost') return; // skip lost patients
+      if (p.stage === 'lost') return;
       const nextTask = getNextPendingTask(p);
       const urgency = getTaskUrgency(nextTask);
       if (urgency === 'red' && nextTask) {
-        notifs.push({
-          id: `overdue-${p.id}-${nextTask.id}`,
-          message: `Tarefa atrasada: "${nextTask.title}"`,
-          patientId: p.id,
-          patientName: p.name,
-          type: 'task_overdue',
-          read: false,
-          createdAt: new Date().toISOString(),
-        });
+        notifs.push({ id: `overdue-${p.id}-${nextTask.id}`, message: `Tarefa atrasada: "${nextTask.title}"`, patientId: p.id, patientName: p.name, type: 'task_overdue', read: false, createdAt: new Date().toISOString() });
       } else if (urgency === 'red' && !nextTask) {
-        notifs.push({
-          id: `no-task-${p.id}`,
-          message: 'Paciente sem tarefa pendente',
-          patientId: p.id,
-          patientName: p.name,
-          type: 'task_overdue',
-          read: false,
-          createdAt: new Date().toISOString(),
-        });
+        notifs.push({ id: `no-task-${p.id}`, message: 'Paciente sem tarefa pendente', patientId: p.id, patientName: p.name, type: 'task_overdue', read: false, createdAt: new Date().toISOString() });
       } else if (urgency === 'yellow' && nextTask) {
-        notifs.push({
-          id: `today-${p.id}-${nextTask.id}`,
-          message: `Tarefa vence hoje: "${nextTask.title}"`,
-          patientId: p.id,
-          patientName: p.name,
-          type: 'task_due_today',
-          read: false,
-          createdAt: new Date().toISOString(),
-        });
+        notifs.push({ id: `today-${p.id}-${nextTask.id}`, message: `Tarefa vence hoje: "${nextTask.title}"`, patientId: p.id, patientName: p.name, type: 'task_due_today', read: false, createdAt: new Date().toISOString() });
       }
     });
     setNotifications((prev) => {
@@ -110,69 +102,30 @@ export function PipelineDashboard() {
     const { draggableId, destination, source } = result;
     const newStage = destination.droppableId as PipelineStage;
     const oldStage = source.droppableId as PipelineStage;
-
     if (oldStage === newStage) return;
 
-    // If moving to "lost", open the loss reason dialog
     if (newStage === 'lost') {
       setPendingLossDrag({ patientId: draggableId, fromStage: oldStage });
       setLossDialogOpen(true);
       return;
     }
 
-    const today = new Date().toISOString().split('T')[0];
-    setPatients((prev) =>
-      prev.map((p) =>
-        p.id === draggableId
-          ? { ...p, stage: newStage, stageEnteredAt: today, lossReason: null, lossReasonDetail: null }
-          : p
-      )
-    );
-    setSelectedPatient((prev) =>
-      prev && prev.id === draggableId ? { ...prev, stage: newStage, stageEnteredAt: today } : prev
-    );
-
-    const patient = patients.find((p) => p.id === draggableId);
-    if (patient) {
-      setNotifications((prev) => [
-        {
-          id: `stage-${draggableId}-${Date.now()}`,
-          message: `Movido para "${STAGE_LABELS[newStage]}"`,
-          patientId: draggableId,
-          patientName: patient.name,
-          type: 'stage_changed',
-          read: false,
-          createdAt: new Date().toISOString(),
-        },
-        ...prev,
-      ]);
-    }
-  }, [patients]);
+    updateStage.mutate({ id: draggableId, stage: newStage });
+  }, [updateStage]);
 
   const handleLossConfirm = useCallback((reason: LossReason, detail: string | null) => {
     if (!pendingLossDrag) return;
-    const today = new Date().toISOString().split('T')[0];
-    const { patientId } = pendingLossDrag;
-
-    setPatients((prev) =>
-      prev.map((p) =>
-        p.id === patientId
-          ? { ...p, stage: 'lost' as PipelineStage, stageEnteredAt: today, lossReason: reason, lossReasonDetail: detail }
-          : p
-      )
-    );
-    setSelectedPatient((prev) =>
-      prev && prev.id === patientId ? { ...prev, stage: 'lost' as PipelineStage, stageEnteredAt: today, lossReason: reason, lossReasonDetail: detail } : prev
-    );
-
-    const patient = patients.find((p) => p.id === patientId);
-    if (patient) {
-      toast.info(`${patient.name} marcado como perdido`);
-    }
-
+    updateStage.mutate({
+      id: pendingLossDrag.patientId,
+      stage: 'lost',
+      lossReason: reason,
+      lossReasonDetail: detail,
+    });
+    const patient = patients.find((p) => p.id === pendingLossDrag.patientId);
+    if (patient) toast.info(`${patient.name} marcado como perdido`);
     setLossDialogOpen(false);
     setPendingLossDrag(null);
-  }, [pendingLossDrag, patients]);
+  }, [pendingLossDrag, patients, updateStage]);
 
   const handleLossCancel = useCallback(() => {
     setLossDialogOpen(false);
@@ -180,41 +133,29 @@ export function PipelineDashboard() {
   }, []);
 
   const handleUpdateDecision = useCallback((patientId: string, status: DecisionStatus) => {
-    setPatients((prev) => prev.map((p) => (p.id === patientId ? { ...p, decisionStatus: status } : p)));
-    setSelectedPatient((prev) => (prev && prev.id === patientId ? { ...prev, decisionStatus: status } : prev));
-  }, []);
+    updateField.mutate({ id: patientId, field: 'decision_status', value: status });
+  }, [updateField]);
 
   const handleUpdateOwner = useCallback((patientId: string, owner: Owner) => {
-    setPatients((prev) => prev.map((p) => (p.id === patientId ? { ...p, owner } : p)));
-    setSelectedPatient((prev) => (prev && prev.id === patientId ? { ...prev, owner } : prev));
-  }, []);
+    updateField.mutate({ id: patientId, field: 'owner', value: owner });
+  }, [updateField]);
 
   const handleCompleteTask = useCallback((patientId: string, taskId: string) => {
-    const now = new Date().toISOString().split('T')[0];
-    setPatients((prev) =>
-      prev.map((p) =>
-        p.id === patientId
-          ? { ...p, tasks: p.tasks.map((t) => (t.id === taskId ? { ...t, completed: true, completedAt: now } : t)) }
-          : p
-      )
-    );
-    setSelectedPatient((prev) =>
-      prev && prev.id === patientId
-        ? { ...prev, tasks: prev.tasks.map((t) => (t.id === taskId ? { ...t, completed: true, completedAt: now } : t)) }
-        : prev
-    );
-
-    toast.success('Tarefa concluída!', {
-      description: 'Deseja criar a próxima tarefa?',
-      action: {
-        label: 'Criar tarefa',
-        onClick: () => {
-          setTaskPatientId(patientId);
-          setAddTaskOpen(true);
-        },
+    completeTaskMutation.mutate(taskId, {
+      onSuccess: () => {
+        toast.success('Tarefa concluída!', {
+          description: 'Deseja criar a próxima tarefa?',
+          action: {
+            label: 'Criar tarefa',
+            onClick: () => {
+              setTaskPatientId(patientId);
+              setAddTaskOpen(true);
+            },
+          },
+        });
       },
     });
-  }, []);
+  }, [completeTaskMutation]);
 
   const handleAddTask = useCallback((patientId: string) => {
     setTaskPatientId(patientId);
@@ -223,32 +164,19 @@ export function PipelineDashboard() {
 
   const handleTaskCreated = useCallback((task: PatientTask) => {
     if (!taskPatientId) return;
-    setPatients((prev) =>
-      prev.map((p) => (p.id === taskPatientId ? { ...p, tasks: [...p.tasks, task] } : p))
-    );
-    setSelectedPatient((prev) =>
-      prev && prev.id === taskPatientId ? { ...prev, tasks: [...prev.tasks, task] } : prev
-    );
-  }, [taskPatientId]);
+    addTaskMutation.mutate({ patientId: taskPatientId, task });
+  }, [taskPatientId, addTaskMutation]);
 
   const handleTogglePreOpItem = useCallback((patientId: string, item: PreOpChecklistItem) => {
-    setPatients((prev) =>
-      prev.map((p) =>
-        p.id === patientId
-          ? { ...p, preOpChecklist: { ...p.preOpChecklist, [item]: !p.preOpChecklist[item] } }
-          : p
-      )
-    );
-    setSelectedPatient((prev) =>
-      prev && prev.id === patientId
-        ? { ...prev, preOpChecklist: { ...prev.preOpChecklist, [item]: !prev.preOpChecklist[item] } }
-        : prev
-    );
-  }, []);
+    const patient = patients.find((p) => p.id === patientId);
+    if (!patient) return;
+    const currentValue = patient.preOpChecklist[item];
+    togglePreOp.mutate({ patientId, itemKey: item, checked: !currentValue });
+  }, [patients, togglePreOp]);
 
   const handleAddPatient = useCallback((patient: Patient) => {
-    setPatients((prev) => [...prev, patient]);
-  }, []);
+    addPatientMutation.mutate(patient);
+  }, [addPatientMutation]);
 
   const handleMarkNotificationRead = useCallback((id: string) => {
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
@@ -260,18 +188,28 @@ export function PipelineDashboard() {
 
   const handleNotificationClick = useCallback((patientId: string) => {
     const patient = patients.find((p) => p.id === patientId);
-    if (patient) {
-      setSelectedPatient(patient);
-      setPanelOpen(true);
-    }
+    if (patient) { setSelectedPatient(patient); setPanelOpen(true); }
   }, [patients]);
 
   const taskPatient = taskPatientId ? patients.find((p) => p.id === taskPatientId) : null;
   const lossDialogPatient = pendingLossDrag ? patients.find((p) => p.id === pendingLossDrag.patientId) : null;
 
+  if (isLoading) {
+    return (
+      <div className="flex flex-col h-screen bg-background p-6 gap-4">
+        <Skeleton className="h-10 w-64" />
+        <Skeleton className="h-8 w-full" />
+        <div className="flex gap-4 flex-1">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="w-[260px] h-full" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-screen bg-background">
-      {/* Header */}
       <header className="border-b border-border px-6 py-4">
         <div className="flex items-center justify-between mb-4">
           <div>
@@ -279,6 +217,7 @@ export function PipelineDashboard() {
             <p className="text-sm text-muted-foreground">Gestão de conversão de pacientes</p>
           </div>
           <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground hidden sm:inline">{user?.email}</span>
             <NotificationBell
               notifications={notifications}
               onMarkRead={handleMarkNotificationRead}
@@ -289,10 +228,12 @@ export function PipelineDashboard() {
               <Plus className="h-4 w-4" />
               Novo Paciente
             </Button>
+            <Button variant="ghost" size="icon" onClick={signOut} title="Sair">
+              <LogOut className="h-4 w-4" />
+            </Button>
           </div>
         </div>
 
-        {/* Stats */}
         <div className="flex items-center gap-6 mb-4">
           <div className="flex items-center gap-2 text-sm">
             <Users className="h-4 w-4 text-muted-foreground" />
@@ -318,82 +259,29 @@ export function PipelineDashboard() {
         </div>
 
         <FilterBar
-          search={search}
-          onSearchChange={setSearch}
-          surgeon={surgeonFilter}
-          onSurgeonChange={setSurgeonFilter}
-          concierge={conciergeFilter}
-          onConciergeChange={setConciergeFilter}
-          owner={ownerFilter}
-          onOwnerChange={setOwnerFilter}
-          surgeons={surgeons}
-          concierges={concierges}
+          search={search} onSearchChange={setSearch}
+          surgeon={surgeonFilter} onSurgeonChange={setSurgeonFilter}
+          concierge={conciergeFilter} onConciergeChange={setConciergeFilter}
+          owner={ownerFilter} onOwnerChange={setOwnerFilter}
+          surgeons={surgeons} concierges={concierges}
         />
       </header>
 
-      {/* Kanban */}
       <DragDropContext onDragEnd={handleDragEnd}>
         <div className="flex-1 overflow-x-auto overflow-y-hidden">
           <div className="flex gap-4 p-6 h-full min-w-max">
             {ACTIVE_STAGES.map((stage) => (
-              <PipelineColumn
-                key={stage}
-                stage={stage}
-                patients={filtered.filter((p) => p.stage === stage)}
-                onPatientClick={handlePatientClick}
-                onCompleteTask={handleCompleteTask}
-              />
+              <PipelineColumn key={stage} stage={stage} patients={filtered.filter((p) => p.stage === stage)} onPatientClick={handlePatientClick} onCompleteTask={handleCompleteTask} />
             ))}
-            {/* Lost column — visually distinct */}
-            <PipelineColumn
-              key="lost"
-              stage="lost"
-              patients={filtered.filter((p) => p.stage === 'lost')}
-              onPatientClick={handlePatientClick}
-              onCompleteTask={handleCompleteTask}
-              variant="lost"
-            />
+            <PipelineColumn key="lost" stage="lost" patients={filtered.filter((p) => p.stage === 'lost')} onPatientClick={handlePatientClick} onCompleteTask={handleCompleteTask} variant="lost" />
           </div>
         </div>
       </DragDropContext>
 
-      {/* Patient Panel */}
-      <PatientPanel
-        patient={selectedPatient}
-        open={panelOpen}
-        onClose={() => setPanelOpen(false)}
-        onUpdateDecision={handleUpdateDecision}
-        onUpdateOwner={handleUpdateOwner}
-        onCompleteTask={handleCompleteTask}
-        onAddTask={handleAddTask}
-        onTogglePreOpItem={handleTogglePreOpItem}
-      />
-
-      {/* Add Patient Dialog */}
-      <AddPatientForm
-        open={addOpen}
-        onClose={() => setAddOpen(false)}
-        onAdd={handleAddPatient}
-        surgeons={surgeons}
-        concierges={concierges}
-      />
-
-      {/* Add Task Dialog */}
-      <AddTaskDialog
-        open={addTaskOpen}
-        onClose={() => setAddTaskOpen(false)}
-        onAdd={handleTaskCreated}
-        patientName={taskPatient?.name || ''}
-        defaultResponsible={taskPatient?.owner}
-      />
-
-      {/* Loss Reason Dialog */}
-      <LossReasonDialog
-        open={lossDialogOpen}
-        patientName={lossDialogPatient?.name || ''}
-        onConfirm={handleLossConfirm}
-        onCancel={handleLossCancel}
-      />
+      <PatientPanel patient={selectedPatient} open={panelOpen} onClose={() => setPanelOpen(false)} onUpdateDecision={handleUpdateDecision} onUpdateOwner={handleUpdateOwner} onCompleteTask={handleCompleteTask} onAddTask={handleAddTask} onTogglePreOpItem={handleTogglePreOpItem} />
+      <AddPatientForm open={addOpen} onClose={() => setAddOpen(false)} onAdd={handleAddPatient} surgeons={surgeons} concierges={concierges} />
+      <AddTaskDialog open={addTaskOpen} onClose={() => setAddTaskOpen(false)} onAdd={handleTaskCreated} patientName={taskPatient?.name || ''} defaultResponsible={taskPatient?.owner} />
+      <LossReasonDialog open={lossDialogOpen} patientName={lossDialogPatient?.name || ''} onConfirm={handleLossConfirm} onCancel={handleLossCancel} />
     </div>
   );
 }
