@@ -66,11 +66,11 @@ export function PipelineDashboard() {
       const nextTask = getNextPendingTask(p);
       const urgency = getTaskUrgency(nextTask);
       if (urgency === 'red' && nextTask) {
-        notifs.push({ id: `overdue-${p.id}-${nextTask.id}`, message: `Tarefa atrasada: "${nextTask.title}"`, patientId: p.id, patientName: p.name, type: 'task_overdue', read: readNotifications.has(`overdue-${p.id}-${nextTask.id}`), createdAt: new Date().toISOString() });
+        notifs.push({ id: `overdue-${p.id}-${nextTask.id}`, message: `Ação atrasada: "${nextTask.title}"`, patientId: p.id, patientName: p.name, type: 'task_overdue', read: readNotifications.has(`overdue-${p.id}-${nextTask.id}`), createdAt: new Date().toISOString() });
       } else if (urgency === 'red' && !nextTask) {
-        notifs.push({ id: `no-task-${p.id}`, message: 'Paciente sem tarefa pendente', patientId: p.id, patientName: p.name, type: 'task_overdue', read: readNotifications.has(`no-task-${p.id}`), createdAt: new Date().toISOString() });
+        notifs.push({ id: `no-task-${p.id}`, message: 'Paciente sem próxima ação definida', patientId: p.id, patientName: p.name, type: 'task_overdue', read: readNotifications.has(`no-task-${p.id}`), createdAt: new Date().toISOString() });
       } else if (urgency === 'yellow' && nextTask) {
-        notifs.push({ id: `today-${p.id}-${nextTask.id}`, message: `Tarefa vence hoje: "${nextTask.title}"`, patientId: p.id, patientName: p.name, type: 'task_due_today', read: readNotifications.has(`today-${p.id}-${nextTask.id}`), createdAt: new Date().toISOString() });
+        notifs.push({ id: `today-${p.id}-${nextTask.id}`, message: `Ação vence hoje: "${nextTask.title}"`, patientId: p.id, patientName: p.name, type: 'task_due_today', read: readNotifications.has(`today-${p.id}-${nextTask.id}`), createdAt: new Date().toISOString() });
       }
     });
     return notifs;
