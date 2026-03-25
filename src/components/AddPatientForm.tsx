@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Patient, PIPELINE_STAGES, STAGE_LABELS, PendingItem } from '@/data/types';
+import { Patient, PIPELINE_STAGES, STAGE_LABELS } from '@/data/types';
 import { PROCEDURES, SURGEONS, CONCIERGES, PAYERS, BILLING_TYPES, PATIENT_TYPE_LABELS, SURGICAL_APPROACHES, procedureNeedsApproach } from '@/data/constants';
 import { Plus, X } from 'lucide-react';
 
