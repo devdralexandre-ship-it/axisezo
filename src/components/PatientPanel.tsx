@@ -330,7 +330,7 @@ export function PatientPanel({ patient, open, onClose, onUpdateDecision, onUpdat
                 Ações ({pendingTasks.length} pendente{pendingTasks.length !== 1 ? 's' : ''})
               </label>
               <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => onAddTask(patient.id)}>
-                <Plus className="h-3 w-3 mr-1" /> Nova
+                <Plus className="h-3 w-3 mr-1" /> Nova ação
               </Button>
             </div>
             <div className="space-y-1.5">

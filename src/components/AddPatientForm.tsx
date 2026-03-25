@@ -267,7 +267,7 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
         </div>
         <DialogFooter className="px-6 py-4 border-t border-border shrink-0">
           <Button variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button onClick={handleSubmit} disabled={!name || !procedure || !surgeon}>Adicionar</Button>
+          <Button onClick={handleSubmit} disabled={!name || !procedure || !surgeon}>Criar paciente</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

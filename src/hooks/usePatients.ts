@@ -247,7 +247,7 @@ export function useCompleteTask() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['patients'] });
-      toast.success('Tarefa concluída!');
+      toast.success('Ação concluída!');
     },
   });
 }

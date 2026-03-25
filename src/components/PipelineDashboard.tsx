@@ -269,8 +269,8 @@ export function PipelineDashboard() {
       <header className="border-b border-border px-6 py-4">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-xl font-bold text-foreground tracking-tight">Pipeline Cirúrgico</h1>
-            <p className="text-sm text-muted-foreground">Gestão de conversão de pacientes</p>
+            <h1 className="text-xl font-bold text-foreground tracking-tight">Axis</h1>
+            <p className="text-sm text-muted-foreground">Pipeline de decisão cirúrgica</p>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground hidden sm:inline">{user?.email}</span>

@@ -72,7 +72,7 @@ export function AddTaskDialog({ open, onClose, onAdd, patientName, defaultRespon
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button onClick={handleSubmit} disabled={!title || !dueDate}>Adicionar</Button>
+          <Button onClick={handleSubmit} disabled={!title || !dueDate}>Criar ação</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
