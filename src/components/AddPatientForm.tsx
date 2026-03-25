@@ -31,8 +31,8 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
   const [billingType, setBillingType] = useState('');
   const [medicalFees, setMedicalFees] = useState('');
   const [alerts, setAlerts] = useState('');
-  const [pendingItems, setPendingItems] = useState<PendingItem[]>([]);
-  const [newPendingItem, setNewPendingItem] = useState('');
+  const [initialTasks, setInitialTasks] = useState<{ id: string; title: string }[]>([]);
+  const [newTaskTitle, setNewTaskTitle] = useState('');
 
   const showApproach = procedureNeedsApproach(procedure);
   const showPayerOther = payer === 'Outros';
