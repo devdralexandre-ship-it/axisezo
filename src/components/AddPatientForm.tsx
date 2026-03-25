@@ -12,7 +12,7 @@ import { Plus, X } from 'lucide-react';
 interface AddPatientFormProps {
   open: boolean;
   onClose: () => void;
-  onAdd: (patient: Partial<Patient> & { name: string; procedure: string; surgeon: string }) => void;
+  onAdd: (patient: Partial<Patient> & { name: string; procedure: string; surgeon: string; initialTaskTitles?: string[] }) => void;
 }
 
 export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
