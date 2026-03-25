@@ -228,7 +228,7 @@ export function useAddTask() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['patients'] });
-      toast.success('Tarefa criada!');
+      toast.success('Ação criada!');
     },
     onError: (e) => toast.error(`Erro: ${e.message}`),
   });
