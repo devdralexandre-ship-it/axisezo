@@ -52,7 +52,7 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
     setName(''); setAge(''); setPatientType('adult'); setProcedure(''); setSurgicalApproach('');
     setSurgeon(''); setConcierge(''); setStage(PIPELINE_STAGES[0]);
     setPhone(''); setEmail(''); setPayer(''); setPayerOther(''); setBillingType('');
-    setMedicalFees(''); setAlerts(''); setPendingItems([]); setNewPendingItem('');
+    setMedicalFees(''); setAlerts(''); setInitialTasks([]); setNewTaskTitle('');
   };
 
   const handleSubmit = () => {
