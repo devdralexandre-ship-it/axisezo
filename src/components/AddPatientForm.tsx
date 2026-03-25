@@ -5,14 +5,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Patient, PIPELINE_STAGES, STAGE_LABELS, PendingItem } from '@/data/types';
+import { Patient, PIPELINE_STAGES, STAGE_LABELS } from '@/data/types';
 import { PROCEDURES, SURGEONS, CONCIERGES, PAYERS, BILLING_TYPES, PATIENT_TYPE_LABELS, SURGICAL_APPROACHES, procedureNeedsApproach } from '@/data/constants';
 import { Plus, X } from 'lucide-react';
 
 interface AddPatientFormProps {
   open: boolean;
   onClose: () => void;
-  onAdd: (patient: Partial<Patient> & { name: string; procedure: string; surgeon: string }) => void;
+  onAdd: (patient: Partial<Patient> & { name: string; procedure: string; surgeon: string; initialTaskTitles?: string[] }) => void;
 }
 
 export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
@@ -31,28 +31,28 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
   const [billingType, setBillingType] = useState('');
   const [medicalFees, setMedicalFees] = useState('');
   const [alerts, setAlerts] = useState('');
-  const [pendingItems, setPendingItems] = useState<PendingItem[]>([]);
-  const [newPendingItem, setNewPendingItem] = useState('');
+  const [initialTasks, setInitialTasks] = useState<{ id: string; title: string }[]>([]);
+  const [newTaskTitle, setNewTaskTitle] = useState('');
 
   const showApproach = procedureNeedsApproach(procedure);
   const showPayerOther = payer === 'Outros';
   const showMedicalFees = billingType === 'Particular';
 
-  const addPendingItem = () => {
-    if (!newPendingItem.trim()) return;
-    setPendingItems([...pendingItems, { id: crypto.randomUUID(), title: newPendingItem.trim(), checked: false }]);
-    setNewPendingItem('');
+  const addInitialTask = () => {
+    if (!newTaskTitle.trim()) return;
+    setInitialTasks([...initialTasks, { id: crypto.randomUUID(), title: newTaskTitle.trim() }]);
+    setNewTaskTitle('');
   };
 
-  const removePendingItem = (id: string) => {
-    setPendingItems(pendingItems.filter((i) => i.id !== id));
+  const removeInitialTask = (id: string) => {
+    setInitialTasks(initialTasks.filter((i) => i.id !== id));
   };
 
   const resetForm = () => {
     setName(''); setAge(''); setPatientType('adult'); setProcedure(''); setSurgicalApproach('');
     setSurgeon(''); setConcierge(''); setStage(PIPELINE_STAGES[0]);
     setPhone(''); setEmail(''); setPayer(''); setPayerOther(''); setBillingType('');
-    setMedicalFees(''); setAlerts(''); setPendingItems([]); setNewPendingItem('');
+    setMedicalFees(''); setAlerts(''); setInitialTasks([]); setNewTaskTitle('');
   };
 
   const handleSubmit = () => {
@@ -78,7 +78,7 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
       nextFollowUpDate: null,
       phone,
       email,
-      pendingItems,
+      initialTaskTitles: initialTasks.map(t => t.title),
       createdAt: today,
       indicationDate: today,
       indicationLocation: null,
@@ -235,27 +235,27 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
               <Textarea value={alerts} onChange={(e) => setAlerts(e.target.value)} placeholder="Alergias, comorbidades, observações importantes..." rows={2} className="focus-visible:ring-offset-0" />
             </div>
 
-            {/* Pending Items */}
+            {/* Initial Tasks */}
             <div className="space-y-2">
-              <Label>Pendências</Label>
+              <Label>Tarefas Iniciais</Label>
               <div className="flex gap-2">
                 <Input
-                  value={newPendingItem}
-                  onChange={(e) => setNewPendingItem(e.target.value)}
-                  placeholder="Adicionar pendência..."
-                  onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addPendingItem())}
+                  value={newTaskTitle}
+                  onChange={(e) => setNewTaskTitle(e.target.value)}
+                  placeholder="Adicionar tarefa..."
+                  onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addInitialTask())}
                   className="focus-visible:ring-offset-0"
                 />
-                <Button type="button" variant="outline" size="icon" onClick={addPendingItem} className="shrink-0">
+                <Button type="button" variant="outline" size="icon" onClick={addInitialTask} className="shrink-0">
                   <Plus className="h-4 w-4" />
                 </Button>
               </div>
-              {pendingItems.length > 0 && (
+              {initialTasks.length > 0 && (
                 <div className="space-y-1 mt-2">
-                  {pendingItems.map((item) => (
+                  {initialTasks.map((item) => (
                     <div key={item.id} className="flex items-center gap-2 p-2 rounded bg-muted/50">
                       <span className="text-sm flex-1">{item.title}</span>
-                      <button onClick={() => removePendingItem(item.id)} className="text-muted-foreground hover:text-destructive">
+                      <button onClick={() => removeInitialTask(item.id)} className="text-muted-foreground hover:text-destructive">
                         <X className="h-3.5 w-3.5" />
                       </button>
                     </div>
