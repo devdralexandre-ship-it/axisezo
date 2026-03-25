@@ -237,7 +237,7 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
 
             {/* Initial Tasks */}
             <div className="space-y-2">
-              <Label>Tarefas Iniciais</Label>
+              <Label>Ações Iniciais</Label>
               <div className="flex gap-2">
                 <Input
                   value={newTaskTitle}
