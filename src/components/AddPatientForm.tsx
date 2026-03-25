@@ -5,11 +5,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Patient, PIPELINE_STAGES, STAGE_LABELS, PendingItem } from '@/data/types';
 import { PROCEDURES, SURGEONS, CONCIERGES, PAYERS, BILLING_TYPES, PATIENT_TYPE_LABELS, SURGICAL_APPROACHES, procedureNeedsApproach } from '@/data/constants';
 import { Plus, X } from 'lucide-react';
-import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface AddPatientFormProps {
   open: boolean;
@@ -26,7 +24,6 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
   const [surgeon, setSurgeon] = useState('');
   const [concierge, setConcierge] = useState('');
   const [stage, setStage] = useState(PIPELINE_STAGES[0]);
-  const [value, setValue] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [payer, setPayer] = useState('');
@@ -53,7 +50,7 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
 
   const resetForm = () => {
     setName(''); setAge(''); setPatientType('adult'); setProcedure(''); setSurgicalApproach('');
-    setSurgeon(''); setConcierge(''); setStage(PIPELINE_STAGES[0]); setValue('');
+    setSurgeon(''); setConcierge(''); setStage(PIPELINE_STAGES[0]);
     setPhone(''); setEmail(''); setPayer(''); setPayerOther(''); setBillingType('');
     setMedicalFees(''); setAlerts(''); setPendingItems([]); setNewPendingItem('');
   };
@@ -72,11 +69,11 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
       surgicalApproach: showApproach ? surgicalApproach || null : null,
       surgeon,
       concierge,
-      owner: surgeon as any, // owner = surgeon by default
+      owner: surgeon as any,
       stage,
       stageEnteredAt: today,
       decisionStatus: 'waiting',
-      estimatedValue: value ? parseFloat(value) : null,
+      estimatedValue: null,
       lastInteractionDate: today,
       nextFollowUpDate: null,
       phone,
@@ -102,21 +99,21 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col overflow-hidden p-0">
+        <DialogHeader className="px-6 pt-6 pb-4 shrink-0">
           <DialogTitle>Novo Paciente</DialogTitle>
         </DialogHeader>
-        <ScrollArea className="flex-1 pr-4 -mr-4">
-          <div className="space-y-4 pb-2">
+        <div className="flex-1 overflow-y-auto px-6">
+          <div className="space-y-4 pb-4">
             {/* Name & Age */}
             <div className="grid grid-cols-3 gap-3">
               <div className="col-span-2 space-y-2">
                 <Label>Nome *</Label>
-                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nome completo" />
+                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nome completo" className="focus-visible:ring-offset-0" />
               </div>
               <div className="space-y-2">
                 <Label>Idade</Label>
-                <Input type="number" value={age} onChange={(e) => setAge(e.target.value)} placeholder="0" />
+                <Input type="number" value={age} onChange={(e) => setAge(e.target.value)} placeholder="0" className="focus-visible:ring-offset-0" />
               </div>
             </div>
 
@@ -124,7 +121,7 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
             <div className="space-y-2">
               <Label>Tipo de Paciente</Label>
               <Select value={patientType} onValueChange={setPatientType}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger className="focus:ring-offset-0"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="adult">{PATIENT_TYPE_LABELS.adult}</SelectItem>
                   <SelectItem value="pediatric">{PATIENT_TYPE_LABELS.pediatric}</SelectItem>
@@ -136,7 +133,7 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
             <div className="space-y-2">
               <Label>Procedimento *</Label>
               <Select value={procedure} onValueChange={(v) => { setProcedure(v); if (!procedureNeedsApproach(v)) setSurgicalApproach(''); }}>
-                <SelectTrigger><SelectValue placeholder="Selecione o procedimento" /></SelectTrigger>
+                <SelectTrigger className="focus:ring-offset-0"><SelectValue placeholder="Selecione o procedimento" /></SelectTrigger>
                 <SelectContent>
                   {PROCEDURES.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
                 </SelectContent>
@@ -148,7 +145,7 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
               <div className="space-y-2">
                 <Label>Via / Plataforma Cirúrgica</Label>
                 <Select value={surgicalApproach} onValueChange={setSurgicalApproach}>
-                  <SelectTrigger><SelectValue placeholder="Selecione a via" /></SelectTrigger>
+                  <SelectTrigger className="focus:ring-offset-0"><SelectValue placeholder="Selecione a via" /></SelectTrigger>
                   <SelectContent>
                     {SURGICAL_APPROACHES.map((a) => <SelectItem key={a} value={a}>{a}</SelectItem>)}
                   </SelectContent>
@@ -161,7 +158,7 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
               <div className="space-y-2">
                 <Label>Cirurgião *</Label>
                 <Select value={surgeon} onValueChange={setSurgeon}>
-                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectTrigger className="focus:ring-offset-0"><SelectValue placeholder="Selecione" /></SelectTrigger>
                   <SelectContent>
                     {SURGEONS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                   </SelectContent>
@@ -170,7 +167,7 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
               <div className="space-y-2">
                 <Label>Concierge</Label>
                 <Select value={concierge} onValueChange={setConcierge}>
-                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectTrigger className="focus:ring-offset-0"><SelectValue placeholder="Selecione" /></SelectTrigger>
                   <SelectContent>
                     {CONCIERGES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                   </SelectContent>
@@ -182,13 +179,13 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
             <div className="space-y-2">
               <Label>Convênio</Label>
               <Select value={payer} onValueChange={setPayer}>
-                <SelectTrigger><SelectValue placeholder="Selecione o convênio" /></SelectTrigger>
+                <SelectTrigger className="focus:ring-offset-0"><SelectValue placeholder="Selecione o convênio" /></SelectTrigger>
                 <SelectContent>
                   {PAYERS.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
                 </SelectContent>
               </Select>
               {showPayerOther && (
-                <Input value={payerOther} onChange={(e) => setPayerOther(e.target.value)} placeholder="Informe o convênio" className="mt-2" />
+                <Input value={payerOther} onChange={(e) => setPayerOther(e.target.value)} placeholder="Informe o convênio" className="mt-2 focus-visible:ring-offset-0" />
               )}
             </div>
 
@@ -196,7 +193,7 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
             <div className="space-y-2">
               <Label>Tipo de Faturamento</Label>
               <Select value={billingType} onValueChange={setBillingType}>
-                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectTrigger className="focus:ring-offset-0"><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent>
                   {BILLING_TYPES.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
                 </SelectContent>
@@ -204,44 +201,38 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
               {showMedicalFees && (
                 <div className="mt-2 space-y-1">
                   <Label className="text-xs">Honorários médicos (R$)</Label>
-                  <Input type="number" value={medicalFees} onChange={(e) => setMedicalFees(e.target.value)} placeholder="0" />
+                  <Input type="number" value={medicalFees} onChange={(e) => setMedicalFees(e.target.value)} placeholder="0" className="focus-visible:ring-offset-0" />
                 </div>
               )}
             </div>
 
-            {/* Stage & Value */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label>Etapa Inicial</Label>
-                <Select value={stage} onValueChange={(v) => setStage(v as typeof stage)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {PIPELINE_STAGES.map((s) => <SelectItem key={s} value={s}>{STAGE_LABELS[s]}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Valor Estimado (R$)</Label>
-                <Input type="number" value={value} onChange={(e) => setValue(e.target.value)} placeholder="0" />
-              </div>
+            {/* Stage */}
+            <div className="space-y-2">
+              <Label>Etapa Inicial</Label>
+              <Select value={stage} onValueChange={(v) => setStage(v as typeof stage)}>
+                <SelectTrigger className="focus:ring-offset-0"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {PIPELINE_STAGES.map((s) => <SelectItem key={s} value={s}>{STAGE_LABELS[s]}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Contact */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label>Telefone</Label>
-                <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(11) 99999-0000" />
+                <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(11) 99999-0000" className="focus-visible:ring-offset-0" />
               </div>
               <div className="space-y-2">
                 <Label>Email</Label>
-                <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email@email.com" />
+                <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email@email.com" className="focus-visible:ring-offset-0" />
               </div>
             </div>
 
             {/* Alerts */}
             <div className="space-y-2">
               <Label>Alertas</Label>
-              <Textarea value={alerts} onChange={(e) => setAlerts(e.target.value)} placeholder="Alergias, comorbidades, observações importantes..." rows={2} />
+              <Textarea value={alerts} onChange={(e) => setAlerts(e.target.value)} placeholder="Alergias, comorbidades, observações importantes..." rows={2} className="focus-visible:ring-offset-0" />
             </div>
 
             {/* Pending Items */}
@@ -253,6 +244,7 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
                   onChange={(e) => setNewPendingItem(e.target.value)}
                   placeholder="Adicionar pendência..."
                   onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addPendingItem())}
+                  className="focus-visible:ring-offset-0"
                 />
                 <Button type="button" variant="outline" size="icon" onClick={addPendingItem} className="shrink-0">
                   <Plus className="h-4 w-4" />
@@ -262,7 +254,6 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
                 <div className="space-y-1 mt-2">
                   {pendingItems.map((item) => (
                     <div key={item.id} className="flex items-center gap-2 p-2 rounded bg-muted/50">
-                      <Checkbox checked={false} disabled className="shrink-0" />
                       <span className="text-sm flex-1">{item.title}</span>
                       <button onClick={() => removePendingItem(item.id)} className="text-muted-foreground hover:text-destructive">
                         <X className="h-3.5 w-3.5" />
@@ -273,8 +264,8 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
               )}
             </div>
           </div>
-        </ScrollArea>
-        <DialogFooter className="pt-4 border-t border-border">
+        </div>
+        <DialogFooter className="px-6 py-4 border-t border-border shrink-0">
           <Button variant="outline" onClick={onClose}>Cancelar</Button>
           <Button onClick={handleSubmit} disabled={!name || !procedure || !surgeon}>Adicionar</Button>
         </DialogFooter>

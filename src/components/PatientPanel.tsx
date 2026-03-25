@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Patient, DECISION_LABELS, DecisionStatus, STAGE_LABELS, OWNERS, Owner, PatientTask, getTaskUrgency, LOSS_REASON_LABELS, PreOpChecklistItem, PendingItem } from '@/data/types';
+import { Patient, DECISION_LABELS, DecisionStatus, STAGE_LABELS, OWNERS, Owner, PatientTask, getTaskUrgency, LOSS_REASON_LABELS, PreOpChecklistItem } from '@/data/types';
 import { PROCEDURES, SURGEONS, CONCIERGES, PAYERS, BILLING_TYPES, SURGICAL_APPROACHES, PATIENT_TYPE_LABELS, procedureNeedsApproach } from '@/data/constants';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
@@ -7,11 +7,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Checkbox } from '@/components/ui/checkbox';
 import { FollowUpTimeline } from './FollowUpTimeline';
 import { PreOpChecklist } from './PreOpChecklist';
-import { Calendar, UserRound, Stethoscope, DollarSign, Clock, Plus, CheckCircle2, Circle, Building2, CreditCard, MapPin, Flag, Pencil, Save, X, AlertTriangle, Baby, User, Trash2 } from 'lucide-react';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { Calendar, UserRound, Stethoscope, DollarSign, Clock, Plus, CheckCircle2, Circle, Building2, CreditCard, MapPin, Flag, Pencil, Save, X, AlertTriangle, Baby, User } from 'lucide-react';
 
 const decisionColors: Record<string, string> = {
   waiting: 'bg-muted text-muted-foreground',
@@ -36,15 +34,11 @@ interface PatientPanelProps {
   onAddTask: (patientId: string) => void;
   onTogglePreOpItem: (patientId: string, item: PreOpChecklistItem) => void;
   onUpdateFields: (patientId: string, fields: Record<string, any>) => void;
-  onAddPendingItem: (patientId: string, title: string) => void;
-  onTogglePendingItem: (id: string, checked: boolean) => void;
-  onDeletePendingItem: (id: string) => void;
 }
 
-export function PatientPanel({ patient, open, onClose, onUpdateDecision, onUpdateOwner, onCompleteTask, onAddTask, onTogglePreOpItem, onUpdateFields, onAddPendingItem, onTogglePendingItem, onDeletePendingItem }: PatientPanelProps) {
+export function PatientPanel({ patient, open, onClose, onUpdateDecision, onUpdateOwner, onCompleteTask, onAddTask, onTogglePreOpItem, onUpdateFields }: PatientPanelProps) {
   const [editing, setEditing] = useState(false);
   const [editData, setEditData] = useState<Record<string, any>>({});
-  const [newPendingTitle, setNewPendingTitle] = useState('');
 
   if (!patient) return null;
 
@@ -76,11 +70,7 @@ export function PatientPanel({ patient, open, onClose, onUpdateDecision, onUpdat
   const saveEditing = () => {
     const fields: Record<string, any> = {};
     for (const [key, val] of Object.entries(editData)) {
-      if (val === '') {
-        fields[key] = null;
-      } else {
-        fields[key] = val;
-      }
+      fields[key] = val === '' ? null : val;
     }
     onUpdateFields(patient.id, fields);
     setEditing(false);
@@ -89,12 +79,6 @@ export function PatientPanel({ patient, open, onClose, onUpdateDecision, onUpdat
   const cancelEditing = () => {
     setEditing(false);
     setEditData({});
-  };
-
-  const handleAddPending = () => {
-    if (!newPendingTitle.trim()) return;
-    onAddPendingItem(patient.id, newPendingTitle.trim());
-    setNewPendingTitle('');
   };
 
   const formatCurrency = (value: number | null) => {
@@ -330,40 +314,6 @@ export function PatientPanel({ patient, open, onClose, onUpdateDecision, onUpdat
               )}
             </>
           )}
-
-          {/* Pending Items */}
-          <div className="space-y-3">
-            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-              Pendências ({patient.pendingItems.filter((i) => !i.checked).length})
-            </label>
-            <div className="flex gap-2">
-              <Input
-                value={newPendingTitle}
-                onChange={(e) => setNewPendingTitle(e.target.value)}
-                placeholder="Nova pendência..."
-                className="h-8 text-sm"
-                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddPending())}
-              />
-              <Button variant="outline" size="sm" className="h-8 shrink-0" onClick={handleAddPending}>
-                <Plus className="h-3 w-3" />
-              </Button>
-            </div>
-            <div className="space-y-1">
-              {patient.pendingItems.map((item) => (
-                <div key={item.id} className="flex items-center gap-2 p-2 rounded bg-muted/50 group">
-                  <Checkbox
-                    checked={item.checked}
-                    onCheckedChange={(checked) => onTogglePendingItem(item.id, !!checked)}
-                    className="shrink-0"
-                  />
-                  <span className={`text-sm flex-1 ${item.checked ? 'line-through text-muted-foreground' : ''}`}>{item.title}</span>
-                  <button onClick={() => onDeletePendingItem(item.id)} className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity">
-                    <Trash2 className="h-3 w-3" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
 
           {/* Pre-op Checklist */}
           {patient.stage === 'preop_preparation' && (

@@ -183,6 +183,7 @@ export function useUpdatePatientStage() {
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['patients'] }),
+    onError: () => qc.invalidateQueries({ queryKey: ['patients'] }),
   });
 }
 

@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Patient, PIPELINE_STAGES, PipelineStage, DecisionStatus, Owner, Notification, PatientTask, PreOpChecklistItem, getNextPendingTask, getTaskUrgency, STAGE_LABELS, LossReason } from '@/data/types';
-import { usePatients, useUpdatePatientStage, useUpdatePatientField, useUpdatePatientFields, useCompleteTask, useAddTask, useTogglePreOpItem, useAddPatient, useAddPendingItem, useTogglePendingItem, useDeletePendingItem } from '@/hooks/usePatients';
+import { usePatients, useUpdatePatientStage, useUpdatePatientField, useUpdatePatientFields, useCompleteTask, useAddTask, useTogglePreOpItem, useAddPatient } from '@/hooks/usePatients';
 import { PipelineColumn } from './PipelineColumn';
 import { PatientPanel } from './PatientPanel';
 import { FilterBar } from './FilterBar';
@@ -14,6 +14,7 @@ import { DragDropContext, DropResult } from '@hello-pangea/dnd';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useQueryClient } from '@tanstack/react-query';
 
 const ACTIVE_STAGES = PIPELINE_STAGES.filter((s) => s !== 'lost') as PipelineStage[];
 
@@ -26,10 +27,8 @@ export function PipelineDashboard() {
   const addTaskMutation = useAddTask();
   const togglePreOp = useTogglePreOpItem();
   const addPatientMutation = useAddPatient();
-  const addPendingItemMutation = useAddPendingItem();
-  const togglePendingItemMutation = useTogglePendingItem();
-  const deletePendingItemMutation = useDeletePendingItem();
   const { signOut, user } = useAuth();
+  const queryClient = useQueryClient();
 
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
@@ -116,22 +115,69 @@ export function PipelineDashboard() {
       return;
     }
 
-    updateStage.mutate({ id: draggableId, stage: newStage });
-  }, [updateStage]);
+    // Optimistic update
+    queryClient.setQueryData<Patient[]>(['patients'], (old) => {
+      if (!old) return old;
+      return old.map((p) =>
+        p.id === draggableId
+          ? { ...p, stage: newStage, stageEnteredAt: new Date().toISOString().split('T')[0] }
+          : p
+      );
+    });
+
+    updateStage.mutate({ id: draggableId, stage: newStage }, {
+      onError: (err) => {
+        // Revert on failure
+        queryClient.setQueryData<Patient[]>(['patients'], (old) => {
+          if (!old) return old;
+          return old.map((p) =>
+            p.id === draggableId
+              ? { ...p, stage: oldStage }
+              : p
+          );
+        });
+        toast.error('Erro ao mover paciente. Tente novamente.');
+      },
+    });
+  }, [updateStage, queryClient]);
 
   const handleLossConfirm = useCallback((reason: LossReason, detail: string | null) => {
     if (!pendingLossDrag) return;
+
+    // Optimistic update for loss
+    queryClient.setQueryData<Patient[]>(['patients'], (old) => {
+      if (!old) return old;
+      return old.map((p) =>
+        p.id === pendingLossDrag.patientId
+          ? { ...p, stage: 'lost' as PipelineStage, lossReason: reason, lossReasonDetail: detail }
+          : p
+      );
+    });
+
     updateStage.mutate({
       id: pendingLossDrag.patientId,
       stage: 'lost',
       lossReason: reason,
       lossReasonDetail: detail,
+    }, {
+      onError: () => {
+        queryClient.setQueryData<Patient[]>(['patients'], (old) => {
+          if (!old) return old;
+          return old.map((p) =>
+            p.id === pendingLossDrag.patientId
+              ? { ...p, stage: pendingLossDrag.fromStage, lossReason: null, lossReasonDetail: null }
+              : p
+          );
+        });
+        toast.error('Erro ao marcar como perdido. Tente novamente.');
+      },
     });
+
     const patient = patients.find((p) => p.id === pendingLossDrag.patientId);
     if (patient) toast.info(`${patient.name} marcado como perdido`);
     setLossDialogOpen(false);
     setPendingLossDrag(null);
-  }, [pendingLossDrag, patients, updateStage]);
+  }, [pendingLossDrag, patients, updateStage, queryClient]);
 
   const handleLossCancel = useCallback(() => {
     setLossDialogOpen(false);
@@ -187,18 +233,6 @@ export function PipelineDashboard() {
   const handleAddPatient = useCallback((patient: Partial<Patient> & { name: string; procedure: string; surgeon: string }) => {
     addPatientMutation.mutate(patient);
   }, [addPatientMutation]);
-
-  const handleAddPendingItem = useCallback((patientId: string, title: string) => {
-    addPendingItemMutation.mutate({ patientId, title });
-  }, [addPendingItemMutation]);
-
-  const handleTogglePendingItem = useCallback((id: string, checked: boolean) => {
-    togglePendingItemMutation.mutate({ id, checked });
-  }, [togglePendingItemMutation]);
-
-  const handleDeletePendingItem = useCallback((id: string) => {
-    deletePendingItemMutation.mutate(id);
-  }, [deletePendingItemMutation]);
 
   const handleMarkNotificationRead = useCallback((id: string) => {
     setReadNotifications((prev) => new Set(prev).add(id));
@@ -311,9 +345,6 @@ export function PipelineDashboard() {
         onAddTask={handleAddTask}
         onTogglePreOpItem={handleTogglePreOpItem}
         onUpdateFields={handleUpdateFields}
-        onAddPendingItem={handleAddPendingItem}
-        onTogglePendingItem={handleTogglePendingItem}
-        onDeletePendingItem={handleDeletePendingItem}
       />
       <AddPatientForm open={addOpen} onClose={() => setAddOpen(false)} onAdd={handleAddPatient} />
       <AddTaskDialog open={addTaskOpen} onClose={() => setAddTaskOpen(false)} onAdd={handleTaskCreated} patientName={taskPatient?.name || ''} defaultResponsible={taskPatient?.owner} />
