@@ -242,7 +242,7 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
                 <Input
                   value={newTaskTitle}
                   onChange={(e) => setNewTaskTitle(e.target.value)}
-                  placeholder="Adicionar tarefa..."
+                  placeholder="Adicionar ação..."
                   onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addInitialTask())}
                   className="focus-visible:ring-offset-0"
                 />
