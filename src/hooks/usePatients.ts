@@ -107,7 +107,7 @@ export function usePatients() {
 export function useAddPatient() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (p: Partial<Patient> & { name: string; procedure: string; surgeon: string }) => {
+    mutationFn: async (p: Partial<Patient> & { name: string; procedure: string; surgeon: string; initialTaskTitles?: string[] }) => {
       const { data, error } = await supabase.from('patients').insert({
         name: p.name,
         procedure_name: p.procedure,
@@ -147,14 +147,18 @@ export function useAddPatient() {
       }));
       await supabase.from('preop_checklist_items').insert(checklistInserts);
 
-      // Create pending items if provided
-      if (p.pendingItems && p.pendingItems.length > 0) {
-        const pendingInserts = p.pendingItems.map((item) => ({
+      // Create tasks from initial task titles
+      if (p.initialTaskTitles && p.initialTaskTitles.length > 0) {
+        const today = new Date().toISOString().split('T')[0];
+        const taskInserts = p.initialTaskTitles.map((title) => ({
           patient_id: data.id,
-          title: item.title,
-          checked: false,
+          title,
+          due_date: today,
+          due_time: '10:00:00',
+          responsible: 'Margô',
+          completed: false,
         }));
-        await supabase.from('pending_items' as any).insert(pendingInserts);
+        await supabase.from('tasks').insert(taskInserts);
       }
 
       return data;

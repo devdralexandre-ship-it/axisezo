@@ -235,27 +235,27 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
               <Textarea value={alerts} onChange={(e) => setAlerts(e.target.value)} placeholder="Alergias, comorbidades, observações importantes..." rows={2} className="focus-visible:ring-offset-0" />
             </div>
 
-            {/* Pending Items */}
+            {/* Initial Tasks */}
             <div className="space-y-2">
-              <Label>Pendências</Label>
+              <Label>Tarefas Iniciais</Label>
               <div className="flex gap-2">
                 <Input
-                  value={newPendingItem}
-                  onChange={(e) => setNewPendingItem(e.target.value)}
-                  placeholder="Adicionar pendência..."
-                  onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addPendingItem())}
+                  value={newTaskTitle}
+                  onChange={(e) => setNewTaskTitle(e.target.value)}
+                  placeholder="Adicionar tarefa..."
+                  onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addInitialTask())}
                   className="focus-visible:ring-offset-0"
                 />
-                <Button type="button" variant="outline" size="icon" onClick={addPendingItem} className="shrink-0">
+                <Button type="button" variant="outline" size="icon" onClick={addInitialTask} className="shrink-0">
                   <Plus className="h-4 w-4" />
                 </Button>
               </div>
-              {pendingItems.length > 0 && (
+              {initialTasks.length > 0 && (
                 <div className="space-y-1 mt-2">
-                  {pendingItems.map((item) => (
+                  {initialTasks.map((item) => (
                     <div key={item.id} className="flex items-center gap-2 p-2 rounded bg-muted/50">
                       <span className="text-sm flex-1">{item.title}</span>
-                      <button onClick={() => removePendingItem(item.id)} className="text-muted-foreground hover:text-destructive">
+                      <button onClick={() => removeInitialTask(item.id)} className="text-muted-foreground hover:text-destructive">
                         <X className="h-3.5 w-3.5" />
                       </button>
                     </div>
