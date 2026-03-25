@@ -102,7 +102,7 @@ export function PatientCard({ patient, onClick, onCompleteTask }: PatientCardPro
           </div>
         ) : (
           <div className="flex items-center gap-1.5 text-[11px] p-1.5 rounded bg-destructive/10 text-destructive">
-            <span>⚠ Sem tarefa pendente</span>
+            <span>⚠ Sem próxima ação definida</span>
           </div>
         )}
       </CardContent>

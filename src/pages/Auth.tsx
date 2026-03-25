@@ -44,7 +44,7 @@ export default function Auth() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
-          <CardTitle className="text-xl">Pipeline Cirúrgico</CardTitle>
+          <CardTitle className="text-xl">Axis</CardTitle>
           <CardDescription>
             {isLogin ? 'Entre na sua conta' : 'Crie uma nova conta'}
           </CardDescription>

@@ -237,12 +237,12 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
 
             {/* Initial Tasks */}
             <div className="space-y-2">
-              <Label>Tarefas Iniciais</Label>
+              <Label>Ações Iniciais</Label>
               <div className="flex gap-2">
                 <Input
                   value={newTaskTitle}
                   onChange={(e) => setNewTaskTitle(e.target.value)}
-                  placeholder="Adicionar tarefa..."
+                  placeholder="Adicionar ação..."
                   onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addInitialTask())}
                   className="focus-visible:ring-offset-0"
                 />
@@ -267,7 +267,7 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
         </div>
         <DialogFooter className="px-6 py-4 border-t border-border shrink-0">
           <Button variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button onClick={handleSubmit} disabled={!name || !procedure || !surgeon}>Adicionar</Button>
+          <Button onClick={handleSubmit} disabled={!name || !procedure || !surgeon}>Criar paciente</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

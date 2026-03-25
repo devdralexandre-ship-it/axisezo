@@ -66,11 +66,11 @@ export function PipelineDashboard() {
       const nextTask = getNextPendingTask(p);
       const urgency = getTaskUrgency(nextTask);
       if (urgency === 'red' && nextTask) {
-        notifs.push({ id: `overdue-${p.id}-${nextTask.id}`, message: `Tarefa atrasada: "${nextTask.title}"`, patientId: p.id, patientName: p.name, type: 'task_overdue', read: readNotifications.has(`overdue-${p.id}-${nextTask.id}`), createdAt: new Date().toISOString() });
+        notifs.push({ id: `overdue-${p.id}-${nextTask.id}`, message: `Ação atrasada: "${nextTask.title}"`, patientId: p.id, patientName: p.name, type: 'task_overdue', read: readNotifications.has(`overdue-${p.id}-${nextTask.id}`), createdAt: new Date().toISOString() });
       } else if (urgency === 'red' && !nextTask) {
-        notifs.push({ id: `no-task-${p.id}`, message: 'Paciente sem tarefa pendente', patientId: p.id, patientName: p.name, type: 'task_overdue', read: readNotifications.has(`no-task-${p.id}`), createdAt: new Date().toISOString() });
+        notifs.push({ id: `no-task-${p.id}`, message: 'Paciente sem próxima ação definida', patientId: p.id, patientName: p.name, type: 'task_overdue', read: readNotifications.has(`no-task-${p.id}`), createdAt: new Date().toISOString() });
       } else if (urgency === 'yellow' && nextTask) {
-        notifs.push({ id: `today-${p.id}-${nextTask.id}`, message: `Tarefa vence hoje: "${nextTask.title}"`, patientId: p.id, patientName: p.name, type: 'task_due_today', read: readNotifications.has(`today-${p.id}-${nextTask.id}`), createdAt: new Date().toISOString() });
+        notifs.push({ id: `today-${p.id}-${nextTask.id}`, message: `Ação vence hoje: "${nextTask.title}"`, patientId: p.id, patientName: p.name, type: 'task_due_today', read: readNotifications.has(`today-${p.id}-${nextTask.id}`), createdAt: new Date().toISOString() });
       }
     });
     return notifs;
@@ -199,10 +199,10 @@ export function PipelineDashboard() {
   const handleCompleteTask = useCallback((patientId: string, taskId: string) => {
     completeTaskMutation.mutate(taskId, {
       onSuccess: () => {
-        toast.success('Tarefa concluída!', {
-          description: 'Deseja criar a próxima tarefa?',
+        toast.success('Ação concluída!', {
+          description: 'Deseja criar a próxima ação?',
           action: {
-            label: 'Criar tarefa',
+            label: 'Nova ação',
             onClick: () => {
               setTaskPatientId(patientId);
               setAddTaskOpen(true);
@@ -269,8 +269,8 @@ export function PipelineDashboard() {
       <header className="border-b border-border px-6 py-4">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-xl font-bold text-foreground tracking-tight">Pipeline Cirúrgico</h1>
-            <p className="text-sm text-muted-foreground">Gestão de conversão de pacientes</p>
+            <h1 className="text-xl font-bold text-foreground tracking-tight">Axis</h1>
+            <p className="text-sm text-muted-foreground">Pipeline de decisão cirúrgica</p>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground hidden sm:inline">{user?.email}</span>

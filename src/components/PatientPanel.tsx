@@ -327,13 +327,18 @@ export function PatientPanel({ patient, open, onClose, onUpdateDecision, onUpdat
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Tarefas ({pendingTasks.length} pendente{pendingTasks.length !== 1 ? 's' : ''})
+                Ações ({pendingTasks.length} pendente{pendingTasks.length !== 1 ? 's' : ''})
               </label>
               <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => onAddTask(patient.id)}>
-                <Plus className="h-3 w-3 mr-1" /> Nova
+                <Plus className="h-3 w-3 mr-1" /> Nova ação
               </Button>
             </div>
             <div className="space-y-1.5">
+              {pendingTasks.length === 0 && completedTasks.length === 0 && (
+                <p className="text-sm text-muted-foreground py-3 text-center">
+                  Nenhuma ação definida. Defina o próximo passo para avançar este paciente.
+                </p>
+              )}
               {pendingTasks.map((task) => {
                 const urgency = getTaskUrgency(task);
                 return (

@@ -43,7 +43,7 @@ export function AddTaskDialog({ open, onClose, onAdd, patientName, defaultRespon
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>Nova Tarefa — {patientName}</DialogTitle>
+          <DialogTitle>Nova Ação — {patientName}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
@@ -72,7 +72,7 @@ export function AddTaskDialog({ open, onClose, onAdd, patientName, defaultRespon
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button onClick={handleSubmit} disabled={!title || !dueDate}>Adicionar</Button>
+          <Button onClick={handleSubmit} disabled={!title || !dueDate}>Criar ação</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
