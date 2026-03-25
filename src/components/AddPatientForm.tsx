@@ -38,14 +38,14 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
   const showPayerOther = payer === 'Outros';
   const showMedicalFees = billingType === 'Particular';
 
-  const addPendingItem = () => {
-    if (!newPendingItem.trim()) return;
-    setPendingItems([...pendingItems, { id: crypto.randomUUID(), title: newPendingItem.trim(), checked: false }]);
-    setNewPendingItem('');
+  const addInitialTask = () => {
+    if (!newTaskTitle.trim()) return;
+    setInitialTasks([...initialTasks, { id: crypto.randomUUID(), title: newTaskTitle.trim() }]);
+    setNewTaskTitle('');
   };
 
-  const removePendingItem = (id: string) => {
-    setPendingItems(pendingItems.filter((i) => i.id !== id));
+  const removeInitialTask = (id: string) => {
+    setInitialTasks(initialTasks.filter((i) => i.id !== id));
   };
 
   const resetForm = () => {
