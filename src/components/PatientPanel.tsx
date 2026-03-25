@@ -334,6 +334,11 @@ export function PatientPanel({ patient, open, onClose, onUpdateDecision, onUpdat
               </Button>
             </div>
             <div className="space-y-1.5">
+              {pendingTasks.length === 0 && completedTasks.length === 0 && (
+                <p className="text-sm text-muted-foreground py-3 text-center">
+                  Nenhuma ação definida. Defina o próximo passo para avançar este paciente.
+                </p>
+              )}
               {pendingTasks.map((task) => {
                 const urgency = getTaskUrgency(task);
                 return (
