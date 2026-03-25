@@ -78,7 +78,7 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
       nextFollowUpDate: null,
       phone,
       email,
-      pendingItems,
+      initialTaskTitles: initialTasks.map(t => t.title),
       createdAt: today,
       indicationDate: today,
       indicationLocation: null,
