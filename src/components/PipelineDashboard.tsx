@@ -199,10 +199,10 @@ export function PipelineDashboard() {
   const handleCompleteTask = useCallback((patientId: string, taskId: string) => {
     completeTaskMutation.mutate(taskId, {
       onSuccess: () => {
-        toast.success('Tarefa concluída!', {
-          description: 'Deseja criar a próxima tarefa?',
+        toast.success('Ação concluída!', {
+          description: 'Deseja criar a próxima ação?',
           action: {
-            label: 'Criar tarefa',
+            label: 'Nova ação',
             onClick: () => {
               setTaskPatientId(patientId);
               setAddTaskOpen(true);
