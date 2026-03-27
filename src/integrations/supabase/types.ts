@@ -59,7 +59,6 @@ export type Database = {
           anesthesia_fees: number | null
           billing_type: string | null
           concierge: string
-          contact_reference: string | null
           created_at: string
           decision_status: Database["public"]["Enums"]["decision_status"]
           desired_hospital: string | null
@@ -96,7 +95,6 @@ export type Database = {
           anesthesia_fees?: number | null
           billing_type?: string | null
           concierge?: string
-          contact_reference?: string | null
           created_at?: string
           decision_status?: Database["public"]["Enums"]["decision_status"]
           desired_hospital?: string | null
@@ -133,7 +131,6 @@ export type Database = {
           anesthesia_fees?: number | null
           billing_type?: string | null
           concierge?: string
-          contact_reference?: string | null
           created_at?: string
           decision_status?: Database["public"]["Enums"]["decision_status"]
           desired_hospital?: string | null

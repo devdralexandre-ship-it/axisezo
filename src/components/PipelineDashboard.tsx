@@ -291,7 +291,7 @@ export function PipelineDashboard() {
     togglePreOp.mutate({ patientId, itemKey: item, checked: !currentValue });
   }, [patients, togglePreOp]);
 
-  const handleAddPatient = useCallback((patient: Partial<Patient> & { name: string; procedure: string; surgeon: string }) => {
+  const handleAddPatient = useCallback((patient: Partial<Patient> & { name: string; procedure: string; surgeon: string; initialTasks?: { title: string; dueDate: string; dueTime: string; responsible: string }[] }) => {
     addPatientMutation.mutate(patient);
   }, [addPatientMutation]);
 
