@@ -56,20 +56,22 @@ export type Database = {
         Row: {
           age: number | null
           alerts: string | null
+          anesthesia_fees: number | null
           billing_type: string | null
           concierge: string
-          contact_reference: string | null
           created_at: string
           decision_status: Database["public"]["Enums"]["decision_status"]
           desired_hospital: string | null
           email: string | null
           estimated_value: number | null
+          hospital_budget: number | null
           id: string
           indication_date: string | null
           indication_location: string | null
           last_interaction_date: string
           loss_reason: Database["public"]["Enums"]["loss_reason"] | null
           loss_reason_detail: string | null
+          materials_cost: number | null
           medical_fees: number | null
           name: string
           next_follow_up_date: string | null
@@ -80,7 +82,7 @@ export type Database = {
           phone: string | null
           procedure_category: string | null
           procedure_name: string
-          special_flag: string | null
+          responsible_contact: string | null
           stage: Database["public"]["Enums"]["pipeline_stage"]
           stage_entered_at: string
           surgeon: string
@@ -90,20 +92,22 @@ export type Database = {
         Insert: {
           age?: number | null
           alerts?: string | null
+          anesthesia_fees?: number | null
           billing_type?: string | null
           concierge?: string
-          contact_reference?: string | null
           created_at?: string
           decision_status?: Database["public"]["Enums"]["decision_status"]
           desired_hospital?: string | null
           email?: string | null
           estimated_value?: number | null
+          hospital_budget?: number | null
           id?: string
           indication_date?: string | null
           indication_location?: string | null
           last_interaction_date?: string
           loss_reason?: Database["public"]["Enums"]["loss_reason"] | null
           loss_reason_detail?: string | null
+          materials_cost?: number | null
           medical_fees?: number | null
           name: string
           next_follow_up_date?: string | null
@@ -114,7 +118,7 @@ export type Database = {
           phone?: string | null
           procedure_category?: string | null
           procedure_name: string
-          special_flag?: string | null
+          responsible_contact?: string | null
           stage?: Database["public"]["Enums"]["pipeline_stage"]
           stage_entered_at?: string
           surgeon: string
@@ -124,20 +128,22 @@ export type Database = {
         Update: {
           age?: number | null
           alerts?: string | null
+          anesthesia_fees?: number | null
           billing_type?: string | null
           concierge?: string
-          contact_reference?: string | null
           created_at?: string
           decision_status?: Database["public"]["Enums"]["decision_status"]
           desired_hospital?: string | null
           email?: string | null
           estimated_value?: number | null
+          hospital_budget?: number | null
           id?: string
           indication_date?: string | null
           indication_location?: string | null
           last_interaction_date?: string
           loss_reason?: Database["public"]["Enums"]["loss_reason"] | null
           loss_reason_detail?: string | null
+          materials_cost?: number | null
           medical_fees?: number | null
           name?: string
           next_follow_up_date?: string | null
@@ -148,7 +154,7 @@ export type Database = {
           phone?: string | null
           procedure_category?: string | null
           procedure_name?: string
-          special_flag?: string | null
+          responsible_contact?: string | null
           stage?: Database["public"]["Enums"]["pipeline_stage"]
           stage_entered_at?: string
           surgeon?: string

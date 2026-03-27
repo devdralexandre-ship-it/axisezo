@@ -83,13 +83,15 @@ function mapDbToPatient(db: DbPatient): Patient {
     payer: db.payer,
     billingType: (db as any).billing_type || null,
     medicalFees: (db as any).medical_fees != null ? Number((db as any).medical_fees) : null,
-    contactReference: db.contact_reference,
+    responsibleContact: (db as any).responsible_contact || null,
     desiredHospital: db.desired_hospital,
     notes: db.notes,
     alerts: (db as any).alerts || null,
     lossReason: db.loss_reason as LossReason | null,
     lossReasonDetail: db.loss_reason_detail,
-    specialFlag: db.special_flag,
+    anesthesiaFees: (db as any).anesthesia_fees != null ? Number((db as any).anesthesia_fees) : null,
+    hospitalBudget: (db as any).hospital_budget != null ? Number((db as any).hospital_budget) : null,
+    materialsCost: (db as any).materials_cost != null ? Number((db as any).materials_cost) : null,
     preOpChecklist,
   };
 }
@@ -107,7 +109,7 @@ export function usePatients() {
 export function useAddPatient() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (p: Partial<Patient> & { name: string; procedure: string; surgeon: string; initialTaskTitles?: string[] }) => {
+    mutationFn: async (p: Partial<Patient> & { name: string; procedure: string; surgeon: string; initialTasks?: { title: string; dueDate: string; dueTime: string; responsible: string }[] }) => {
       const { data, error } = await supabase.from('patients').insert({
         name: p.name,
         procedure_name: p.procedure,
@@ -126,14 +128,16 @@ export function useAddPatient() {
         indication_date: p.indicationDate,
         indication_location: p.indicationLocation,
         payer: p.payer,
-        contact_reference: p.contactReference,
+        responsible_contact: p.responsibleContact,
         desired_hospital: p.desiredHospital,
         notes: p.notes,
-        special_flag: p.specialFlag,
         age: p.age,
         patient_type: p.patientType || 'adult',
         billing_type: p.billingType,
         medical_fees: p.medicalFees,
+        anesthesia_fees: p.anesthesiaFees,
+        hospital_budget: p.hospitalBudget,
+        materials_cost: p.materialsCost,
         alerts: p.alerts,
         surgical_approach: p.surgicalApproach,
       } as any).select().single();
@@ -146,14 +150,13 @@ export function useAddPatient() {
       }));
       await supabase.from('preop_checklist_items').insert(checklistInserts);
 
-      if (p.initialTaskTitles && p.initialTaskTitles.length > 0) {
-        const today = new Date().toISOString().split('T')[0];
-        const taskInserts = p.initialTaskTitles.map((title) => ({
+      if (p.initialTasks && p.initialTasks.length > 0) {
+        const taskInserts = p.initialTasks.map((t) => ({
           patient_id: data.id,
-          title,
-          due_date: today,
-          due_time: '10:00:00',
-          responsible: 'Margô',
+          title: t.title,
+          due_date: t.dueDate,
+          due_time: t.dueTime + ':00',
+          responsible: t.responsible,
           completed: false,
         }));
         await supabase.from('tasks').insert(taskInserts);
@@ -184,14 +187,8 @@ export function useUpdatePatientStage() {
       }).eq('id', id);
       if (error) throw error;
     },
-    // BUG 2 FIX: Do NOT auto-invalidate here. The call site (PipelineDashboard)
-    // handles optimistic updates and error recovery. Auto-invalidation here
-    // causes race conditions when other mutations (like addPatient) also invalidate.
-    onSuccess: () => {
-      // Intentionally empty - call site handles cache
-    },
+    onSuccess: () => {},
     onError: () => {
-      // Revert handled at call site; just refetch to be safe
       qc.invalidateQueries({ queryKey: ['patients'] });
     },
   });
@@ -312,7 +309,6 @@ export function useDeletePatient() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      // Delete related records first
       await supabase.from('tasks').delete().eq('patient_id', id);
       await supabase.from('contact_records').delete().eq('patient_id', id);
       await supabase.from('preop_checklist_items').delete().eq('patient_id', id);

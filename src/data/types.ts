@@ -176,13 +176,15 @@ export interface Patient {
   payer: string | null;
   billingType: string | null;
   medicalFees: number | null;
-  contactReference: string | null;
+  responsibleContact: string | null;
   desiredHospital: string | null;
   notes: string | null;
   alerts: string | null;
   lossReason: LossReason | null;
   lossReasonDetail: string | null;
-  specialFlag: string | null;
+  anesthesiaFees: number | null;
+  hospitalBudget: number | null;
+  materialsCost: number | null;
   preOpChecklist: PreOpChecklist;
 }
 
