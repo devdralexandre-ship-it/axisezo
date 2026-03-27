@@ -69,7 +69,7 @@ function mapDbToPatient(db: DbPatient): Patient {
     stage: db.stage as PipelineStage,
     stageEnteredAt: db.stage_entered_at,
     decisionStatus: db.decision_status as DecisionStatus,
-    estimatedValue: db.estimated_value ? Number(db.estimated_value) : null,
+    estimatedValue: db.estimated_value != null ? Number(db.estimated_value) : null,
     lastInteractionDate: db.last_interaction_date,
     nextFollowUpDate: db.next_follow_up_date,
     phone: db.phone || '',
@@ -82,7 +82,7 @@ function mapDbToPatient(db: DbPatient): Patient {
     indicationLocation: db.indication_location,
     payer: db.payer,
     billingType: (db as any).billing_type || null,
-    medicalFees: (db as any).medical_fees ? Number((db as any).medical_fees) : null,
+    medicalFees: (db as any).medical_fees != null ? Number((db as any).medical_fees) : null,
     contactReference: db.contact_reference,
     desiredHospital: db.desired_hospital,
     notes: db.notes,
@@ -139,7 +139,6 @@ export function useAddPatient() {
       } as any).select().single();
       if (error) throw error;
 
-      // Create default preop checklist items
       const checklistInserts = PREOP_CHECKLIST_ITEMS.map((key) => ({
         patient_id: data.id,
         item_key: key,
@@ -147,7 +146,6 @@ export function useAddPatient() {
       }));
       await supabase.from('preop_checklist_items').insert(checklistInserts);
 
-      // Create tasks from initial task titles
       if (p.initialTaskTitles && p.initialTaskTitles.length > 0) {
         const today = new Date().toISOString().split('T')[0];
         const taskInserts = p.initialTaskTitles.map((title) => ({
@@ -186,8 +184,16 @@ export function useUpdatePatientStage() {
       }).eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['patients'] }),
-    onError: () => qc.invalidateQueries({ queryKey: ['patients'] }),
+    // BUG 2 FIX: Do NOT auto-invalidate here. The call site (PipelineDashboard)
+    // handles optimistic updates and error recovery. Auto-invalidation here
+    // causes race conditions when other mutations (like addPatient) also invalidate.
+    onSuccess: () => {
+      // Intentionally empty - call site handles cache
+    },
+    onError: () => {
+      // Revert handled at call site; just refetch to be safe
+      qc.invalidateQueries({ queryKey: ['patients'] });
+    },
   });
 }
 
@@ -299,5 +305,25 @@ export function useDeletePendingItem() {
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['patients'] }),
+  });
+}
+
+export function useDeletePatient() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      // Delete related records first
+      await supabase.from('tasks').delete().eq('patient_id', id);
+      await supabase.from('contact_records').delete().eq('patient_id', id);
+      await supabase.from('preop_checklist_items').delete().eq('patient_id', id);
+      await supabase.from('pending_items' as any).delete().eq('patient_id', id);
+      const { error } = await supabase.from('patients').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['patients'] });
+      toast.success('Paciente excluído!');
+    },
+    onError: (e) => toast.error(`Erro ao excluir: ${e.message}`),
   });
 }

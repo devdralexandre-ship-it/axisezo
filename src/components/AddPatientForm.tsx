@@ -15,11 +15,14 @@ interface AddPatientFormProps {
   onAdd: (patient: Partial<Patient> & { name: string; procedure: string; surgeon: string; initialTaskTitles?: string[] }) => void;
 }
 
+const OTHER_PROCEDURE = '__outro__';
+
 export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
   const [name, setName] = useState('');
   const [age, setAge] = useState('');
   const [patientType, setPatientType] = useState('adult');
   const [procedure, setProcedure] = useState('');
+  const [customProcedure, setCustomProcedure] = useState('');
   const [surgicalApproach, setSurgicalApproach] = useState('');
   const [surgeon, setSurgeon] = useState('');
   const [concierge, setConcierge] = useState('');
@@ -34,7 +37,9 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
   const [initialTasks, setInitialTasks] = useState<{ id: string; title: string }[]>([]);
   const [newTaskTitle, setNewTaskTitle] = useState('');
 
-  const showApproach = procedureNeedsApproach(procedure);
+  const isCustomProcedure = procedure === OTHER_PROCEDURE;
+  const effectiveProcedure = isCustomProcedure ? customProcedure : procedure;
+  const showApproach = procedureNeedsApproach(effectiveProcedure);
   const showPayerOther = payer === 'Outros';
   const showMedicalFees = billingType === 'Particular';
 
@@ -49,14 +54,14 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
   };
 
   const resetForm = () => {
-    setName(''); setAge(''); setPatientType('adult'); setProcedure(''); setSurgicalApproach('');
-    setSurgeon(''); setConcierge(''); setStage(PIPELINE_STAGES[0]);
+    setName(''); setAge(''); setPatientType('adult'); setProcedure(''); setCustomProcedure('');
+    setSurgicalApproach(''); setSurgeon(''); setConcierge(''); setStage(PIPELINE_STAGES[0]);
     setPhone(''); setEmail(''); setPayer(''); setPayerOther(''); setBillingType('');
     setMedicalFees(''); setAlerts(''); setInitialTasks([]); setNewTaskTitle('');
   };
 
   const handleSubmit = () => {
-    if (!name || !procedure || !surgeon) return;
+    if (!name || !effectiveProcedure || !surgeon) return;
     const today = new Date().toISOString().split('T')[0];
     const finalPayer = payer === 'Outros' ? payerOther : payer;
 
@@ -64,7 +69,7 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
       name,
       age: age ? parseInt(age) : null,
       patientType,
-      procedure,
+      procedure: effectiveProcedure,
       procedureCategory: '',
       surgicalApproach: showApproach ? surgicalApproach || null : null,
       surgeon,
@@ -132,12 +137,21 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
             {/* Procedure */}
             <div className="space-y-2">
               <Label>Procedimento *</Label>
-              <Select value={procedure} onValueChange={(v) => { setProcedure(v); if (!procedureNeedsApproach(v)) setSurgicalApproach(''); }}>
+              <Select value={procedure} onValueChange={(v) => { setProcedure(v); if (v !== OTHER_PROCEDURE && !procedureNeedsApproach(v)) setSurgicalApproach(''); }}>
                 <SelectTrigger className="focus:ring-offset-0"><SelectValue placeholder="Selecione o procedimento" /></SelectTrigger>
                 <SelectContent>
                   {PROCEDURES.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                  <SelectItem value={OTHER_PROCEDURE}>Outro...</SelectItem>
                 </SelectContent>
               </Select>
+              {isCustomProcedure && (
+                <Input
+                  value={customProcedure}
+                  onChange={(e) => setCustomProcedure(e.target.value)}
+                  placeholder="Informe o procedimento"
+                  className="mt-2 focus-visible:ring-offset-0"
+                />
+              )}
             </div>
 
             {/* Surgical Approach */}
@@ -267,7 +281,7 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
         </div>
         <DialogFooter className="px-6 py-4 border-t border-border shrink-0">
           <Button variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button onClick={handleSubmit} disabled={!name || !procedure || !surgeon}>Criar paciente</Button>
+          <Button onClick={handleSubmit} disabled={!name || !effectiveProcedure || !surgeon}>Criar paciente</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

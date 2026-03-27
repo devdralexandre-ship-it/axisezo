@@ -1,6 +1,6 @@
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { Patient, PIPELINE_STAGES, PipelineStage, DecisionStatus, Owner, Notification, PatientTask, PreOpChecklistItem, getNextPendingTask, getTaskUrgency, STAGE_LABELS, LossReason } from '@/data/types';
-import { usePatients, useUpdatePatientStage, useUpdatePatientField, useUpdatePatientFields, useCompleteTask, useAddTask, useTogglePreOpItem, useAddPatient } from '@/hooks/usePatients';
+import { usePatients, useUpdatePatientStage, useUpdatePatientField, useUpdatePatientFields, useCompleteTask, useAddTask, useTogglePreOpItem, useAddPatient, useDeletePatient } from '@/hooks/usePatients';
 import { PipelineColumn } from './PipelineColumn';
 import { PatientPanel } from './PatientPanel';
 import { FilterBar } from './FilterBar';
@@ -8,6 +8,7 @@ import { AddPatientForm } from './AddPatientForm';
 import { AddTaskDialog } from './AddTaskDialog';
 import { NotificationBell } from './NotificationBell';
 import { LossReasonDialog } from './LossReasonDialog';
+import { DeletePatientDialog } from './DeletePatientDialog';
 import { Button } from '@/components/ui/button';
 import { Plus, Users, DollarSign, TrendingUp, LogOut } from 'lucide-react';
 import { DragDropContext, DropResult } from '@hello-pangea/dnd';
@@ -17,6 +18,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useQueryClient } from '@tanstack/react-query';
 
 const ACTIVE_STAGES = PIPELINE_STAGES.filter((s) => s !== 'lost') as PipelineStage[];
+const AUTO_SCROLL_ZONE = 80;
+const AUTO_SCROLL_SPEED = 15;
 
 export function PipelineDashboard() {
   const { data: patients = [], isLoading } = usePatients();
@@ -27,6 +30,7 @@ export function PipelineDashboard() {
   const addTaskMutation = useAddTask();
   const togglePreOp = useTogglePreOpItem();
   const addPatientMutation = useAddPatient();
+  const deletePatientMutation = useDeletePatient();
   const { signOut, user } = useAuth();
   const queryClient = useQueryClient();
 
@@ -46,6 +50,14 @@ export function PipelineDashboard() {
   const [lossDialogOpen, setLossDialogOpen] = useState(false);
   const [pendingLossDrag, setPendingLossDrag] = useState<{ patientId: string; fromStage: PipelineStage } | null>(null);
 
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deletePatientId, setDeletePatientId] = useState<string | null>(null);
+
+  // Auto-scroll refs
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const isDraggingRef = useRef(false);
+  const autoScrollRaf = useRef<number | null>(null);
+
   const surgeons = useMemo(() => [...new Set(patients.map((p) => p.surgeon).filter(Boolean))], [patients]);
   const concierges = useMemo(() => [...new Set(patients.map((p) => p.concierge).filter(Boolean))], [patients]);
 
@@ -57,6 +69,39 @@ export function PipelineDashboard() {
       if (updated) setSelectedPatient(updated);
     }
   }, [patients, selectedPatientId]);
+
+  // Auto-scroll during drag
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDraggingRef.current || !scrollContainerRef.current) return;
+      const container = scrollContainerRef.current;
+      const rect = container.getBoundingClientRect();
+      const x = e.clientX;
+
+      if (autoScrollRaf.current) cancelAnimationFrame(autoScrollRaf.current);
+
+      const scrollStep = () => {
+        if (!isDraggingRef.current || !scrollContainerRef.current) return;
+        if (x < rect.left + AUTO_SCROLL_ZONE) {
+          container.scrollLeft -= AUTO_SCROLL_SPEED;
+          autoScrollRaf.current = requestAnimationFrame(scrollStep);
+        } else if (x > rect.right - AUTO_SCROLL_ZONE) {
+          container.scrollLeft += AUTO_SCROLL_SPEED;
+          autoScrollRaf.current = requestAnimationFrame(scrollStep);
+        }
+      };
+
+      if (x < rect.left + AUTO_SCROLL_ZONE || x > rect.right - AUTO_SCROLL_ZONE) {
+        autoScrollRaf.current = requestAnimationFrame(scrollStep);
+      }
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      if (autoScrollRaf.current) cancelAnimationFrame(autoScrollRaf.current);
+    };
+  }, []);
 
   // Generate notifications as derived state
   const notifications = useMemo(() => {
@@ -89,7 +134,8 @@ export function PipelineDashboard() {
   }, [patients, search, surgeonFilter, conciergeFilter, procedureFilter, patientTypeFilter, surgicalApproachFilter]);
 
   const activeFiltered = filtered.filter((p) => p.stage !== 'lost');
-  const totalValue = useMemo(() => activeFiltered.reduce((s, p) => s + (p.estimatedValue || 0), 0), [activeFiltered]);
+  // BUG 1 FIX: Use estimatedValue OR medicalFees as fallback for pipeline total
+  const totalValue = useMemo(() => activeFiltered.reduce((s, p) => s + (p.estimatedValue ?? p.medicalFees ?? 0), 0), [activeFiltered]);
   const completedCount = activeFiltered.filter((p) => p.stage === 'surgery_completed').length;
   const lostCount = filtered.filter((p) => p.stage === 'lost').length;
   const conversionRate = (activeFiltered.length + lostCount) > 0 ? Math.round((completedCount / (activeFiltered.length + lostCount)) * 100) : 0;
@@ -102,7 +148,17 @@ export function PipelineDashboard() {
     setPanelOpen(true);
   }, []);
 
+  const handleDragStart = useCallback(() => {
+    isDraggingRef.current = true;
+  }, []);
+
   const handleDragEnd = useCallback((result: DropResult) => {
+    isDraggingRef.current = false;
+    if (autoScrollRaf.current) {
+      cancelAnimationFrame(autoScrollRaf.current);
+      autoScrollRaf.current = null;
+    }
+
     if (!result.destination) return;
     const { draggableId, destination, source } = result;
     const newStage = destination.droppableId as PipelineStage;
@@ -126,8 +182,7 @@ export function PipelineDashboard() {
     });
 
     updateStage.mutate({ id: draggableId, stage: newStage }, {
-      onError: (err) => {
-        // Revert on failure
+      onError: () => {
         queryClient.setQueryData<Patient[]>(['patients'], (old) => {
           if (!old) return old;
           return old.map((p) =>
@@ -138,13 +193,16 @@ export function PipelineDashboard() {
         });
         toast.error('Erro ao mover paciente. Tente novamente.');
       },
+      onSuccess: () => {
+        // Refetch to ensure consistency after successful save
+        queryClient.invalidateQueries({ queryKey: ['patients'] });
+      },
     });
   }, [updateStage, queryClient]);
 
   const handleLossConfirm = useCallback((reason: LossReason, detail: string | null) => {
     if (!pendingLossDrag) return;
 
-    // Optimistic update for loss
     queryClient.setQueryData<Patient[]>(['patients'], (old) => {
       if (!old) return old;
       return old.map((p) =>
@@ -170,6 +228,9 @@ export function PipelineDashboard() {
           );
         });
         toast.error('Erro ao marcar como perdido. Tente novamente.');
+      },
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ['patients'] });
       },
     });
 
@@ -234,6 +295,28 @@ export function PipelineDashboard() {
     addPatientMutation.mutate(patient);
   }, [addPatientMutation]);
 
+  const handleDeletePatient = useCallback((patientId: string) => {
+    setDeletePatientId(patientId);
+    setDeleteDialogOpen(true);
+  }, []);
+
+  const handleDeleteConfirm = useCallback(() => {
+    if (!deletePatientId) return;
+    // Close panel if this patient is selected
+    if (selectedPatient?.id === deletePatientId) {
+      setPanelOpen(false);
+      setSelectedPatient(null);
+    }
+    deletePatientMutation.mutate(deletePatientId);
+    setDeleteDialogOpen(false);
+    setDeletePatientId(null);
+  }, [deletePatientId, deletePatientMutation, selectedPatient]);
+
+  const handleDeleteCancel = useCallback(() => {
+    setDeleteDialogOpen(false);
+    setDeletePatientId(null);
+  }, []);
+
   const handleMarkNotificationRead = useCallback((id: string) => {
     setReadNotifications((prev) => new Set(prev).add(id));
   }, []);
@@ -249,6 +332,7 @@ export function PipelineDashboard() {
 
   const taskPatient = taskPatientId ? patients.find((p) => p.id === taskPatientId) : null;
   const lossDialogPatient = pendingLossDrag ? patients.find((p) => p.id === pendingLossDrag.patientId) : null;
+  const deleteDialogPatient = deletePatientId ? patients.find((p) => p.id === deletePatientId) : null;
 
   if (isLoading) {
     return (
@@ -324,13 +408,13 @@ export function PipelineDashboard() {
         />
       </header>
 
-      <DragDropContext onDragEnd={handleDragEnd}>
-        <div className="flex-1 overflow-x-auto overflow-y-hidden">
+      <DragDropContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+        <div ref={scrollContainerRef} className="flex-1 overflow-x-auto overflow-y-hidden">
           <div className="flex gap-4 p-6 h-full min-w-max">
             {ACTIVE_STAGES.map((stage) => (
-              <PipelineColumn key={stage} stage={stage} patients={filtered.filter((p) => p.stage === stage)} onPatientClick={handlePatientClick} onCompleteTask={handleCompleteTask} />
+              <PipelineColumn key={stage} stage={stage} patients={filtered.filter((p) => p.stage === stage)} onPatientClick={handlePatientClick} onCompleteTask={handleCompleteTask} onDeletePatient={handleDeletePatient} />
             ))}
-            <PipelineColumn key="lost" stage="lost" patients={filtered.filter((p) => p.stage === 'lost')} onPatientClick={handlePatientClick} onCompleteTask={handleCompleteTask} variant="lost" />
+            <PipelineColumn key="lost" stage="lost" patients={filtered.filter((p) => p.stage === 'lost')} onPatientClick={handlePatientClick} onCompleteTask={handleCompleteTask} onDeletePatient={handleDeletePatient} variant="lost" />
           </div>
         </div>
       </DragDropContext>
@@ -349,6 +433,7 @@ export function PipelineDashboard() {
       <AddPatientForm open={addOpen} onClose={() => setAddOpen(false)} onAdd={handleAddPatient} />
       <AddTaskDialog open={addTaskOpen} onClose={() => setAddTaskOpen(false)} onAdd={handleTaskCreated} patientName={taskPatient?.name || ''} defaultResponsible={taskPatient?.owner} />
       <LossReasonDialog open={lossDialogOpen} patientName={lossDialogPatient?.name || ''} onConfirm={handleLossConfirm} onCancel={handleLossCancel} />
+      <DeletePatientDialog open={deleteDialogOpen} patientName={deleteDialogPatient?.name || ''} onConfirm={handleDeleteConfirm} onCancel={handleDeleteCancel} />
     </div>
   );
 }
