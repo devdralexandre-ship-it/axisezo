@@ -1,8 +1,9 @@
 import { Patient, DECISION_LABELS, OWNER_INITIALS, OWNER_COLORS, getNextPendingTask, getTaskUrgency, getDaysInStage } from '@/data/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, UserRound, Clock, CheckCircle2 } from 'lucide-react';
+import { Calendar, UserRound, Clock, CheckCircle2, MoreVertical, Trash2 } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 const decisionColors: Record<string, string> = {
   waiting: 'bg-muted text-muted-foreground',
@@ -21,9 +22,10 @@ interface PatientCardProps {
   patient: Patient;
   onClick: (patient: Patient) => void;
   onCompleteTask: (patientId: string, taskId: string) => void;
+  onDelete?: (patientId: string) => void;
 }
 
-export function PatientCard({ patient, onClick, onCompleteTask }: PatientCardProps) {
+export function PatientCard({ patient, onClick, onCompleteTask, onDelete }: PatientCardProps) {
   const nextTask = getNextPendingTask(patient);
   const urgency = getTaskUrgency(nextTask);
   const daysInStage = getDaysInStage(patient.stageEnteredAt);
@@ -37,6 +39,8 @@ export function PatientCard({ patient, onClick, onCompleteTask }: PatientCardPro
     const d = new Date(dateStr + 'T12:00:00');
     return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
   };
+
+  const displayValue = patient.estimatedValue ?? patient.medicalFees;
 
   return (
     <Card
@@ -53,9 +57,32 @@ export function PatientCard({ patient, onClick, onCompleteTask }: PatientCardPro
             </Avatar>
             <h4 className="font-semibold text-sm text-foreground leading-tight truncate">{patient.name}</h4>
           </div>
-          <Badge variant="outline" className={`text-[10px] px-1.5 py-0 shrink-0 ${decisionColors[patient.decisionStatus]}`}>
-            {DECISION_LABELS[patient.decisionStatus]}
-          </Badge>
+          <div className="flex items-center gap-1 shrink-0">
+            <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${decisionColors[patient.decisionStatus]}`}>
+              {DECISION_LABELS[patient.decisionStatus]}
+            </Badge>
+            {onDelete && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                  <button className="p-0.5 rounded hover:bg-muted transition-colors">
+                    <MoreVertical className="h-3.5 w-3.5 text-muted-foreground" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                  <DropdownMenuItem
+                    className="text-destructive focus:text-destructive"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDelete(patient.id);
+                    }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5 mr-2" />
+                    Excluir paciente
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
         </div>
 
         <p className="text-xs text-muted-foreground truncate">{patient.procedure}</p>
@@ -65,8 +92,8 @@ export function PatientCard({ patient, onClick, onCompleteTask }: PatientCardPro
             <UserRound className="h-3 w-3" />
             {patient.surgeon}
           </span>
-          {patient.estimatedValue !== null && (
-            <span className="font-medium text-foreground">{formatCurrency(patient.estimatedValue)}</span>
+          {displayValue !== null && (
+            <span className="font-medium text-foreground">{formatCurrency(displayValue)}</span>
           )}
         </div>
 
@@ -81,7 +108,6 @@ export function PatientCard({ patient, onClick, onCompleteTask }: PatientCardPro
           </span>
         </div>
 
-        {/* Next pending task */}
         {nextTask ? (
           <div
             className={`flex items-center gap-1.5 text-[11px] p-1.5 rounded ${

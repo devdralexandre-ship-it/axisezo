@@ -1,4 +1,4 @@
-import { Patient, PipelineStage, STAGE_LABELS, LOSS_REASON_LABELS } from '@/data/types';
+import { Patient, PipelineStage, STAGE_LABELS } from '@/data/types';
 import { PatientCard } from './PatientCard';
 import { Badge } from '@/components/ui/badge';
 import { Droppable, Draggable } from '@hello-pangea/dnd';
@@ -8,11 +8,12 @@ interface PipelineColumnProps {
   patients: Patient[];
   onPatientClick: (patient: Patient) => void;
   onCompleteTask: (patientId: string, taskId: string) => void;
+  onDeletePatient?: (patientId: string) => void;
   variant?: 'default' | 'lost';
 }
 
-export function PipelineColumn({ stage, patients, onPatientClick, onCompleteTask, variant = 'default' }: PipelineColumnProps) {
-  const totalValue = patients.reduce((sum, p) => sum + (p.estimatedValue || 0), 0);
+export function PipelineColumn({ stage, patients, onPatientClick, onCompleteTask, onDeletePatient, variant = 'default' }: PipelineColumnProps) {
+  const totalValue = patients.reduce((sum, p) => sum + (p.estimatedValue ?? p.medicalFees ?? 0), 0);
   const formatCurrency = (v: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(v);
 
@@ -51,7 +52,7 @@ export function PipelineColumn({ stage, patients, onPatientClick, onCompleteTask
                     {...provided.dragHandleProps}
                     className={snapshot.isDragging ? 'opacity-90 rotate-1' : ''}
                   >
-                    <PatientCard patient={p} onClick={onPatientClick} onCompleteTask={onCompleteTask} />
+                    <PatientCard patient={p} onClick={onPatientClick} onCompleteTask={onCompleteTask} onDelete={onDeletePatient} />
                   </div>
                 )}
               </Draggable>

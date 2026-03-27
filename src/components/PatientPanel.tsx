@@ -9,7 +9,9 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { FollowUpTimeline } from './FollowUpTimeline';
 import { PreOpChecklist } from './PreOpChecklist';
-import { Calendar, UserRound, Stethoscope, DollarSign, Clock, Plus, CheckCircle2, Circle, Building2, CreditCard, MapPin, Flag, Pencil, Save, X, AlertTriangle, Baby, User } from 'lucide-react';
+import { Calendar, UserRound, Stethoscope, DollarSign, Clock, Plus, CheckCircle2, Circle, Building2, CreditCard, MapPin, Flag, Pencil, Save, X, AlertTriangle, Baby, User, Phone, Mail, FileText, Contact } from 'lucide-react';
+
+const OTHER_PROCEDURE = '__outro__';
 
 const decisionColors: Record<string, string> = {
   waiting: 'bg-muted text-muted-foreground',
@@ -41,6 +43,11 @@ export function PatientPanel({ patient, open, onClose, onUpdateDecision, onUpdat
   const [editData, setEditData] = useState<Record<string, any>>({});
 
   if (!patient) return null;
+
+  const isCustomProcedure = editing && !PROCEDURES.includes(editData.procedure_name as any);
+  const editProcedureSelectValue = editing
+    ? (PROCEDURES.includes(editData.procedure_name as any) ? editData.procedure_name : OTHER_PROCEDURE)
+    : '';
 
   const startEditing = () => {
     setEditData({
@@ -186,12 +193,30 @@ export function PatientPanel({ patient, open, onClose, onUpdateDecision, onUpdat
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-muted-foreground">Procedimento</label>
-                <Select value={editData.procedure_name} onValueChange={(v) => setEditData({ ...editData, procedure_name: v, surgical_approach: procedureNeedsApproach(v) ? editData.surgical_approach : null })}>
+                <Select
+                  value={editProcedureSelectValue}
+                  onValueChange={(v) => {
+                    if (v === OTHER_PROCEDURE) {
+                      setEditData({ ...editData, procedure_name: '', surgical_approach: null });
+                    } else {
+                      setEditData({ ...editData, procedure_name: v, surgical_approach: procedureNeedsApproach(v) ? editData.surgical_approach : null });
+                    }
+                  }}
+                >
                   <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {PROCEDURES.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                    <SelectItem value={OTHER_PROCEDURE}>Outro...</SelectItem>
                   </SelectContent>
                 </Select>
+                {isCustomProcedure && (
+                  <Input
+                    value={editData.procedure_name}
+                    onChange={(e) => setEditData({ ...editData, procedure_name: e.target.value })}
+                    placeholder="Informe o procedimento"
+                    className="mt-2 h-8 text-sm"
+                  />
+                )}
               </div>
               {showApproach && (
                 <div className="space-y-1">
@@ -291,27 +316,29 @@ export function PatientPanel({ patient, open, onClose, onUpdateDecision, onUpdat
                 </Select>
               </div>
 
-              {/* Info Grid */}
+              {/* Info Grid — ALL fields always shown */}
               <div className="grid grid-cols-2 gap-4">
                 <InfoItem icon={Stethoscope} label="Cirurgião" value={patient.surgeon} />
                 <InfoItem icon={UserRound} label="Concierge" value={patient.concierge || '—'} />
                 <InfoItem icon={DollarSign} label="Valor Estimado" value={formatCurrency(patient.estimatedValue)} />
+                <InfoItem icon={DollarSign} label="Honorários" value={formatCurrency(patient.medicalFees)} />
                 <InfoItem icon={Calendar} label="Última Interação" value={formatDate(patient.lastInteractionDate)} />
                 <InfoItem icon={Clock} label="Próximo Follow-up" value={formatDate(patient.nextFollowUpDate)} />
-                {patient.payer && <InfoItem icon={CreditCard} label="Convênio" value={patient.payer} />}
-                {patient.billingType && <InfoItem icon={CreditCard} label="Faturamento" value={patient.billingType} />}
-                {patient.medicalFees && <InfoItem icon={DollarSign} label="Honorários" value={formatCurrency(patient.medicalFees)} />}
-                {patient.desiredHospital && <InfoItem icon={Building2} label="Hospital" value={patient.desiredHospital} />}
-                {patient.indicationLocation && <InfoItem icon={MapPin} label="Origem" value={patient.indicationLocation} />}
+                <InfoItem icon={CreditCard} label="Convênio" value={patient.payer || '—'} />
+                <InfoItem icon={CreditCard} label="Faturamento" value={patient.billingType || '—'} />
+                <InfoItem icon={Building2} label="Hospital" value={patient.desiredHospital || '—'} />
+                <InfoItem icon={MapPin} label="Origem" value={patient.indicationLocation || '—'} />
+                <InfoItem icon={Contact} label="Referência de Contato" value={patient.contactReference || '—'} />
+                <InfoItem icon={Flag} label="Flag Especial" value={patient.specialFlag || '—'} />
+                <InfoItem icon={Phone} label="Telefone" value={patient.phone || '—'} />
+                <InfoItem icon={Mail} label="Email" value={patient.email || '—'} />
               </div>
 
-              {/* Notes */}
-              {patient.notes && (
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Observações</label>
-                  <p className="text-sm text-foreground bg-muted/50 p-3 rounded-lg">{patient.notes}</p>
-                </div>
-              )}
+              {/* Notes — always shown */}
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Observações</label>
+                <p className="text-sm text-foreground bg-muted/50 p-3 rounded-lg">{patient.notes || '—'}</p>
+              </div>
             </>
           )}
 
@@ -364,15 +391,6 @@ export function PatientPanel({ patient, open, onClose, onUpdateDecision, onUpdat
                   ))}
                 </div>
               )}
-            </div>
-          </div>
-
-          {/* Contact Info */}
-          <div className="space-y-2">
-            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Contato</label>
-            <div className="text-sm text-foreground space-y-1">
-              <p>{patient.phone || '—'}</p>
-              <p className="text-muted-foreground">{patient.email || '—'}</p>
             </div>
           </div>
 
