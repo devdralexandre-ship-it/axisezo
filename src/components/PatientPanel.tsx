@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { FollowUpTimeline } from './FollowUpTimeline';
 import { PreOpChecklist } from './PreOpChecklist';
-import { Calendar, UserRound, Stethoscope, DollarSign, Clock, Plus, CheckCircle2, Circle, Building2, CreditCard, MapPin, Flag, Pencil, Save, X, AlertTriangle, Baby, User, Phone, Mail, FileText, Contact } from 'lucide-react';
+import { Calendar, UserRound, Stethoscope, DollarSign, Clock, Plus, CheckCircle2, Circle, Building2, CreditCard, MapPin, Pencil, Save, X, AlertTriangle, Baby, User, Phone, Mail, FileText, Contact } from 'lucide-react';
 
 const OTHER_PROCEDURE = '__outro__';
 
@@ -38,6 +38,16 @@ interface PatientPanelProps {
   onUpdateFields: (patientId: string, fields: Record<string, any>) => void;
 }
 
+function getFinancialVisibility(billingType: string | null) {
+  const showMedicalFees = billingType === 'Particular' || billingType === '100% Particular';
+  const showFullFinancial = billingType === '100% Particular';
+  return { showMedicalFees, showFullFinancial };
+}
+
+function computeEstimatedTotal(medicalFees: number | null, anesthesiaFees: number | null, hospitalBudget: number | null, materialsCost: number | null) {
+  return (medicalFees || 0) + (anesthesiaFees || 0) + (hospitalBudget || 0) + (materialsCost || 0);
+}
+
 export function PatientPanel({ patient, open, onClose, onUpdateDecision, onUpdateOwner, onCompleteTask, onAddTask, onTogglePreOpItem, onUpdateFields }: PatientPanelProps) {
   const [editing, setEditing] = useState(false);
   const [editData, setEditData] = useState<Record<string, any>>({});
@@ -60,16 +70,17 @@ export function PatientPanel({ patient, open, onClose, onUpdateDecision, onUpdat
       concierge: patient.concierge,
       phone: patient.phone,
       email: patient.email,
+      responsible_contact: patient.responsibleContact || '',
       payer: patient.payer || '',
       billing_type: patient.billingType || '',
       medical_fees: patient.medicalFees,
-      estimated_value: patient.estimatedValue,
+      anesthesia_fees: patient.anesthesiaFees,
+      hospital_budget: patient.hospitalBudget,
+      materials_cost: patient.materialsCost,
       desired_hospital: patient.desiredHospital || '',
       indication_location: patient.indicationLocation || '',
-      contact_reference: patient.contactReference || '',
       notes: patient.notes || '',
       alerts: patient.alerts || '',
-      special_flag: patient.specialFlag || '',
     });
     setEditing(true);
   };
@@ -89,7 +100,7 @@ export function PatientPanel({ patient, open, onClose, onUpdateDecision, onUpdat
   };
 
   const formatCurrency = (value: number | null) => {
-    if (value === null) return '—';
+    if (value === null || value === undefined) return '—';
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
   };
 
@@ -102,6 +113,9 @@ export function PatientPanel({ patient, open, onClose, onUpdateDecision, onUpdat
   const pendingTasks = patient.tasks.filter((t) => !t.completed).sort((a, b) => new Date(`${a.dueDate}T${a.dueTime}`).getTime() - new Date(`${b.dueDate}T${b.dueTime}`).getTime());
   const completedTasks = patient.tasks.filter((t) => t.completed);
   const showApproach = procedureNeedsApproach(editing ? editData.procedure_name : patient.procedure);
+
+  const viewFinancial = getFinancialVisibility(patient.billingType);
+  const editFinancial = getFinancialVisibility(editing ? editData.billing_type : null);
 
   return (
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
@@ -127,11 +141,6 @@ export function PatientPanel({ patient, open, onClose, onUpdateDecision, onUpdat
               <Badge variant="outline" className={`${decisionColors[patient.decisionStatus]}`}>
                 {DECISION_LABELS[patient.decisionStatus]}
               </Badge>
-              {patient.specialFlag && (
-                <Badge variant="outline" className="bg-pipeline-amber/10 text-pipeline-amber border-pipeline-amber/30 text-[10px]">
-                  <Flag className="h-2.5 w-2.5 mr-1" />{patient.specialFlag}
-                </Badge>
-              )}
             </div>
           </div>
           <p className="text-xs text-muted-foreground mt-2">
@@ -210,12 +219,7 @@ export function PatientPanel({ patient, open, onClose, onUpdateDecision, onUpdat
                   </SelectContent>
                 </Select>
                 {isCustomProcedure && (
-                  <Input
-                    value={editData.procedure_name}
-                    onChange={(e) => setEditData({ ...editData, procedure_name: e.target.value })}
-                    placeholder="Informe o procedimento"
-                    className="mt-2 h-8 text-sm"
-                  />
+                  <Input value={editData.procedure_name} onChange={(e) => setEditData({ ...editData, procedure_name: e.target.value })} placeholder="Informe o procedimento" className="mt-2 h-8 text-sm" />
                 )}
               </div>
               {showApproach && (
@@ -253,6 +257,7 @@ export function PatientPanel({ patient, open, onClose, onUpdateDecision, onUpdat
                 <EditField label="Telefone" value={editData.phone} onChange={(v) => setEditData({ ...editData, phone: v })} />
                 <EditField label="Email" value={editData.email} onChange={(v) => setEditData({ ...editData, email: v })} />
               </div>
+              <EditField label="Responsável pelo Paciente" value={editData.responsible_contact} onChange={(v) => setEditData({ ...editData, responsible_contact: v })} />
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-muted-foreground">Convênio</label>
                 <Select value={editData.payer || 'none'} onValueChange={(v) => setEditData({ ...editData, payer: v === 'none' ? '' : v })}>
@@ -263,24 +268,51 @@ export function PatientPanel({ patient, open, onClose, onUpdateDecision, onUpdat
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-muted-foreground">Faturamento</label>
-                  <Select value={editData.billing_type || 'none'} onValueChange={(v) => setEditData({ ...editData, billing_type: v === 'none' ? '' : v })}>
-                    <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Nenhum</SelectItem>
-                      {BILLING_TYPES.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <EditField label="Honorários (R$)" type="number" value={editData.medical_fees || ''} onChange={(v) => setEditData({ ...editData, medical_fees: v ? parseFloat(v) : null })} />
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-muted-foreground">Faturamento</label>
+                <Select value={editData.billing_type || 'none'} onValueChange={(v) => {
+                  const newBt = v === 'none' ? '' : v;
+                  const updates: Record<string, any> = { billing_type: newBt };
+                  if (newBt !== 'Particular' && newBt !== '100% Particular') {
+                    updates.medical_fees = null;
+                    updates.anesthesia_fees = null;
+                    updates.hospital_budget = null;
+                    updates.materials_cost = null;
+                  }
+                  if (newBt === 'Particular') {
+                    updates.anesthesia_fees = null;
+                    updates.hospital_budget = null;
+                    updates.materials_cost = null;
+                  }
+                  setEditData({ ...editData, ...updates });
+                }}>
+                  <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Nenhum</SelectItem>
+                    {BILLING_TYPES.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
-              <EditField label="Valor Estimado (R$)" type="number" value={editData.estimated_value || ''} onChange={(v) => setEditData({ ...editData, estimated_value: v ? parseFloat(v) : null })} />
+              {editFinancial.showMedicalFees && (
+                <div className="space-y-3 p-3 rounded-lg bg-muted/30 border border-border">
+                  <EditField label="Honorários Médicos (R$)" type="number" value={editData.medical_fees || ''} onChange={(v) => setEditData({ ...editData, medical_fees: v ? parseFloat(v) : null })} />
+                  {editFinancial.showFullFinancial && (
+                    <>
+                      <EditField label="Honorários Anestesia (R$)" type="number" value={editData.anesthesia_fees || ''} onChange={(v) => setEditData({ ...editData, anesthesia_fees: v ? parseFloat(v) : null })} />
+                      <EditField label="Orçamento Hospitalar (R$)" type="number" value={editData.hospital_budget || ''} onChange={(v) => setEditData({ ...editData, hospital_budget: v ? parseFloat(v) : null })} />
+                      <EditField label="Materiais Especiais (R$)" type="number" value={editData.materials_cost || ''} onChange={(v) => setEditData({ ...editData, materials_cost: v ? parseFloat(v) : null })} />
+                      {computeEstimatedTotal(editData.medical_fees, editData.anesthesia_fees, editData.hospital_budget, editData.materials_cost) > 0 && (
+                        <div className="pt-2 border-t border-border flex items-center justify-between">
+                          <span className="text-xs font-semibold text-muted-foreground">Total Estimado</span>
+                          <span className="text-sm font-bold text-foreground">{formatCurrency(computeEstimatedTotal(editData.medical_fees, editData.anesthesia_fees, editData.hospital_budget, editData.materials_cost))}</span>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
               <EditField label="Hospital" value={editData.desired_hospital} onChange={(v) => setEditData({ ...editData, desired_hospital: v })} />
               <EditField label="Origem / Indicação" value={editData.indication_location} onChange={(v) => setEditData({ ...editData, indication_location: v })} />
-              <EditField label="Referência de Contato" value={editData.contact_reference} onChange={(v) => setEditData({ ...editData, contact_reference: v })} />
-              <EditField label="Flag Especial" value={editData.special_flag} onChange={(v) => setEditData({ ...editData, special_flag: v })} />
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-muted-foreground">Alertas</label>
                 <Textarea value={editData.alerts} onChange={(e) => setEditData({ ...editData, alerts: e.target.value })} rows={2} />
@@ -316,25 +348,45 @@ export function PatientPanel({ patient, open, onClose, onUpdateDecision, onUpdat
                 </Select>
               </div>
 
-              {/* Info Grid — ALL fields always shown */}
+              {/* Info Grid */}
               <div className="grid grid-cols-2 gap-4">
                 <InfoItem icon={Stethoscope} label="Cirurgião" value={patient.surgeon} />
                 <InfoItem icon={UserRound} label="Concierge" value={patient.concierge || '—'} />
-                <InfoItem icon={DollarSign} label="Valor Estimado" value={formatCurrency(patient.estimatedValue)} />
-                <InfoItem icon={DollarSign} label="Honorários" value={formatCurrency(patient.medicalFees)} />
-                <InfoItem icon={Calendar} label="Última Interação" value={formatDate(patient.lastInteractionDate)} />
-                <InfoItem icon={Clock} label="Próximo Follow-up" value={formatDate(patient.nextFollowUpDate)} />
+                <InfoItem icon={Phone} label="Telefone" value={patient.phone || '—'} />
+                <InfoItem icon={Mail} label="Email" value={patient.email || '—'} />
+                <InfoItem icon={Contact} label="Responsável pelo Paciente" value={patient.responsibleContact || '—'} />
                 <InfoItem icon={CreditCard} label="Convênio" value={patient.payer || '—'} />
                 <InfoItem icon={CreditCard} label="Faturamento" value={patient.billingType || '—'} />
                 <InfoItem icon={Building2} label="Hospital" value={patient.desiredHospital || '—'} />
                 <InfoItem icon={MapPin} label="Origem" value={patient.indicationLocation || '—'} />
-                <InfoItem icon={Contact} label="Referência de Contato" value={patient.contactReference || '—'} />
-                <InfoItem icon={Flag} label="Flag Especial" value={patient.specialFlag || '—'} />
-                <InfoItem icon={Phone} label="Telefone" value={patient.phone || '—'} />
-                <InfoItem icon={Mail} label="Email" value={patient.email || '—'} />
+                <InfoItem icon={Calendar} label="Última Interação" value={formatDate(patient.lastInteractionDate)} />
+                <InfoItem icon={Clock} label="Próximo Follow-up" value={formatDate(patient.nextFollowUpDate)} />
               </div>
 
-              {/* Notes — always shown */}
+              {/* Conditional Financial Display */}
+              {viewFinancial.showMedicalFees && (
+                <div className="space-y-2 p-3 rounded-lg bg-muted/30 border border-border">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Financeiro</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <InfoItem icon={DollarSign} label="Honorários Médicos" value={formatCurrency(patient.medicalFees)} />
+                    {viewFinancial.showFullFinancial && (
+                      <>
+                        <InfoItem icon={DollarSign} label="Honorários Anestesia" value={formatCurrency(patient.anesthesiaFees)} />
+                        <InfoItem icon={DollarSign} label="Orçamento Hospitalar" value={formatCurrency(patient.hospitalBudget)} />
+                        <InfoItem icon={DollarSign} label="Materiais Especiais" value={formatCurrency(patient.materialsCost)} />
+                      </>
+                    )}
+                  </div>
+                  {viewFinancial.showFullFinancial && (
+                    <div className="pt-2 border-t border-border flex items-center justify-between">
+                      <span className="text-xs font-semibold text-muted-foreground">Total Estimado</span>
+                      <span className="text-sm font-bold text-foreground">{formatCurrency(computeEstimatedTotal(patient.medicalFees, patient.anesthesiaFees, patient.hospitalBudget, patient.materialsCost))}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Notes */}
               <div className="space-y-2">
                 <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Observações</label>
                 <p className="text-sm text-foreground bg-muted/50 p-3 rounded-lg">{patient.notes || '—'}</p>
