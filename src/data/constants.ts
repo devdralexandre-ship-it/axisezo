@@ -59,7 +59,7 @@ export const PAYERS = [
   'Outros',
 ] as const;
 
-export const BILLING_TYPES = ['Particular', 'Cooperuro', 'Unicooper'] as const;
+export const BILLING_TYPES = ['Cooperuro', 'Unicooper', 'Particular', '100% Particular'] as const;
 
 export const PATIENT_TYPES = ['adult', 'pediatric'] as const;
 
