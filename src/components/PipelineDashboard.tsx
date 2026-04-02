@@ -54,6 +54,7 @@ export function PipelineDashboard() {
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletePatientId, setDeletePatientId] = useState<string | null>(null);
+  const [csvImporterOpen, setCsvImporterOpen] = useState(false);
 
   // Auto-scroll refs
   const scrollContainerRef = useRef<HTMLDivElement>(null);
