@@ -248,12 +248,12 @@ export function PipelineDashboard() {
   }, []);
 
   const handleUpdateDecision = useCallback((patientId: string, status: DecisionStatus) => {
-    updateField.mutate({ id: patientId, field: 'decision_status', value: status });
-  }, [updateField]);
+    updateFields.mutate({ id: patientId, fields: { decision_status: status } });
+  }, [updateFields]);
 
   const handleUpdateOwner = useCallback((patientId: string, owner: Owner) => {
-    updateField.mutate({ id: patientId, field: 'owner', value: owner });
-  }, [updateField]);
+    updateFields.mutate({ id: patientId, fields: { owner } });
+  }, [updateFields]);
 
   const handleUpdateFields = useCallback((patientId: string, fields: Record<string, any>) => {
     updateFields.mutate({ id: patientId, fields });
