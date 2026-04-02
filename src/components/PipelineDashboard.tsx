@@ -25,7 +25,6 @@ const AUTO_SCROLL_SPEED = 15;
 export function PipelineDashboard() {
   const { data: patients = [], isLoading } = usePatients();
   const updateStage = useUpdatePatientStage();
-  const updateField = useUpdatePatientField();
   const updateFields = useUpdatePatientFields();
   const completeTaskMutation = useCompleteTask();
   const addTaskMutation = useAddTask();
