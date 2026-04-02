@@ -66,6 +66,7 @@ export function PatientPanel({ patient, open, onClose, onUpdateDecision, onUpdat
       patient_type: patient.patientType,
       procedure_name: patient.procedure,
       surgical_approach: patient.surgicalApproach,
+      laterality: patient.laterality || '',
       surgeon: patient.surgeon,
       concierge: patient.concierge,
       phone: patient.phone,
