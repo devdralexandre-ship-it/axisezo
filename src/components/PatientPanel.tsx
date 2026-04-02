@@ -1,24 +1,16 @@
 import { useState } from 'react';
-import { Patient, DECISION_LABELS, DecisionStatus, STAGE_LABELS, OWNERS, Owner, PatientTask, getTaskUrgency, LOSS_REASON_LABELS, PreOpChecklistItem } from '@/data/types';
-import { PROCEDURES, SURGEONS, CONCIERGES, PAYERS, BILLING_TYPES, SURGICAL_APPROACHES, PATIENT_TYPE_LABELS, procedureNeedsApproach, LATERALITY_OPTIONS, procedureNeedsLaterality } from '@/data/constants';
+import { Patient, STAGE_LABELS, PatientTask, getTaskUrgency, LOSS_REASON_LABELS, PreOpChecklistItem } from '@/data/types';
+import { PROCEDURES, SURGEONS, CONCIERGES, PAYERS, BILLING_TYPES, SURGICAL_APPROACHES, PATIENT_TYPE_LABELS, procedureNeedsApproach, LATERALITY_OPTIONS, procedureNeedsLaterality, HOSPITALS, INDICATION_SOURCES } from '@/data/constants';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { FollowUpTimeline } from './FollowUpTimeline';
 import { PreOpChecklist } from './PreOpChecklist';
 import { Calendar, UserRound, Stethoscope, DollarSign, Clock, Plus, CheckCircle2, Circle, Building2, CreditCard, MapPin, Pencil, Save, X, AlertTriangle, Baby, User, Phone, Mail, FileText, Contact } from 'lucide-react';
 
 const OTHER_PROCEDURE = '__outro__';
-
-const decisionColors: Record<string, string> = {
-  waiting: 'bg-muted text-muted-foreground',
-  thinking: 'bg-pipeline-amber/15 text-pipeline-amber border-pipeline-amber/30',
-  negotiating: 'bg-primary/10 text-primary border-primary/30',
-  confirmed: 'bg-pipeline-green/15 text-pipeline-green border-pipeline-green/30',
-};
 
 const urgencyColors: Record<string, string> = {
   green: 'text-pipeline-green',
@@ -30,8 +22,6 @@ interface PatientPanelProps {
   patient: Patient | null;
   open: boolean;
   onClose: () => void;
-  onUpdateDecision: (patientId: string, status: DecisionStatus) => void;
-  onUpdateOwner: (patientId: string, owner: Owner) => void;
   onCompleteTask: (patientId: string, taskId: string) => void;
   onAddTask: (patientId: string) => void;
   onTogglePreOpItem: (patientId: string, item: PreOpChecklistItem) => void;
@@ -39,8 +29,9 @@ interface PatientPanelProps {
 }
 
 function getFinancialVisibility(billingType: string | null) {
-  const showMedicalFees = billingType === 'Particular' || billingType === '100% Particular';
-  const showFullFinancial = billingType === '100% Particular';
+  const showMedicalFees = billingType === 'Honorários Médicos Particulares' || billingType === 'Custos Totais Particulares'
+    || billingType === 'Particular' || billingType === '100% Particular'; // legacy compat
+  const showFullFinancial = billingType === 'Custos Totais Particulares' || billingType === '100% Particular';
   return { showMedicalFees, showFullFinancial };
 }
 
@@ -48,7 +39,7 @@ function computeEstimatedTotal(medicalFees: number | null, anesthesiaFees: numbe
   return (medicalFees || 0) + (anesthesiaFees || 0) + (hospitalBudget || 0) + (materialsCost || 0);
 }
 
-export function PatientPanel({ patient, open, onClose, onUpdateDecision, onUpdateOwner, onCompleteTask, onAddTask, onTogglePreOpItem, onUpdateFields }: PatientPanelProps) {
+export function PatientPanel({ patient, open, onClose, onCompleteTask, onAddTask, onTogglePreOpItem, onUpdateFields }: PatientPanelProps) {
   const [editing, setEditing] = useState(false);
   const [editData, setEditData] = useState<Record<string, any>>({});
 
@@ -59,7 +50,13 @@ export function PatientPanel({ patient, open, onClose, onUpdateDecision, onUpdat
     ? (PROCEDURES.includes(editData.procedure_name as any) ? editData.procedure_name : OTHER_PROCEDURE)
     : '';
 
+  // Hospital dropdown logic
+  const isKnownHospital = (val: string | null) => val && (HOSPITALS as readonly string[]).includes(val);
+  const isKnownIndication = (val: string | null) => val && (INDICATION_SOURCES as readonly string[]).includes(val);
+
   const startEditing = () => {
+    const hospVal = patient.desiredHospital || '';
+    const indVal = patient.indicationLocation || '';
     setEditData({
       name: patient.name,
       age: patient.age,
@@ -78,8 +75,10 @@ export function PatientPanel({ patient, open, onClose, onUpdateDecision, onUpdat
       anesthesia_fees: patient.anesthesiaFees,
       hospital_budget: patient.hospitalBudget,
       materials_cost: patient.materialsCost,
-      desired_hospital: patient.desiredHospital || '',
-      indication_location: patient.indicationLocation || '',
+      desired_hospital: isKnownHospital(hospVal) ? hospVal : (hospVal ? 'Outro' : ''),
+      custom_hospital: isKnownHospital(hospVal) ? '' : hospVal,
+      indication_location: isKnownIndication(indVal) ? indVal : (indVal ? 'Outro' : ''),
+      custom_indication: isKnownIndication(indVal) ? '' : indVal,
       notes: patient.notes || '',
       alerts: patient.alerts || '',
     });
@@ -87,9 +86,16 @@ export function PatientPanel({ patient, open, onClose, onUpdateDecision, onUpdat
   };
 
   const saveEditing = () => {
-    const fields: Record<string, any> = {};
-    for (const [key, val] of Object.entries(editData)) {
-      fields[key] = val === '' ? null : val;
+    const fields: Record<string, any> = { ...editData };
+    // Resolve hospital
+    fields.desired_hospital = fields.desired_hospital === 'Outro' ? (fields.custom_hospital || null) : (fields.desired_hospital || null);
+    delete fields.custom_hospital;
+    // Resolve indication
+    fields.indication_location = fields.indication_location === 'Outro' ? (fields.custom_indication || null) : (fields.indication_location || null);
+    delete fields.custom_indication;
+
+    for (const [key, val] of Object.entries(fields)) {
+      if (val === '') fields[key] = null;
     }
     onUpdateFields(patient.id, fields);
     setEditing(false);
@@ -118,6 +124,14 @@ export function PatientPanel({ patient, open, onClose, onUpdateDecision, onUpdat
   const viewFinancial = getFinancialVisibility(patient.billingType);
   const editFinancial = getFinancialVisibility(editing ? editData.billing_type : null);
 
+  // Display billing type label (handle legacy values)
+  const displayBillingType = (bt: string | null) => {
+    if (!bt) return '—';
+    if (bt === 'Particular') return 'Honorários Médicos Particulares';
+    if (bt === '100% Particular') return 'Custos Totais Particulares';
+    return bt;
+  };
+
   return (
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
       <SheetContent className="w-full sm:max-w-[500px] overflow-y-auto p-0">
@@ -140,11 +154,6 @@ export function PatientPanel({ patient, open, onClose, onUpdateDecision, onUpdat
                   {patient.patientType === 'pediatric' ? <><Baby className="h-2.5 w-2.5 mr-1" />Pediátrico</> : <><User className="h-2.5 w-2.5 mr-1" />Adulto</>}
                 </Badge>
               </div>
-            </div>
-            <div className="flex flex-col items-end gap-1.5 shrink-0">
-              <Badge variant="outline" className={`${decisionColors[patient.decisionStatus]}`}>
-                {DECISION_LABELS[patient.decisionStatus]}
-              </Badge>
             </div>
           </div>
           <p className="text-xs text-muted-foreground mt-2">
@@ -288,13 +297,14 @@ export function PatientPanel({ patient, open, onClose, onUpdateDecision, onUpdat
                 <Select value={editData.billing_type || 'none'} onValueChange={(v) => {
                   const newBt = v === 'none' ? '' : v;
                   const updates: Record<string, any> = { billing_type: newBt };
-                  if (newBt !== 'Particular' && newBt !== '100% Particular') {
+                  if (newBt !== 'Honorários Médicos Particulares' && newBt !== 'Custos Totais Particulares'
+                    && newBt !== 'Particular' && newBt !== '100% Particular') {
                     updates.medical_fees = null;
                     updates.anesthesia_fees = null;
                     updates.hospital_budget = null;
                     updates.materials_cost = null;
                   }
-                  if (newBt === 'Particular') {
+                  if (newBt === 'Honorários Médicos Particulares' || newBt === 'Particular') {
                     updates.anesthesia_fees = null;
                     updates.hospital_budget = null;
                     updates.materials_cost = null;
@@ -326,8 +336,40 @@ export function PatientPanel({ patient, open, onClose, onUpdateDecision, onUpdat
                   )}
                 </div>
               )}
-              <EditField label="Hospital" value={editData.desired_hospital} onChange={(v) => setEditData({ ...editData, desired_hospital: v })} />
-              <EditField label="Origem / Indicação" value={editData.indication_location} onChange={(v) => setEditData({ ...editData, indication_location: v })} />
+              {/* Hospital dropdown in edit */}
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-muted-foreground">Hospital Desejado</label>
+                <Select value={editData.desired_hospital || 'none'} onValueChange={(v) => {
+                  const val = v === 'none' ? '' : v;
+                  setEditData({ ...editData, desired_hospital: val, custom_hospital: val !== 'Outro' ? '' : editData.custom_hospital });
+                }}>
+                  <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Nenhum</SelectItem>
+                    {HOSPITALS.map((h) => <SelectItem key={h} value={h}>{h}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                {editData.desired_hospital === 'Outro' && (
+                  <Input value={editData.custom_hospital || ''} onChange={(e) => setEditData({ ...editData, custom_hospital: e.target.value })} placeholder="Informe o hospital" className="mt-2 h-8 text-sm" />
+                )}
+              </div>
+              {/* Indication dropdown in edit */}
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-muted-foreground">Origem / Indicação</label>
+                <Select value={editData.indication_location || 'none'} onValueChange={(v) => {
+                  const val = v === 'none' ? '' : v;
+                  setEditData({ ...editData, indication_location: val, custom_indication: val !== 'Outro' ? '' : editData.custom_indication });
+                }}>
+                  <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Nenhum</SelectItem>
+                    {INDICATION_SOURCES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                {editData.indication_location === 'Outro' && (
+                  <Input value={editData.custom_indication || ''} onChange={(e) => setEditData({ ...editData, custom_indication: e.target.value })} placeholder="Informe a origem" className="mt-2 h-8 text-sm" />
+                )}
+              </div>
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-muted-foreground">Alertas</label>
                 <Textarea value={editData.alerts} onChange={(e) => setEditData({ ...editData, alerts: e.target.value })} rows={2} />
@@ -339,30 +381,6 @@ export function PatientPanel({ patient, open, onClose, onUpdateDecision, onUpdat
             </div>
           ) : (
             <>
-              {/* Owner */}
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Responsável</label>
-                <Select value={patient.owner} onValueChange={(v) => onUpdateOwner(patient.id, v as Owner)}>
-                  <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {OWNERS.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Decision Status */}
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Status da Decisão</label>
-                <Select value={patient.decisionStatus} onValueChange={(v) => onUpdateDecision(patient.id, v as DecisionStatus)}>
-                  <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {(Object.keys(DECISION_LABELS) as DecisionStatus[]).map((s) => (
-                      <SelectItem key={s} value={s}>{DECISION_LABELS[s]}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
               {/* Info Grid */}
               <div className="grid grid-cols-2 gap-4">
                 <InfoItem icon={Stethoscope} label="Cirurgião" value={patient.surgeon} />
@@ -371,11 +389,9 @@ export function PatientPanel({ patient, open, onClose, onUpdateDecision, onUpdat
                 <InfoItem icon={Mail} label="Email" value={patient.email || '—'} />
                 <InfoItem icon={Contact} label="Responsável pelo Paciente" value={patient.responsibleContact || '—'} />
                 <InfoItem icon={CreditCard} label="Convênio" value={patient.payer || '—'} />
-                <InfoItem icon={CreditCard} label="Faturamento" value={patient.billingType || '—'} />
+                <InfoItem icon={CreditCard} label="Faturamento" value={displayBillingType(patient.billingType)} />
                 <InfoItem icon={Building2} label="Hospital" value={patient.desiredHospital || '—'} />
                 <InfoItem icon={MapPin} label="Origem" value={patient.indicationLocation || '—'} />
-                <InfoItem icon={Calendar} label="Última Interação" value={formatDate(patient.lastInteractionDate)} />
-                <InfoItem icon={Clock} label="Próximo Follow-up" value={formatDate(patient.nextFollowUpDate)} />
               </div>
 
               {/* Conditional Financial Display */}
@@ -459,14 +475,6 @@ export function PatientPanel({ patient, open, onClose, onUpdateDecision, onUpdat
                 </div>
               )}
             </div>
-          </div>
-
-          {/* Follow-up History */}
-          <div className="space-y-3">
-            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-              Histórico de Contatos ({patient.contacts.length})
-            </label>
-            <FollowUpTimeline contacts={patient.contacts} />
           </div>
         </div>
       </SheetContent>

@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Patient, PIPELINE_STAGES, STAGE_LABELS, OWNERS, Owner } from '@/data/types';
-import { PROCEDURES, SURGEONS, CONCIERGES, PAYERS, BILLING_TYPES, PATIENT_TYPE_LABELS, SURGICAL_APPROACHES, procedureNeedsApproach, LATERALITY_OPTIONS, procedureNeedsLaterality } from '@/data/constants';
+import { PROCEDURES, SURGEONS, CONCIERGES, PAYERS, BILLING_TYPES, PATIENT_TYPE_LABELS, SURGICAL_APPROACHES, procedureNeedsApproach, LATERALITY_OPTIONS, procedureNeedsLaterality, HOSPITALS, INDICATION_SOURCES } from '@/data/constants';
 import { Plus, X } from 'lucide-react';
 
 interface InitialTask {
@@ -47,8 +47,11 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
   const [hospitalBudget, setHospitalBudget] = useState('');
   const [materialsCost, setMaterialsCost] = useState('');
   const [desiredHospital, setDesiredHospital] = useState('');
+  const [customHospital, setCustomHospital] = useState('');
   const [indicationLocation, setIndicationLocation] = useState('');
+  const [customIndication, setCustomIndication] = useState('');
   const [alerts, setAlerts] = useState('');
+  const [notes, setNotes] = useState('');
 
   // Inline task creation
   const [initialTasks, setInitialTasks] = useState<InitialTask[]>([]);
@@ -62,9 +65,11 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
   const showApproach = procedureNeedsApproach(effectiveProcedure);
   const showLaterality = procedureNeedsLaterality(effectiveProcedure);
   const showPayerOther = payer === 'Outros';
+  const isCustomHospital = desiredHospital === 'Outro';
+  const isCustomIndication = indicationLocation === 'Outro';
 
-  const showMedicalFees = billingType === 'Particular' || billingType === '100% Particular';
-  const showFullFinancial = billingType === '100% Particular';
+  const showMedicalFees = billingType === 'Honorários Médicos Particulares' || billingType === 'Custos Totais Particulares';
+  const showFullFinancial = billingType === 'Custos Totais Particulares';
 
   const estimatedTotal = showFullFinancial
     ? (parseFloat(medicalFees) || 0) + (parseFloat(anesthesiaFees) || 0) + (parseFloat(hospitalBudget) || 0) + (parseFloat(materialsCost) || 0)
@@ -96,8 +101,9 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
     setSurgicalApproach(''); setLaterality(''); setSurgeon(''); setConcierge(''); setStage(PIPELINE_STAGES[0]);
     setPhone(''); setEmail(''); setResponsibleContact(''); setPayer(''); setPayerOther('');
     setBillingType(''); setMedicalFees(''); setAnesthesiaFees(''); setHospitalBudget('');
-    setMaterialsCost(''); setDesiredHospital(''); setIndicationLocation('');
-    setAlerts(''); setInitialTasks([]); setNewTaskTitle('');
+    setMaterialsCost(''); setDesiredHospital(''); setCustomHospital('');
+    setIndicationLocation(''); setCustomIndication('');
+    setAlerts(''); setNotes(''); setInitialTasks([]); setNewTaskTitle('');
     setNewTaskDate(new Date().toISOString().split('T')[0]); setNewTaskTime('10:00');
     setNewTaskResponsible('');
   };
@@ -106,6 +112,8 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
     if (!name || !effectiveProcedure || !surgeon || !hasValidTask) return;
     const today = new Date().toISOString().split('T')[0];
     const finalPayer = payer === 'Outros' ? payerOther : payer;
+    const finalHospital = isCustomHospital ? customHospital : desiredHospital;
+    const finalIndication = isCustomIndication ? customIndication : indicationLocation;
 
     const computedEstimatedValue = showFullFinancial && estimatedTotal > 0 ? estimatedTotal
       : showMedicalFees && medicalFees ? parseFloat(medicalFees)
@@ -133,7 +141,7 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
       initialTasks: initialTasks.map(t => ({ title: t.title, dueDate: t.dueDate, dueTime: t.dueTime, responsible: t.responsible })),
       createdAt: today,
       indicationDate: today,
-      indicationLocation: indicationLocation || null,
+      indicationLocation: finalIndication || null,
       payer: finalPayer || null,
       billingType: billingType || null,
       medicalFees: showMedicalFees && medicalFees ? parseFloat(medicalFees) : null,
@@ -141,8 +149,8 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
       hospitalBudget: showFullFinancial && hospitalBudget ? parseFloat(hospitalBudget) : null,
       materialsCost: showFullFinancial && materialsCost ? parseFloat(materialsCost) : null,
       responsibleContact: responsibleContact || null,
-      desiredHospital: desiredHospital || null,
-      notes: null,
+      desiredHospital: finalHospital || null,
+      notes: notes || null,
       alerts: alerts || null,
       lossReason: null,
       lossReasonDetail: null,
@@ -284,7 +292,7 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
             {/* Billing Type */}
             <div className="space-y-2">
               <Label>Tipo de Faturamento dos Honorários</Label>
-              <Select value={billingType} onValueChange={(v) => { setBillingType(v); if (v !== 'Particular' && v !== '100% Particular') { setMedicalFees(''); setAnesthesiaFees(''); setHospitalBudget(''); setMaterialsCost(''); } }}>
+              <Select value={billingType} onValueChange={(v) => { setBillingType(v); if (v !== 'Honorários Médicos Particulares' && v !== 'Custos Totais Particulares') { setMedicalFees(''); setAnesthesiaFees(''); setHospitalBudget(''); setMaterialsCost(''); } }}>
                 <SelectTrigger className="focus:ring-offset-0"><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent>
                   {BILLING_TYPES.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
@@ -327,19 +335,41 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
             {/* Desired Hospital */}
             <div className="space-y-2">
               <Label>Hospital Desejado</Label>
-              <Input value={desiredHospital} onChange={(e) => setDesiredHospital(e.target.value)} placeholder="Hospital" className="focus-visible:ring-offset-0" />
+              <Select value={desiredHospital} onValueChange={(v) => { setDesiredHospital(v); if (v !== 'Outro') setCustomHospital(''); }}>
+                <SelectTrigger className="focus:ring-offset-0"><SelectValue placeholder="Selecione o hospital" /></SelectTrigger>
+                <SelectContent>
+                  {HOSPITALS.map((h) => <SelectItem key={h} value={h}>{h}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              {isCustomHospital && (
+                <Input value={customHospital} onChange={(e) => setCustomHospital(e.target.value)} placeholder="Informe o hospital" className="mt-2 focus-visible:ring-offset-0" />
+              )}
             </div>
 
             {/* Indication Source */}
             <div className="space-y-2">
               <Label>Origem / Indicação</Label>
-              <Input value={indicationLocation} onChange={(e) => setIndicationLocation(e.target.value)} placeholder="Origem da indicação" className="focus-visible:ring-offset-0" />
+              <Select value={indicationLocation} onValueChange={(v) => { setIndicationLocation(v); if (v !== 'Outro') setCustomIndication(''); }}>
+                <SelectTrigger className="focus:ring-offset-0"><SelectValue placeholder="Selecione a origem" /></SelectTrigger>
+                <SelectContent>
+                  {INDICATION_SOURCES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              {isCustomIndication && (
+                <Input value={customIndication} onChange={(e) => setCustomIndication(e.target.value)} placeholder="Informe a origem" className="mt-2 focus-visible:ring-offset-0" />
+              )}
             </div>
 
             {/* Alerts */}
             <div className="space-y-2">
               <Label>Alertas</Label>
               <Textarea value={alerts} onChange={(e) => setAlerts(e.target.value)} placeholder="Alergias, comorbidades, observações importantes..." rows={2} className="focus-visible:ring-offset-0" />
+            </div>
+
+            {/* Notes / Observações */}
+            <div className="space-y-2">
+              <Label>Observações</Label>
+              <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Observações gerais sobre o paciente..." rows={3} className="focus-visible:ring-offset-0" />
             </div>
 
             {/* Stage */}
