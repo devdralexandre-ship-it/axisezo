@@ -69,38 +69,6 @@ export function PipelineDashboard() {
     }
   }, [patients, selectedPatientId]);
 
-  // Auto-scroll during drag
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!isDraggingRef.current || !scrollContainerRef.current) return;
-      const container = scrollContainerRef.current;
-      const rect = container.getBoundingClientRect();
-      const x = e.clientX;
-
-      if (autoScrollRaf.current) cancelAnimationFrame(autoScrollRaf.current);
-
-      const scrollStep = () => {
-        if (!isDraggingRef.current || !scrollContainerRef.current) return;
-        if (x < rect.left + AUTO_SCROLL_ZONE) {
-          container.scrollLeft -= AUTO_SCROLL_SPEED;
-          autoScrollRaf.current = requestAnimationFrame(scrollStep);
-        } else if (x > rect.right - AUTO_SCROLL_ZONE) {
-          container.scrollLeft += AUTO_SCROLL_SPEED;
-          autoScrollRaf.current = requestAnimationFrame(scrollStep);
-        }
-      };
-
-      if (x < rect.left + AUTO_SCROLL_ZONE || x > rect.right - AUTO_SCROLL_ZONE) {
-        autoScrollRaf.current = requestAnimationFrame(scrollStep);
-      }
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      if (autoScrollRaf.current) cancelAnimationFrame(autoScrollRaf.current);
-    };
-  }, []);
 
   // Generate notifications as derived state
   const notifications = useMemo(() => {
