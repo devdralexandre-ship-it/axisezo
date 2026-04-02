@@ -60,6 +60,7 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
   const isCustomProcedure = procedure === OTHER_PROCEDURE;
   const effectiveProcedure = isCustomProcedure ? customProcedure : procedure;
   const showApproach = procedureNeedsApproach(effectiveProcedure);
+  const showLaterality = procedureNeedsLaterality(effectiveProcedure);
   const showPayerOther = payer === 'Outros';
 
   const showMedicalFees = billingType === 'Particular' || billingType === '100% Particular';
