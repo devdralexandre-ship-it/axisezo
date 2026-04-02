@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Patient, DECISION_LABELS, DecisionStatus, STAGE_LABELS, OWNERS, Owner, PatientTask, getTaskUrgency, LOSS_REASON_LABELS, PreOpChecklistItem } from '@/data/types';
-import { PROCEDURES, SURGEONS, CONCIERGES, PAYERS, BILLING_TYPES, SURGICAL_APPROACHES, PATIENT_TYPE_LABELS, procedureNeedsApproach } from '@/data/constants';
+import { PROCEDURES, SURGEONS, CONCIERGES, PAYERS, BILLING_TYPES, SURGICAL_APPROACHES, PATIENT_TYPE_LABELS, procedureNeedsApproach, LATERALITY_OPTIONS, procedureNeedsLaterality } from '@/data/constants';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -66,6 +66,7 @@ export function PatientPanel({ patient, open, onClose, onUpdateDecision, onUpdat
       patient_type: patient.patientType,
       procedure_name: patient.procedure,
       surgical_approach: patient.surgicalApproach,
+      laterality: patient.laterality || '',
       surgeon: patient.surgeon,
       concierge: patient.concierge,
       phone: patient.phone,
@@ -113,7 +114,7 @@ export function PatientPanel({ patient, open, onClose, onUpdateDecision, onUpdat
   const pendingTasks = patient.tasks.filter((t) => !t.completed).sort((a, b) => new Date(`${a.dueDate}T${a.dueTime}`).getTime() - new Date(`${b.dueDate}T${b.dueTime}`).getTime());
   const completedTasks = patient.tasks.filter((t) => t.completed);
   const showApproach = procedureNeedsApproach(editing ? editData.procedure_name : patient.procedure);
-
+  const showLaterality = procedureNeedsLaterality(editing ? editData.procedure_name : patient.procedure);
   const viewFinancial = getFinancialVisibility(patient.billingType);
   const editFinancial = getFinancialVisibility(editing ? editData.billing_type : null);
 
@@ -128,6 +129,9 @@ export function PatientPanel({ patient, open, onClose, onUpdateDecision, onUpdat
                 <p className="text-sm text-muted-foreground">{patient.procedure}</p>
                 {patient.surgicalApproach && (
                   <Badge variant="outline" className="text-[10px]">{patient.surgicalApproach}</Badge>
+                )}
+                {patient.laterality && (
+                  <Badge variant="outline" className="text-[10px]">{patient.laterality}</Badge>
                 )}
               </div>
               <div className="flex items-center gap-2 mt-1">
@@ -229,6 +233,17 @@ export function PatientPanel({ patient, open, onClose, onUpdateDecision, onUpdat
                     <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Selecione" /></SelectTrigger>
                     <SelectContent>
                       {SURGICAL_APPROACHES.map((a) => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              {showLaterality && (
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-muted-foreground">Lateralidade</label>
+                  <Select value={editData.laterality || ''} onValueChange={(v) => setEditData({ ...editData, laterality: v })}>
+                    <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                    <SelectContent>
+                      {LATERALITY_OPTIONS.map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>

@@ -27,7 +27,17 @@ export const PROCEDURES = [
   'Implante de Esfíncter Artificial',
   'Implante de Prótese peniana',
   'Cistoscopia',
+  'Varicocelectomia',
+  'Vasectomia',
+  'Reversão de Vasectomia',
 ] as const;
+
+export const PROCEDURES_WITH_LATERALITY = ['Varicocelectomia'] as const;
+export const LATERALITY_OPTIONS = ['Direita', 'Esquerda', 'Bilateral'] as const;
+
+export function procedureNeedsLaterality(procedure: string): boolean {
+  return (PROCEDURES_WITH_LATERALITY as readonly string[]).includes(procedure);
+}
 
 export const PROCEDURES_WITH_APPROACH = [
   'Prostatectomia Radical',
@@ -56,6 +66,10 @@ export const PAYERS = [
   'Seguros Unimed',
   'Petrobras',
   'CNU',
+  'Assefaz',
+  'Saúde Caixa',
+  'Planserv',
+  'Select',
   'Outros',
 ] as const;
 

@@ -63,6 +63,7 @@ function mapDbToPatient(db: DbPatient): Patient {
     procedure: db.procedure_name,
     procedureCategory: db.procedure_category || '',
     surgicalApproach: (db as any).surgical_approach || null,
+    laterality: (db as any).laterality || null,
     surgeon: db.surgeon,
     concierge: db.concierge,
     owner: db.owner as Owner,
@@ -140,6 +141,7 @@ export function useAddPatient() {
         materials_cost: p.materialsCost,
         alerts: p.alerts,
         surgical_approach: p.surgicalApproach,
+        laterality: (p as any).laterality || null,
       } as any).select().single();
       if (error) throw error;
 

@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Patient, PIPELINE_STAGES, STAGE_LABELS, OWNERS, Owner } from '@/data/types';
-import { PROCEDURES, SURGEONS, CONCIERGES, PAYERS, BILLING_TYPES, PATIENT_TYPE_LABELS, SURGICAL_APPROACHES, procedureNeedsApproach } from '@/data/constants';
+import { PROCEDURES, SURGEONS, CONCIERGES, PAYERS, BILLING_TYPES, PATIENT_TYPE_LABELS, SURGICAL_APPROACHES, procedureNeedsApproach, LATERALITY_OPTIONS, procedureNeedsLaterality } from '@/data/constants';
 import { Plus, X } from 'lucide-react';
 
 interface InitialTask {
@@ -32,6 +32,7 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
   const [procedure, setProcedure] = useState('');
   const [customProcedure, setCustomProcedure] = useState('');
   const [surgicalApproach, setSurgicalApproach] = useState('');
+  const [laterality, setLaterality] = useState('');
   const [surgeon, setSurgeon] = useState('');
   const [concierge, setConcierge] = useState('');
   const [stage, setStage] = useState(PIPELINE_STAGES[0]);
@@ -59,6 +60,7 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
   const isCustomProcedure = procedure === OTHER_PROCEDURE;
   const effectiveProcedure = isCustomProcedure ? customProcedure : procedure;
   const showApproach = procedureNeedsApproach(effectiveProcedure);
+  const showLaterality = procedureNeedsLaterality(effectiveProcedure);
   const showPayerOther = payer === 'Outros';
 
   const showMedicalFees = billingType === 'Particular' || billingType === '100% Particular';
@@ -91,7 +93,7 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
 
   const resetForm = () => {
     setName(''); setAge(''); setPatientType('adult'); setProcedure(''); setCustomProcedure('');
-    setSurgicalApproach(''); setSurgeon(''); setConcierge(''); setStage(PIPELINE_STAGES[0]);
+    setSurgicalApproach(''); setLaterality(''); setSurgeon(''); setConcierge(''); setStage(PIPELINE_STAGES[0]);
     setPhone(''); setEmail(''); setResponsibleContact(''); setPayer(''); setPayerOther('');
     setBillingType(''); setMedicalFees(''); setAnesthesiaFees(''); setHospitalBudget('');
     setMaterialsCost(''); setDesiredHospital(''); setIndicationLocation('');
@@ -116,6 +118,7 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
       procedure: effectiveProcedure,
       procedureCategory: '',
       surgicalApproach: showApproach ? surgicalApproach || null : null,
+      laterality: showLaterality ? laterality || null : null,
       surgeon,
       concierge,
       owner: surgeon as any,
@@ -206,6 +209,19 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
                   <SelectTrigger className="focus:ring-offset-0"><SelectValue placeholder="Selecione a via" /></SelectTrigger>
                   <SelectContent>
                     {SURGICAL_APPROACHES.map((a) => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Laterality */}
+            {showLaterality && (
+              <div className="space-y-2">
+                <Label>Lateralidade</Label>
+                <Select value={laterality} onValueChange={setLaterality}>
+                  <SelectTrigger className="focus:ring-offset-0"><SelectValue placeholder="Selecione a lateralidade" /></SelectTrigger>
+                  <SelectContent>
+                    {LATERALITY_OPTIONS.map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>

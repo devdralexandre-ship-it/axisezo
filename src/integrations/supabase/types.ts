@@ -69,6 +69,7 @@ export type Database = {
           indication_date: string | null
           indication_location: string | null
           last_interaction_date: string
+          laterality: string | null
           loss_reason: Database["public"]["Enums"]["loss_reason"] | null
           loss_reason_detail: string | null
           materials_cost: number | null
@@ -105,6 +106,7 @@ export type Database = {
           indication_date?: string | null
           indication_location?: string | null
           last_interaction_date?: string
+          laterality?: string | null
           loss_reason?: Database["public"]["Enums"]["loss_reason"] | null
           loss_reason_detail?: string | null
           materials_cost?: number | null
@@ -141,6 +143,7 @@ export type Database = {
           indication_date?: string | null
           indication_location?: string | null
           last_interaction_date?: string
+          laterality?: string | null
           loss_reason?: Database["public"]["Enums"]["loss_reason"] | null
           loss_reason_detail?: string | null
           materials_cost?: number | null
