@@ -19,8 +19,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useQueryClient } from '@tanstack/react-query';
 
 const ACTIVE_STAGES = PIPELINE_STAGES.filter((s) => s !== 'lost') as PipelineStage[];
-const AUTO_SCROLL_ZONE = 80;
-const AUTO_SCROLL_SPEED = 15;
 
 export function PipelineDashboard() {
   const { data: patients = [], isLoading } = usePatients();
@@ -55,10 +53,7 @@ export function PipelineDashboard() {
   const [deletePatientId, setDeletePatientId] = useState<string | null>(null);
   const [csvImporterOpen, setCsvImporterOpen] = useState(false);
 
-  // Auto-scroll refs
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const isDraggingRef = useRef(false);
-  const autoScrollRaf = useRef<number | null>(null);
 
   const surgeons = useMemo(() => [...new Set(patients.map((p) => p.surgeon).filter(Boolean))], [patients]);
   const concierges = useMemo(() => [...new Set(patients.map((p) => p.concierge).filter(Boolean))], [patients]);
@@ -72,38 +67,6 @@ export function PipelineDashboard() {
     }
   }, [patients, selectedPatientId]);
 
-  // Auto-scroll during drag
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!isDraggingRef.current || !scrollContainerRef.current) return;
-      const container = scrollContainerRef.current;
-      const rect = container.getBoundingClientRect();
-      const x = e.clientX;
-
-      if (autoScrollRaf.current) cancelAnimationFrame(autoScrollRaf.current);
-
-      const scrollStep = () => {
-        if (!isDraggingRef.current || !scrollContainerRef.current) return;
-        if (x < rect.left + AUTO_SCROLL_ZONE) {
-          container.scrollLeft -= AUTO_SCROLL_SPEED;
-          autoScrollRaf.current = requestAnimationFrame(scrollStep);
-        } else if (x > rect.right - AUTO_SCROLL_ZONE) {
-          container.scrollLeft += AUTO_SCROLL_SPEED;
-          autoScrollRaf.current = requestAnimationFrame(scrollStep);
-        }
-      };
-
-      if (x < rect.left + AUTO_SCROLL_ZONE || x > rect.right - AUTO_SCROLL_ZONE) {
-        autoScrollRaf.current = requestAnimationFrame(scrollStep);
-      }
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      if (autoScrollRaf.current) cancelAnimationFrame(autoScrollRaf.current);
-    };
-  }, []);
 
   // Generate notifications as derived state
   const notifications = useMemo(() => {
@@ -150,17 +113,9 @@ export function PipelineDashboard() {
     setPanelOpen(true);
   }, []);
 
-  const handleDragStart = useCallback(() => {
-    isDraggingRef.current = true;
-  }, []);
+  const handleDragStart = useCallback(() => {}, []);
 
   const handleDragEnd = useCallback((result: DropResult) => {
-    isDraggingRef.current = false;
-    if (autoScrollRaf.current) {
-      cancelAnimationFrame(autoScrollRaf.current);
-      autoScrollRaf.current = null;
-    }
-
     if (!result.destination) return;
     const { draggableId, destination, source } = result;
     const newStage = destination.droppableId as PipelineStage;

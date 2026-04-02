@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Patient, STAGE_LABELS, PatientTask, getTaskUrgency, LOSS_REASON_LABELS, PreOpChecklistItem } from '@/data/types';
 import { PROCEDURES, SURGEONS, CONCIERGES, PAYERS, BILLING_TYPES, SURGICAL_APPROACHES, PATIENT_TYPE_LABELS, procedureNeedsApproach, LATERALITY_OPTIONS, procedureNeedsLaterality, HOSPITALS, INDICATION_SOURCES } from '@/data/constants';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -42,6 +42,12 @@ function computeEstimatedTotal(medicalFees: number | null, anesthesiaFees: numbe
 export function PatientPanel({ patient, open, onClose, onCompleteTask, onAddTask, onTogglePreOpItem, onUpdateFields }: PatientPanelProps) {
   const [editing, setEditing] = useState(false);
   const [editData, setEditData] = useState<Record<string, any>>({});
+
+  // Reset edit state when patient changes or panel closes
+  useEffect(() => {
+    setEditing(false);
+    setEditData({});
+  }, [patient?.id, open]);
 
   if (!patient) return null;
 
