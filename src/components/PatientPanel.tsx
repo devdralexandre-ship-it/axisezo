@@ -114,7 +114,7 @@ export function PatientPanel({ patient, open, onClose, onUpdateDecision, onUpdat
   const pendingTasks = patient.tasks.filter((t) => !t.completed).sort((a, b) => new Date(`${a.dueDate}T${a.dueTime}`).getTime() - new Date(`${b.dueDate}T${b.dueTime}`).getTime());
   const completedTasks = patient.tasks.filter((t) => t.completed);
   const showApproach = procedureNeedsApproach(editing ? editData.procedure_name : patient.procedure);
-
+  const showLaterality = procedureNeedsLaterality(editing ? editData.procedure_name : patient.procedure);
   const viewFinancial = getFinancialVisibility(patient.billingType);
   const editFinancial = getFinancialVisibility(editing ? editData.billing_type : null);
 
