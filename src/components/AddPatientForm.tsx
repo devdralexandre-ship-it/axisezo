@@ -214,6 +214,19 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
               </div>
             )}
 
+            {/* Laterality */}
+            {showLaterality && (
+              <div className="space-y-2">
+                <Label>Lateralidade</Label>
+                <Select value={laterality} onValueChange={setLaterality}>
+                  <SelectTrigger className="focus:ring-offset-0"><SelectValue placeholder="Selecione a lateralidade" /></SelectTrigger>
+                  <SelectContent>
+                    {LATERALITY_OPTIONS.map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             {/* Surgeon & Concierge */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
