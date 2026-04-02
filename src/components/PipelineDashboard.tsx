@@ -116,12 +116,6 @@ export function PipelineDashboard() {
   const handleDragStart = useCallback(() => {}, []);
 
   const handleDragEnd = useCallback((result: DropResult) => {
-    isDraggingRef.current = false;
-    if (autoScrollRaf.current) {
-      cancelAnimationFrame(autoScrollRaf.current);
-      autoScrollRaf.current = null;
-    }
-
     if (!result.destination) return;
     const { draggableId, destination, source } = result;
     const newStage = destination.droppableId as PipelineStage;

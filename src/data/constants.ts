@@ -33,7 +33,20 @@ export const PROCEDURES = [
   'Reversão de Vasectomia',
 ] as const;
 
-export const PROCEDURES_WITH_LATERALITY = ['Varicocelectomia'] as const;
+export const PROCEDURES_WITH_LATERALITY = [
+  'Varicocelectomia',
+  'Nefrectomia Parcial',
+  'Nefrectomia Radical',
+  'Pieloplastia',
+  'URS Flexível',
+  'URS Rígida',
+  'Nefrolitotripsia Percutânea',
+  'Orquidopexia',
+  'Orquiectomia',
+  'Herniorrafia Inguinal',
+  'Hidrocelectomia',
+  'Tratamento do Refluxo Vésico-ureteral',
+] as const;
 export const LATERALITY_OPTIONS = ['Direita', 'Esquerda', 'Bilateral'] as const;
 
 export function procedureNeedsLaterality(procedure: string): boolean {

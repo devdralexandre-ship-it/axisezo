@@ -43,6 +43,12 @@ export function PatientPanel({ patient, open, onClose, onCompleteTask, onAddTask
   const [editing, setEditing] = useState(false);
   const [editData, setEditData] = useState<Record<string, any>>({});
 
+  // Reset edit state when patient changes or panel closes
+  useEffect(() => {
+    setEditing(false);
+    setEditData({});
+  }, [patient?.id, open]);
+
   if (!patient) return null;
 
   const isCustomProcedure = editing && !PROCEDURES.includes(editData.procedure_name as any);
