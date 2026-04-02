@@ -58,9 +58,6 @@ export function PatientCard({ patient, onClick, onCompleteTask, onDelete }: Pati
             <h4 className="font-semibold text-sm text-foreground leading-tight truncate">{patient.name}</h4>
           </div>
           <div className="flex items-center gap-1 shrink-0">
-            <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${decisionColors[patient.decisionStatus]}`}>
-              {DECISION_LABELS[patient.decisionStatus]}
-            </Badge>
             {onDelete && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
