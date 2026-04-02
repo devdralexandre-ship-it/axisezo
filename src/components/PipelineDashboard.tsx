@@ -55,10 +55,7 @@ export function PipelineDashboard() {
   const [deletePatientId, setDeletePatientId] = useState<string | null>(null);
   const [csvImporterOpen, setCsvImporterOpen] = useState(false);
 
-  // Auto-scroll refs
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const isDraggingRef = useRef(false);
-  const autoScrollRaf = useRef<number | null>(null);
 
   const surgeons = useMemo(() => [...new Set(patients.map((p) => p.surgeon).filter(Boolean))], [patients]);
   const concierges = useMemo(() => [...new Set(patients.map((p) => p.concierge).filter(Boolean))], [patients]);
