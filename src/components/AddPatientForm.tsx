@@ -118,6 +118,7 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
       procedure: effectiveProcedure,
       procedureCategory: '',
       surgicalApproach: showApproach ? surgicalApproach || null : null,
+      laterality: showLaterality ? laterality || null : null,
       surgeon,
       concierge,
       owner: surgeon as any,
