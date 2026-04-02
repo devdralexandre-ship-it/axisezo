@@ -287,6 +287,7 @@ export function CsvImporter({ open, onClose, onImport, existingPatientNames }: C
         desiredHospital: r.mapped.desiredHospital,
         notes: r.mapped.notes,
         stage: r.mapped.stage,
+        entryDate: r.mapped.entryDate,
         initialTask: {
           title: 'Confirmar status',
           dueDate: dueDateStr,
