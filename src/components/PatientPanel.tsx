@@ -130,6 +130,9 @@ export function PatientPanel({ patient, open, onClose, onUpdateDecision, onUpdat
                 {patient.surgicalApproach && (
                   <Badge variant="outline" className="text-[10px]">{patient.surgicalApproach}</Badge>
                 )}
+                {patient.laterality && (
+                  <Badge variant="outline" className="text-[10px]">{patient.laterality}</Badge>
+                )}
               </div>
               <div className="flex items-center gap-2 mt-1">
                 {patient.age && <span className="text-xs text-muted-foreground">{patient.age} anos</span>}
