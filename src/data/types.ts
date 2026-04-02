@@ -19,6 +19,7 @@ export const STAGE_LABELS: Record<PipelineStage, string> = {
   first_contact: 'Primeiro Contato',
   budget_preparation: 'Preparo de Orçamento',
   budget_sent: 'Orçamento Enviado',
+  awaiting_authorization: 'Aguardando Autorização',
   decision_pending: 'Decisão Pendente',
   followup_negotiation: 'Follow-up / Negociação',
   preop_preparation: 'Preparo Pré-operatório',
