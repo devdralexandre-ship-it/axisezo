@@ -441,6 +441,14 @@ export function PipelineDashboard() {
       <AddTaskDialog open={addTaskOpen} onClose={() => setAddTaskOpen(false)} onAdd={handleTaskCreated} patientName={taskPatient?.name || ''} defaultResponsible={taskPatient?.owner} />
       <LossReasonDialog open={lossDialogOpen} patientName={lossDialogPatient?.name || ''} onConfirm={handleLossConfirm} onCancel={handleLossCancel} />
       <DeletePatientDialog open={deleteDialogOpen} patientName={deleteDialogPatient?.name || ''} onConfirm={handleDeleteConfirm} onCancel={handleDeleteCancel} />
+      <CsvImporter
+        open={csvImporterOpen}
+        onClose={() => setCsvImporterOpen(false)}
+        existingPatientNames={patients.map(p => p.name)}
+        onImport={async (patientsToImport) => {
+          await importPatientsMutation.mutateAsync({ patients: patientsToImport, defaultSurgeon: 'Dr Alexandre Ziomkowski' });
+        }}
+      />
     </div>
   );
 }
