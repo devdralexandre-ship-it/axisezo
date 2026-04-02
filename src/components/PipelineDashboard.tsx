@@ -32,6 +32,7 @@ export function PipelineDashboard() {
   const togglePreOp = useTogglePreOpItem();
   const addPatientMutation = useAddPatient();
   const deletePatientMutation = useDeletePatient();
+  const importPatientsMutation = useImportPatients();
   const { signOut, user } = useAuth();
   const queryClient = useQueryClient();
 
