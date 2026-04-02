@@ -113,9 +113,7 @@ export function PipelineDashboard() {
     setPanelOpen(true);
   }, []);
 
-  const handleDragStart = useCallback(() => {
-    isDraggingRef.current = true;
-  }, []);
+  const handleDragStart = useCallback(() => {}, []);
 
   const handleDragEnd = useCallback((result: DropResult) => {
     isDraggingRef.current = false;
