@@ -3,6 +3,7 @@ export const PIPELINE_STAGES = [
   'first_contact',
   'budget_preparation',
   'budget_sent',
+  'awaiting_authorization',
   'decision_pending',
   'followup_negotiation',
   'preop_preparation',
