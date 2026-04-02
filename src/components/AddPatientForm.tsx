@@ -32,6 +32,7 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
   const [procedure, setProcedure] = useState('');
   const [customProcedure, setCustomProcedure] = useState('');
   const [surgicalApproach, setSurgicalApproach] = useState('');
+  const [laterality, setLaterality] = useState('');
   const [surgeon, setSurgeon] = useState('');
   const [concierge, setConcierge] = useState('');
   const [stage, setStage] = useState(PIPELINE_STAGES[0]);
