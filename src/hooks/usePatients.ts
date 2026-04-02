@@ -323,3 +323,70 @@ export function useDeletePatient() {
     onError: (e) => toast.error(`Erro ao excluir: ${e.message}`),
   });
 }
+
+export function useImportPatients() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ patients, defaultSurgeon }: {
+      defaultSurgeon: string;
+      patients: Array<{
+        name: string;
+        phone: string;
+        procedure: string;
+        indicationLocation: string;
+        payer: string;
+        desiredHospital: string;
+        notes: string;
+        stage: PipelineStage;
+        initialTask: { title: string; dueDate: string; dueTime: string; responsible: string };
+      }>;
+    }) => {
+      const today = new Date().toISOString().split('T')[0];
+      let imported = 0;
+      for (const p of patients) {
+        const { data, error } = await supabase.from('patients').insert({
+          name: p.name,
+          procedure_name: p.procedure,
+          procedure_category: '',
+          surgeon: defaultSurgeon,
+          concierge: '',
+          owner: 'Call Center',
+          stage: p.stage as any,
+          stage_entered_at: today,
+          decision_status: 'waiting' as any,
+          last_interaction_date: today,
+          phone: p.phone || '',
+          email: '',
+          indication_location: p.indicationLocation || null,
+          payer: p.payer || null,
+          desired_hospital: p.desiredHospital || null,
+          notes: p.notes || null,
+        } as any).select().single();
+        if (error) continue;
+
+        const checklistInserts = PREOP_CHECKLIST_ITEMS.map((key) => ({
+          patient_id: data.id,
+          item_key: key,
+          checked: false,
+        }));
+        await supabase.from('preop_checklist_items').insert(checklistInserts);
+
+        await supabase.from('tasks').insert({
+          patient_id: data.id,
+          title: p.initialTask.title,
+          due_date: p.initialTask.dueDate,
+          due_time: p.initialTask.dueTime + ':00',
+          responsible: p.initialTask.responsible,
+          completed: false,
+        });
+        imported++;
+      }
+      return imported;
+    },
+    onSuccess: (count) => {
+      qc.invalidateQueries({ queryKey: ['patients'] });
+      toast.success(`${count} paciente(s) importado(s) com sucesso!`);
+    },
+    onError: (e) => toast.error(`Erro na importação: ${e.message}`),
+  });
+}

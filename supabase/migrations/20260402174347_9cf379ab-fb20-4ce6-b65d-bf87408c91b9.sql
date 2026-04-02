@@ -1,0 +1,1 @@
+ALTER TYPE public.pipeline_stage ADD VALUE IF NOT EXISTS 'awaiting_authorization' AFTER 'budget_sent';

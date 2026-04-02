@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { Patient, PIPELINE_STAGES, PipelineStage, DecisionStatus, Owner, Notification, PatientTask, PreOpChecklistItem, getNextPendingTask, getTaskUrgency, STAGE_LABELS, LossReason } from '@/data/types';
-import { usePatients, useUpdatePatientStage, useUpdatePatientField, useUpdatePatientFields, useCompleteTask, useAddTask, useTogglePreOpItem, useAddPatient, useDeletePatient } from '@/hooks/usePatients';
+import { usePatients, useUpdatePatientStage, useUpdatePatientField, useUpdatePatientFields, useCompleteTask, useAddTask, useTogglePreOpItem, useAddPatient, useDeletePatient, useImportPatients } from '@/hooks/usePatients';
 import { PipelineColumn } from './PipelineColumn';
 import { PatientPanel } from './PatientPanel';
 import { FilterBar } from './FilterBar';
@@ -9,8 +9,9 @@ import { AddTaskDialog } from './AddTaskDialog';
 import { NotificationBell } from './NotificationBell';
 import { LossReasonDialog } from './LossReasonDialog';
 import { DeletePatientDialog } from './DeletePatientDialog';
+import { CsvImporter } from './CsvImporter';
 import { Button } from '@/components/ui/button';
-import { Plus, Users, DollarSign, TrendingUp, LogOut } from 'lucide-react';
+import { Plus, Users, DollarSign, TrendingUp, LogOut, Upload } from 'lucide-react';
 import { DragDropContext, DropResult } from '@hello-pangea/dnd';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
@@ -31,6 +32,7 @@ export function PipelineDashboard() {
   const togglePreOp = useTogglePreOpItem();
   const addPatientMutation = useAddPatient();
   const deletePatientMutation = useDeletePatient();
+  const importPatientsMutation = useImportPatients();
   const { signOut, user } = useAuth();
   const queryClient = useQueryClient();
 
@@ -52,6 +54,7 @@ export function PipelineDashboard() {
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletePatientId, setDeletePatientId] = useState<string | null>(null);
+  const [csvImporterOpen, setCsvImporterOpen] = useState(false);
 
   // Auto-scroll refs
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -364,6 +367,10 @@ export function PipelineDashboard() {
               onMarkAllRead={handleMarkAllRead}
               onClickNotification={handleNotificationClick}
             />
+            <Button variant="outline" size="sm" onClick={() => setCsvImporterOpen(true)}>
+              <Upload className="h-4 w-4" />
+              Importar CSV
+            </Button>
             <Button onClick={() => setAddOpen(true)} size="sm">
               <Plus className="h-4 w-4" />
               Novo Paciente
@@ -434,6 +441,14 @@ export function PipelineDashboard() {
       <AddTaskDialog open={addTaskOpen} onClose={() => setAddTaskOpen(false)} onAdd={handleTaskCreated} patientName={taskPatient?.name || ''} defaultResponsible={taskPatient?.owner} />
       <LossReasonDialog open={lossDialogOpen} patientName={lossDialogPatient?.name || ''} onConfirm={handleLossConfirm} onCancel={handleLossCancel} />
       <DeletePatientDialog open={deleteDialogOpen} patientName={deleteDialogPatient?.name || ''} onConfirm={handleDeleteConfirm} onCancel={handleDeleteCancel} />
+      <CsvImporter
+        open={csvImporterOpen}
+        onClose={() => setCsvImporterOpen(false)}
+        existingPatientNames={patients.map(p => p.name)}
+        onImport={async (patientsToImport) => {
+          await importPatientsMutation.mutateAsync({ patients: patientsToImport, defaultSurgeon: 'Dr Alexandre Ziomkowski' });
+        }}
+      />
     </div>
   );
 }
