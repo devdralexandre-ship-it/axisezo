@@ -367,6 +367,10 @@ export function PipelineDashboard() {
               onMarkAllRead={handleMarkAllRead}
               onClickNotification={handleNotificationClick}
             />
+            <Button variant="outline" size="sm" onClick={() => setCsvImporterOpen(true)}>
+              <Upload className="h-4 w-4" />
+              Importar CSV
+            </Button>
             <Button onClick={() => setAddOpen(true)} size="sm">
               <Plus className="h-4 w-4" />
               Novo Paciente
