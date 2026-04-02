@@ -157,6 +157,7 @@ export interface Patient {
   procedure: string;
   procedureCategory: string;
   surgicalApproach: string | null;
+  laterality: string | null;
   surgeon: string;
   concierge: string;
   owner: Owner;

@@ -141,6 +141,7 @@ export function useAddPatient() {
         materials_cost: p.materialsCost,
         alerts: p.alerts,
         surgical_approach: p.surgicalApproach,
+        laterality: (p as any).laterality || null,
       } as any).select().single();
       if (error) throw error;
 

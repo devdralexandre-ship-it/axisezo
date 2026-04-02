@@ -66,6 +66,10 @@ export const PAYERS = [
   'Seguros Unimed',
   'Petrobras',
   'CNU',
+  'Assefaz',
+  'Saúde Caixa',
+  'Planserv',
+  'Select',
   'Outros',
 ] as const;
 
