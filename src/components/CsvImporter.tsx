@@ -27,6 +27,7 @@ const STATUS_MAP: Record<string, PipelineStage> = {
 // Column mapping from CSV headers to internal fields
 const COLUMN_MAP: Record<string, string> = {
   'carimbo de data/hora': 'entryDate',
+  'data': 'entryDate',
   'nome do paciente': 'name',
   'contato': 'phone',
   'procedimento solicitado': 'procedure',
@@ -78,6 +79,7 @@ interface CsvImporterProps {
     desiredHospital: string;
     notes: string;
     stage: PipelineStage;
+    entryDate: string;
     initialTask: { title: string; dueDate: string; dueTime: string; responsible: string };
   }>) => Promise<void>;
   existingPatientNames: string[];
@@ -285,6 +287,7 @@ export function CsvImporter({ open, onClose, onImport, existingPatientNames }: C
         desiredHospital: r.mapped.desiredHospital,
         notes: r.mapped.notes,
         stage: r.mapped.stage,
+        entryDate: r.mapped.entryDate,
         initialTask: {
           title: 'Confirmar status',
           dueDate: dueDateStr,

@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { Patient, PIPELINE_STAGES, PipelineStage, DecisionStatus, Owner, Notification, PatientTask, PreOpChecklistItem, getNextPendingTask, getTaskUrgency, STAGE_LABELS, LossReason } from '@/data/types';
-import { usePatients, useUpdatePatientStage, useUpdatePatientField, useUpdatePatientFields, useCompleteTask, useAddTask, useTogglePreOpItem, useAddPatient, useDeletePatient, useImportPatients } from '@/hooks/usePatients';
+import { usePatients, useUpdatePatientStage, useUpdatePatientFields, useCompleteTask, useAddTask, useTogglePreOpItem, useAddPatient, useDeletePatient, useImportPatients } from '@/hooks/usePatients';
 import { PipelineColumn } from './PipelineColumn';
 import { PatientPanel } from './PatientPanel';
 import { FilterBar } from './FilterBar';
@@ -25,7 +25,6 @@ const AUTO_SCROLL_SPEED = 15;
 export function PipelineDashboard() {
   const { data: patients = [], isLoading } = usePatients();
   const updateStage = useUpdatePatientStage();
-  const updateField = useUpdatePatientField();
   const updateFields = useUpdatePatientFields();
   const completeTaskMutation = useCompleteTask();
   const addTaskMutation = useAddTask();
@@ -249,12 +248,12 @@ export function PipelineDashboard() {
   }, []);
 
   const handleUpdateDecision = useCallback((patientId: string, status: DecisionStatus) => {
-    updateField.mutate({ id: patientId, field: 'decision_status', value: status });
-  }, [updateField]);
+    updateFields.mutate({ id: patientId, fields: { decision_status: status } });
+  }, [updateFields]);
 
   const handleUpdateOwner = useCallback((patientId: string, owner: Owner) => {
-    updateField.mutate({ id: patientId, field: 'owner', value: owner });
-  }, [updateField]);
+    updateFields.mutate({ id: patientId, fields: { owner } });
+  }, [updateFields]);
 
   const handleUpdateFields = useCallback((patientId: string, fields: Record<string, any>) => {
     updateFields.mutate({ id: patientId, fields });
@@ -418,10 +417,15 @@ export function PipelineDashboard() {
       <DragDropContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         <div ref={scrollContainerRef} className="flex-1 overflow-x-auto overflow-y-hidden">
           <div className="flex gap-4 p-6 h-full min-w-max">
-            {ACTIVE_STAGES.map((stage) => (
-              <PipelineColumn key={stage} stage={stage} patients={filtered.filter((p) => p.stage === stage)} onPatientClick={handlePatientClick} onCompleteTask={handleCompleteTask} onDeletePatient={handleDeletePatient} />
-            ))}
-            <PipelineColumn key="lost" stage="lost" patients={filtered.filter((p) => p.stage === 'lost')} onPatientClick={handlePatientClick} onCompleteTask={handleCompleteTask} onDeletePatient={handleDeletePatient} variant="lost" />
+            {ACTIVE_STAGES.map((stage) => {
+              const stagePatients = filtered.filter((p) => p.stage === stage).sort((a, b) => {
+                const dateA = new Date(a.indicationDate || a.createdAt || '9999-12-31').getTime();
+                const dateB = new Date(b.indicationDate || b.createdAt || '9999-12-31').getTime();
+                return dateA - dateB;
+              });
+              return <PipelineColumn key={stage} stage={stage} patients={stagePatients} onPatientClick={handlePatientClick} onCompleteTask={handleCompleteTask} onDeletePatient={handleDeletePatient} />;
+            })}
+            <PipelineColumn key="lost" stage="lost" patients={filtered.filter((p) => p.stage === 'lost').sort((a, b) => new Date(a.indicationDate || a.createdAt || '9999-12-31').getTime() - new Date(b.indicationDate || b.createdAt || '9999-12-31').getTime())} onPatientClick={handlePatientClick} onCompleteTask={handleCompleteTask} onDeletePatient={handleDeletePatient} variant="lost" />
           </div>
         </div>
       </DragDropContext>
@@ -430,8 +434,6 @@ export function PipelineDashboard() {
         patient={selectedPatient}
         open={panelOpen}
         onClose={() => setPanelOpen(false)}
-        onUpdateDecision={handleUpdateDecision}
-        onUpdateOwner={handleUpdateOwner}
         onCompleteTask={handleCompleteTask}
         onAddTask={handleAddTask}
         onTogglePreOpItem={handleTogglePreOpItem}

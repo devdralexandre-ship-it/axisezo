@@ -13,10 +13,6 @@ interface PipelineColumnProps {
 }
 
 export function PipelineColumn({ stage, patients, onPatientClick, onCompleteTask, onDeletePatient, variant = 'default' }: PipelineColumnProps) {
-  const totalValue = patients.reduce((sum, p) => sum + (p.estimatedValue ?? p.medicalFees ?? 0), 0);
-  const formatCurrency = (v: number) =>
-    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(v);
-
   const isLost = variant === 'lost';
 
   return (
@@ -29,9 +25,6 @@ export function PipelineColumn({ stage, patients, onPatientClick, onCompleteTask
           {patients.length}
         </Badge>
       </div>
-      {totalValue > 0 && (
-        <p className={`text-[10px] mb-2 px-1 ${isLost ? 'text-destructive/60 line-through' : 'text-muted-foreground'}`}>{formatCurrency(totalValue)}</p>
-      )}
       <Droppable droppableId={stage}>
         {(provided, snapshot) => (
           <div

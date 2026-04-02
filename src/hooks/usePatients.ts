@@ -340,12 +340,30 @@ export function useImportPatients() {
         desiredHospital: string;
         notes: string;
         stage: PipelineStage;
+        entryDate?: string;
         initialTask: { title: string; dueDate: string; dueTime: string; responsible: string };
       }>;
     }) => {
       const today = new Date().toISOString().split('T')[0];
       let imported = 0;
       for (const p of patients) {
+        // Parse entry date from CSV
+        let resolvedDate = today;
+        if (p.entryDate) {
+          // Try common date formats: DD/MM/YYYY, MM/DD/YYYY, YYYY-MM-DD, or timestamp strings
+          const raw = p.entryDate.trim();
+          const slashParts = raw.split('/');
+          if (slashParts.length === 3) {
+            // DD/MM/YYYY
+            const [d, m, y] = slashParts;
+            const parsed = new Date(`${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}T12:00:00`);
+            if (!isNaN(parsed.getTime())) resolvedDate = parsed.toISOString().split('T')[0];
+          } else {
+            const parsed = new Date(raw);
+            if (!isNaN(parsed.getTime())) resolvedDate = parsed.toISOString().split('T')[0];
+          }
+        }
+
         const { data, error } = await supabase.from('patients').insert({
           name: p.name,
           procedure_name: p.procedure,
@@ -354,9 +372,10 @@ export function useImportPatients() {
           concierge: '',
           owner: 'Call Center',
           stage: p.stage as any,
-          stage_entered_at: today,
+          stage_entered_at: resolvedDate,
           decision_status: 'waiting' as any,
-          last_interaction_date: today,
+          last_interaction_date: resolvedDate,
+          indication_date: resolvedDate,
           phone: p.phone || '',
           email: '',
           indication_location: p.indicationLocation || null,

@@ -2,6 +2,7 @@
 
 export const PROCEDURES = [
   'Prostatectomia Radical',
+  'Prostatectomia Transvesical (PTV)',
   'Nefrectomia Parcial',
   'Nefrectomia Radical',
   'Cistectomia Radical',
@@ -41,6 +42,7 @@ export function procedureNeedsLaterality(procedure: string): boolean {
 
 export const PROCEDURES_WITH_APPROACH = [
   'Prostatectomia Radical',
+  'Prostatectomia Transvesical (PTV)',
   'Nefrectomia Parcial',
   'Nefrectomia Radical',
   'Cistectomia Radical',
@@ -70,10 +72,11 @@ export const PAYERS = [
   'Saúde Caixa',
   'Planserv',
   'Select',
+  'Não tem',
   'Outros',
 ] as const;
 
-export const BILLING_TYPES = ['Cooperuro', 'Unicooper', 'Particular', '100% Particular'] as const;
+export const BILLING_TYPES = ['Cooperuro', 'Unicooper', 'Honorários Médicos Particulares', 'Custos Totais Particulares'] as const;
 
 export const PATIENT_TYPES = ['adult', 'pediatric'] as const;
 
@@ -81,6 +84,27 @@ export const PATIENT_TYPE_LABELS: Record<string, string> = {
   adult: 'Adulto',
   pediatric: 'Pediátrico',
 };
+
+export const HOSPITALS = [
+  'Hospital Mater Dei',
+  'Hospital Aliança',
+  'Hospital Santa Izabel',
+  'Hospital Ferreira Filho',
+  'Clínica Cliderma',
+  'Hospital Português',
+  'Hospital São Rafael',
+  'Outro',
+] as const;
+
+export const INDICATION_SOURCES = [
+  'Clínica Uro',
+  'Uroclínica',
+  'Centro Médico Mater Dei',
+  'Itaigara Memorial',
+  'Valença',
+  'Serrinha',
+  'Outro',
+] as const;
 
 export function procedureNeedsApproach(procedure: string): boolean {
   return (PROCEDURES_WITH_APPROACH as readonly string[]).includes(procedure);

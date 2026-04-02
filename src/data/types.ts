@@ -22,7 +22,7 @@ export const STAGE_LABELS: Record<PipelineStage, string> = {
   awaiting_authorization: 'Aguardando Autorização',
   decision_pending: 'Decisão Pendente',
   followup_negotiation: 'Follow-up / Negociação',
-  preop_preparation: 'Preparo Pré-operatório',
+  preop_preparation: 'Cirurgia Autorizada',
   surgery_scheduled: 'Cirurgia Agendada',
   surgery_completed: 'Cirurgia Realizada',
   lost: 'Perdido / Não Procedeu',
