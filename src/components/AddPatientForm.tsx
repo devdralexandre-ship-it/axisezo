@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Patient, PIPELINE_STAGES, STAGE_LABELS, OWNERS, Owner } from '@/data/types';
-import { PROCEDURES, SURGEONS, CONCIERGES, PAYERS, BILLING_TYPES, PATIENT_TYPE_LABELS, SURGICAL_APPROACHES, procedureNeedsApproach } from '@/data/constants';
+import { PROCEDURES, SURGEONS, CONCIERGES, PAYERS, BILLING_TYPES, PATIENT_TYPE_LABELS, SURGICAL_APPROACHES, procedureNeedsApproach, LATERALITY_OPTIONS, procedureNeedsLaterality } from '@/data/constants';
 import { Plus, X } from 'lucide-react';
 
 interface InitialTask {
