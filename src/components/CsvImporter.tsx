@@ -79,6 +79,7 @@ interface CsvImporterProps {
     desiredHospital: string;
     notes: string;
     stage: PipelineStage;
+    entryDate: string;
     initialTask: { title: string; dueDate: string; dueTime: string; responsible: string };
   }>) => Promise<void>;
   existingPatientNames: string[];
