@@ -19,8 +19,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useQueryClient } from '@tanstack/react-query';
 
 const ACTIVE_STAGES = PIPELINE_STAGES.filter((s) => s !== 'lost') as PipelineStage[];
-const AUTO_SCROLL_ZONE = 80;
-const AUTO_SCROLL_SPEED = 15;
 
 export function PipelineDashboard() {
   const { data: patients = [], isLoading } = usePatients();
