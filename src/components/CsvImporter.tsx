@@ -27,6 +27,7 @@ const STATUS_MAP: Record<string, PipelineStage> = {
 // Column mapping from CSV headers to internal fields
 const COLUMN_MAP: Record<string, string> = {
   'carimbo de data/hora': 'entryDate',
+  'data': 'entryDate',
   'nome do paciente': 'name',
   'contato': 'phone',
   'procedimento solicitado': 'procedure',
