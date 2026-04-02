@@ -237,6 +237,17 @@ export function PatientPanel({ patient, open, onClose, onUpdateDecision, onUpdat
                   </Select>
                 </div>
               )}
+              {showLaterality && (
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-muted-foreground">Lateralidade</label>
+                  <Select value={editData.laterality || ''} onValueChange={(v) => setEditData({ ...editData, laterality: v })}>
+                    <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                    <SelectContent>
+                      {LATERALITY_OPTIONS.map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-muted-foreground">Cirurgião</label>
