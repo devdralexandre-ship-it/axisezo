@@ -132,7 +132,7 @@ function parseCSV(text: string): Record<string, string>[] {
 }
 
 function normalizeStr(s: string): string {
-  return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+  return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
 }
 
 function mapRow(raw: Record<string, string>, existingNames: Set<string>, knownHospitals: Map<string, string>): ParsedRow {
