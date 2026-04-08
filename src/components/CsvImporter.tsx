@@ -15,13 +15,23 @@ import { toast } from 'sonner';
 // Status mapping from spreadsheet values to Axis stages
 const STATUS_MAP: Record<string, PipelineStage> = {
   'agendada': 'surgery_scheduled',
+  'cirurgia agendada': 'surgery_scheduled',
   'autorizada': 'awaiting_authorization',
   'enviado': 'awaiting_authorization',
   'judicializado': 'awaiting_authorization',
-  'negociação': 'followup_negotiation',
   'negociacao': 'followup_negotiation',
-  'pendência': 'decision_pending',
+  'follow-up / negociacao': 'followup_negotiation',
+  'follow up negociacao': 'followup_negotiation',
+  'decisao pendente': 'decision_pending',
   'pendencia': 'decision_pending',
+  'indicacao': 'indication',
+  'orcamento enviado': 'budget_sent',
+  'primeiro contato': 'first_contact',
+  'preparo pre-operatorio': 'preop_preparation',
+  'cirurgia autorizada': 'preop_preparation',
+  'cirurgia concluida': 'surgery_completed',
+  'preparacao orcamento': 'budget_preparation',
+  'aguardando autorizacao': 'awaiting_authorization',
 };
 
 // Column mapping from CSV headers to internal fields
@@ -81,7 +91,7 @@ interface CsvImporterProps {
     stage: PipelineStage;
     entryDate: string;
     initialTask: { title: string; dueDate: string; dueTime: string; responsible: string };
-  }>) => Promise<void>;
+  }>, defaultSurgeon: string) => Promise<void>;
   existingPatientNames: string[];
 }
 
@@ -160,12 +170,8 @@ function mapRow(raw: Record<string, string>, existingNames: Set<string>, knownHo
     }
   }
 
-  // Check procedure
-  const procNorm = normalizeStr(mapped.procedure);
-  const knownProc = (PROCEDURES as readonly string[]).some(p => normalizeStr(p) === procNorm);
-  if (mapped.procedure && !knownProc) {
-    warnings.push({ type: 'unknown_procedure', message: `Procedimento desconhecido: "${mapped.procedure}"` });
-  }
+  // Check procedure — unknown procedures are imported as custom text (no warning)
+  // We keep the original procedure text as-is
 
   // Check payer
   if (mapped.payer) {
@@ -294,7 +300,7 @@ export function CsvImporter({ open, onClose, onImport, existingPatientNames }: C
           dueTime: '10:00',
           responsible: defaultResponsible,
         },
-      })));
+      })), defaultSurgeon);
       setImportResult({ success: toImport.length, failed: 0 });
       setStep('done');
     } catch (err) {
@@ -395,10 +401,12 @@ export function CsvImporter({ open, onClose, onImport, existingPatientNames }: C
                 </ul>
                 <p className="font-semibold text-foreground mt-3">Mapeamento de status:</p>
                 <ul className="space-y-1 list-disc list-inside">
+                  <li>Indicação → Indicação</li>
+                  <li>Decisão Pendente → Decisão Pendente</li>
+                  <li>Negociação → Follow-Up / Negociação</li>
+                  <li>Orçamento Enviado → Orçamento Enviado</li>
                   <li>Agendada → Cirurgia Agendada</li>
                   <li>Autorizada / Enviado / Judicializado → Aguardando Autorização</li>
-                  <li>Negociação → Follow-Up / Negociação</li>
-                  <li>Pendência → Decisão Pendente</li>
                 </ul>
               </div>
             </div>
@@ -468,7 +476,7 @@ export function CsvImporter({ open, onClose, onImport, existingPatientNames }: C
                               {row.mapped.name || <span className="italic text-muted-foreground">Sem nome</span>}
                             </span>
                             <Badge variant="secondary" className="text-[10px] px-1.5 shrink-0">
-                              {STAGE_LABELS[row.mapped.stage]}
+                              {STAGE_LABELS[row.mapped.stage]} • {defaultSurgeon.replace('Dr ', '')}
                             </Badge>
                           </div>
                           <div className="text-xs text-muted-foreground space-y-0.5">
