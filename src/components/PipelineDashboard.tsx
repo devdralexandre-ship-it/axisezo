@@ -402,8 +402,8 @@ export function PipelineDashboard() {
         open={csvImporterOpen}
         onClose={() => setCsvImporterOpen(false)}
         existingPatientNames={patients.map(p => p.name)}
-        onImport={async (patientsToImport) => {
-          await importPatientsMutation.mutateAsync({ patients: patientsToImport, defaultSurgeon: 'Dr Alexandre Ziomkowski' });
+        onImport={async (patientsToImport, defaultSurgeon) => {
+          await importPatientsMutation.mutateAsync({ patients: patientsToImport, defaultSurgeon });
         }}
       />
     </div>
