@@ -30,7 +30,7 @@ export function PipelineColumn({ stage, patients, onPatientClick, onCompleteTask
           <div
             ref={provided.innerRef}
             {...provided.droppableProps}
-            className={`flex flex-col gap-2 flex-1 overflow-y-auto pr-1 pb-2 min-h-[80px] rounded-lg transition-colors ${
+            className={`flex flex-col gap-2 flex-1 pr-1 pb-2 min-h-[80px] rounded-lg transition-colors ${
               snapshot.isDraggingOver
                 ? isLost ? 'bg-destructive/10' : 'bg-primary/5'
                 : ''
