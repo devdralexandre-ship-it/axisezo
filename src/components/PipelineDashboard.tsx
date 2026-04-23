@@ -215,7 +215,7 @@ export function PipelineDashboard() {
         queryClient.invalidateQueries({ queryKey: ['patients'] });
       },
     });
-  }, [updateStage, queryClient]);
+  }, [updateStage, queryClient, stopAutoScroll, handlePointerMove]);
 
   const handleLossConfirm = useCallback((reason: LossReason, detail: string | null) => {
     if (!pendingLossDrag) return;
