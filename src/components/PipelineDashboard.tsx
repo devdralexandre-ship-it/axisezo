@@ -11,7 +11,8 @@ import { LossReasonDialog } from './LossReasonDialog';
 import { DeletePatientDialog } from './DeletePatientDialog';
 import { CsvImporter } from './CsvImporter';
 import { Button } from '@/components/ui/button';
-import { Plus, Users, DollarSign, TrendingUp, LogOut, Upload } from 'lucide-react';
+import { Plus, Users, DollarSign, TrendingUp, LogOut, Upload, FileText } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { DragDropContext, DropResult } from '@hello-pangea/dnd';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
@@ -318,6 +319,9 @@ export function PipelineDashboard() {
               onMarkAllRead={handleMarkAllRead}
               onClickNotification={handleNotificationClick}
             />
+            <Button asChild variant="outline" size="sm">
+              <Link to="/templates"><FileText className="h-4 w-4" />Templates</Link>
+            </Button>
             <Button variant="outline" size="sm" onClick={() => setCsvImporterOpen(true)}>
               <Upload className="h-4 w-4" />
               Importar CSV
