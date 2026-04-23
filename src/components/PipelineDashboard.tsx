@@ -366,8 +366,8 @@ export function PipelineDashboard() {
         />
       </header>
 
-      <DragDropContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-        <div ref={scrollContainerRef} className="flex-1 overflow-x-auto overflow-y-hidden">
+      <DragDropContext onDragEnd={handleDragEnd}>
+        <div className="flex-1 overflow-auto">
           <div className="flex gap-4 p-6 h-full min-w-max">
             {ACTIVE_STAGES.map((stage) => {
               const stagePatients = filtered.filter((p) => p.stage === stage).sort((a, b) => {
