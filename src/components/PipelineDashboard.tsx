@@ -172,6 +172,10 @@ export function PipelineDashboard() {
   }, [handlePointerMove]);
 
   const handleDragEnd = useCallback((result: DropResult) => {
+    isDraggingRef.current = false;
+    pointerXRef.current = null;
+    stopAutoScroll();
+    window.removeEventListener('pointermove', handlePointerMove);
     if (!result.destination) return;
     const { draggableId, destination, source } = result;
     const newStage = destination.droppableId as PipelineStage;
