@@ -1,72 +1,120 @@
 
 
-## Problema
+# Plano: Transformar Axis em ferramenta diária da secretária
 
-O drop está caindo em uma coluna **errada (várias posições atrás)** quando o board faz scroll horizontal durante o arraste. A sessão confirma: card arrastado de `budget_preparation` foi solto sob a coluna visível à direita, mas caiu em `indication` (várias colunas à esquerda — exatamente onde o ponteiro estaria *antes* do scroll).
+Quatro fases independentes. Cada uma entrega valor sozinha; juntas, formam o fluxo completo: **gerar documento → enviar pelo WhatsApp → arquivar no Drive → mandar orientações certas para cada cirurgia**.
 
-## Causa raiz
+---
 
-A implementação atual de auto-scroll horizontal (adicionada no último ciclo) faz `container.scrollLeft += delta` dentro de um `requestAnimationFrame` disparado por `pointermove`. Isso **invalida o cache interno de posições dos droppables** do `@hello-pangea/dnd`. A biblioteca calcula as bounding boxes dos droppables no `onDragStart` e só as recalcula quando *ela mesma* dispara o scroll. Como o scroll está vindo de fora do ciclo dela, o droppable-alvo é resolvido com base nas coordenadas antigas → o card cai na coluna que estava sob o cursor antes do scroll.
+## Fase 1 — Documentos por paciente (orçamento, solicitação, atestado, relatório)
 
-A premissa do plano anterior ("a biblioteca recalcula em cada frame quando o container scrolla") estava incorreta: ela só recalcula quando o scroll vem do auto-scroller dela.
+### O que a secretária vai fazer
+Abrir um paciente → aba **"Documentos"** → clicar **"Novo documento"** → escolher tipo (Orçamento, Solicitação Cirúrgica, Atestado, Relatório) → o sistema preenche automaticamente nome, idade, procedimento, lateralidade, valores, hospital, cirurgião, convênio → ela revisa, ajusta o texto livre se quiser, e salva. O PDF fica listado na ficha do paciente, pronto para baixar/enviar.
 
-## Por que o auto-scroll nativo da biblioteca não funciona hoje
+### Modelo de templates
+Cada tipo de documento tem um template padrão **por cirurgião**. Ex.: o orçamento do Dr. Estrela tem cabeçalho/assinatura dele; o atestado do Dr. Ziomkowski tem o dele. Admin edita os templates em uma tela dedicada (`/templates`) com editor de texto rico e variáveis tipo `{{paciente.nome}}`, `{{procedimento}}`, `{{valor_total}}`.
 
-`@hello-pangea/dnd` faz auto-scroll do **scrollable ancestor mais próximo do Droppable**. Hoje:
+### Banco de dados
+- `document_templates`: id, tipo (`budget`|`surgical_request`|`medical_certificate`|`report`), surgeon, title, body_html, header_html, footer_html, is_default
+- `patient_documents`: id, patient_id, template_id, type, title, body_html (snapshot renderizado), pdf_url (storage), created_at, created_by, sent_via_whatsapp_at, drive_file_id (nullable, usado na Fase 4)
 
-```text
-<div overflow-x-auto>          ← board (queremos que ela use esse)
-  <PipelineColumn>
-    <Droppable>
-      <div overflow-y-auto>    ← coluna (a biblioteca acha esse primeiro)
-```
+### Geração do PDF
+Edge function `generate-document`: recebe `{ patientId, templateId, overrides }`, busca paciente + template, faz substituição de variáveis, renderiza HTML→PDF (Puppeteer/Playwright via Lovable AI image gen não serve; usar `@react-pdf/renderer` no client OU Deno + html-to-pdf). Recomendação: **renderizar no client com `@react-pdf/renderer`** — sem custo de edge function, preview instantâneo, salva o PDF no Lovable Cloud Storage e registra em `patient_documents`.
 
-Como cada coluna tem seu próprio `overflow-y-auto`, a biblioteca trava nele e nunca enxerga o scroll horizontal do board. Por isso só foi implementado o manual — que causa o bug de drop errado.
+### UI
+- Nova aba "Documentos" no `PatientPanel` (ao lado das atuais).
+- Lista de documentos do paciente: título, tipo, data, ações (baixar, enviar WhatsApp, enviar Drive).
+- Modal "Novo documento": seleciona template, mostra preview com dados do paciente, permite editar antes de gerar.
+- Página `/templates` (admin): CRUD de templates, marcadores `{{...}}` com autocomplete dos campos disponíveis.
 
-## Solução
+### Storage
+Bucket `patient-documents` (privado), path `{patient_id}/{document_id}.pdf`, RLS: authenticated leitura/escrita.
 
-Remover o auto-scroll manual e deixar o **auto-scroller nativo** da biblioteca cuidar de ambos os eixos. Para isso, eliminar o scroll vertical interno de cada coluna, fazendo do board o único ancestral scrollável dos droppables — assim a biblioteca faz auto-scroll horizontal *e* vertical sem desincronizar coordenadas.
+---
 
-### Mudanças concretas
+## Fase 2 — WhatsApp via Evolution API (Baileys)
 
-**1. `src/components/PipelineDashboard.tsx`** — remover toda a lógica manual:
-- Remover `rafIdRef`, `isDraggingRef`, `pointerXRef`, `stopAutoScroll`, `tickAutoScroll`, `handlePointerMove`, o `useEffect` de cleanup desses listeners.
-- Simplificar `handleDragStart` (vira no-op ou removido) e `handleDragEnd` (manter apenas a lógica de mover paciente).
-- Manter `scrollContainerRef` apenas se necessário (provavelmente não será mais).
-- Trocar o wrapper externo para permitir scroll **vertical e horizontal** no board:
-  ```tsx
-  <div className="flex-1 overflow-auto">
-    <div className="flex gap-4 p-6 min-w-max min-h-full">
-      ...colunas...
-    </div>
-  </div>
-  ```
+### Decisão e risco assumido
+Usaremos Evolution API (não-oficial). **Riscos que a secretária precisa conhecer**: (1) banimento do número se enviar muitas mensagens em massa; (2) instabilidade — pode cair e exigir reconectar via QR. Mitigação: usar um número dedicado da clínica, não pessoal; volume baixo e personalizado.
 
-**2. `src/components/PipelineColumn.tsx`** — remover `overflow-y-auto` do `<div>` do Droppable:
-- Trocar `flex flex-col gap-2 flex-1 overflow-y-auto pr-1 pb-2 min-h-[80px] ...` por `flex flex-col gap-2 flex-1 pr-1 pb-2 min-h-[80px] ...`.
-- Manter `min-w-[240px] max-w-[280px]` e `shrink-0` na coluna externa para preservar o layout.
-- Resultado: o board todo rola (horizontal + vertical), as colunas crescem com o conteúdo.
+### Hospedagem
+Evolution API precisa rodar em servidor próprio (não cabe em edge function — exige WebSocket persistente e estado do Baileys). Opções:
+- **Recomendada**: Railway/Render/VPS (~5-10 USD/mês), Docker pronto da Evolution.
+- O Lovable não hospeda isso — o usuário precisa subir e fornecer URL + API key.
 
-### Por que isso resolve
+### Integração no app
+- Settings → "WhatsApp": campo para `EVOLUTION_API_URL`, `EVOLUTION_API_KEY`, `EVOLUTION_INSTANCE_NAME`. Botão "Conectar" mostra QR code para parear.
+- Edge function `whatsapp-send`: `{ to, message, mediaUrl? }` → POST para Evolution `/message/sendText` ou `/message/sendMedia`.
+- Edge function `whatsapp-webhook`: recebe mensagens de entrada, identifica paciente pelo telefone, anexa em `whatsapp_messages` ligado ao paciente.
+- Tabela `whatsapp_messages`: id, patient_id, direction (`in`|`out`), body, media_url, status, sent_at, evolution_message_id.
+- Aba "WhatsApp" no `PatientPanel`: histórico estilo chat. Botão "Enviar documento" abre seleção dos PDFs do paciente.
 
-- `@hello-pangea/dnd` agora encontra o board como o único scrollable ancestor → ativa o auto-scroller nativo dela em ambos os eixos quando o ponteiro chega perto da borda.
-- O scroll é feito **dentro do ciclo da biblioteca**, então as posições dos droppables são sempre recalculadas corretamente → o drop cai exatamente sob o cursor, sempre.
-- Elimina o código manual frágil que era a causa do bug.
+### Fluxo de envio de documento
+Na aba Documentos, botão "Enviar WhatsApp" → modal escolhe contato (telefone do paciente prefilled) → mensagem padrão editável → envia o PDF via Evolution → marca `sent_via_whatsapp_at` no documento.
 
-## Trade-off
+---
 
-- Antes, cada coluna scrollava verticalmente de forma independente. Agora a página inteira do board rola junto. Em colunas muito longas isso é uma mudança visual leve, mas é o padrão típico de Kanban (Trello, Linear) e é o único caminho seguro para auto-scroll horizontal correto com `@hello-pangea/dnd`.
+## Fase 3 — Biblioteca de orientações pré/pós-op
 
-## Verificação
+### Modelo (materiais + pacotes)
+- `materials`: id, title, description, kind (`text`|`video`|`pdf`), content_url (vídeo do YouTube/Drive ou PDF do storage) ou body_html (texto), tags. Tags livres + 3 dimensões estruturadas: `procedure` (multi), `surgeon` (multi, opcional → vale para todos), `phase` (`preop`|`postop`|`general`).
+- `material_packages`: id, name, surgeon (opcional), description.
+- `package_materials`: package_id, material_id, order_index.
+- `patient_sent_materials`: patient_id, material_id (ou package_id), sent_at, channel (`whatsapp`|`download`).
 
-1. Arrastar um card e mover para perto da borda direita → board rola horizontalmente, drop cai na coluna sob o cursor.
-2. Mesmo na borda esquerda.
-3. Drop em coluna que estava fora da viewport inicial cai na coluna **correta** (não mais várias colunas atrás).
-4. Reordenar verticalmente dentro de uma coluna continua funcionando.
-5. Sem drag, o board é navegável com scroll horizontal e vertical normal.
+### UI Admin
+Página `/library`: dois tabs — **Materiais** (CRUD, upload de PDF/vídeo, marca tags) e **Pacotes** (cria pacote, arrasta materiais para dentro, define cirurgião alvo).
 
-## Arquivos afetados
+### UI no painel do paciente
+Nova aba "Orientações". O sistema sugere automaticamente:
+- Pacotes que combinam com `procedure + surgeon` do paciente.
+- Materiais individuais relevantes (mesmo procedimento OU mesmo cirurgião OU genéricos).
+Filtros por fase (Pré-op / Pós-op).
+Cada item: botão "Enviar WhatsApp" (envia link/PDF) e checkbox "Já enviei". Histórico mostra o que já foi enviado a esse paciente.
 
-- `src/components/PipelineDashboard.tsx`
-- `src/components/PipelineColumn.tsx`
+### Sugestão proativa
+Quando paciente entra em estágio `surgery_scheduled` → notificação "Enviar pacote pré-op de {procedimento} ({cirurgião})". Quando entra em `surgery_completed` → "Enviar pacote pós-op".
+
+---
+
+## Fase 4 — Google Drive: 1 pasta por paciente
+
+### Comportamento
+Quando paciente é criado → cria pasta no Drive da clínica com nome `{Nome do paciente} - {procedimento}` dentro de uma pasta-mãe configurada (ex.: `/Axis Pacientes/`). ID da pasta salvo em `patients.drive_folder_id`.
+
+Quando documento é gerado na Fase 1 → upload automático para a pasta do paciente. Botão manual "Reenviar ao Drive" disponível.
+
+Anexos recebidos via WhatsApp (Fase 2) também sobem para a pasta do paciente automaticamente.
+
+### Limite importante do conector
+O conector Google Drive autentica **a conta da clínica** (quem fez OAuth na conexão), não cada usuário. Todos os documentos vão para o Drive dessa conta. Compartilhamento da pasta-mãe com a equipe é manual no Drive.
+
+### Implementação
+- Edge function `drive-sync`: chama gateway Google Drive (`https://connector-gateway.lovable.dev/google_drive/drive/v3/files`) para criar pastas e fazer upload multipart.
+- Settings → "Google Drive": botão para conectar via `standard_connectors--connect('google_drive')`, campo para selecionar/colar ID da pasta-mãe.
+- Trigger: ao criar paciente (hook `useAddPatient`), chamar `drive-sync` para criar pasta. Ao gerar PDF, chamar `drive-sync` para upload.
+- Tratamento de falha: se Drive offline, documento ainda fica no Lovable Storage; flag `drive_sync_pending` permite reprocessar.
+
+---
+
+## Ordem de execução proposta
+
+1. **Fase 1 inteira** — entrega valor imediato sozinha (secretária para de fazer documento no Word).
+2. **Fase 3** antes da Fase 2 — biblioteca de orientações funciona com download/copiar mesmo sem WhatsApp; é puro CRUD, baixo risco.
+3. **Fase 2** — WhatsApp passa a ser o canal de envio de tudo gerado nas Fases 1 e 3.
+4. **Fase 4** — sincronização Drive como camada de arquivamento.
+
+---
+
+## Decisões técnicas que precisam de você na hora de implementar cada fase
+
+- **Fase 2**: você precisará subir a Evolution API em algum lugar (Railway/Render/VPS) e me passar URL + API key. Posso documentar o passo a passo do deploy quando chegarmos lá.
+- **Fase 4**: você precisará conectar o Google Drive (vou disparar o fluxo de conexão na hora) e criar/escolher a pasta-mãe no Drive da clínica.
+
+## Limitações conhecidas
+
+- **Evolution API** não é oficial: risco de banimento e instabilidade existem e não podem ser eliminados, só mitigados.
+- **Google Drive conector** usa a conta-única da clínica; não há separação por usuário.
+- **PDF gerado no client** tem limites de fontes/CSS comparado a Puppeteer; suficiente para os 4 tipos de documento, mas se precisar de layout muito complexo migramos para edge function.
+- Roles ainda não estão atribuídos (existe `user_roles` e `app_role`, mas ninguém é admin); para Fase 1 e Fase 3 tela de admin (`/templates`, `/library`) qualquer autenticado entra. Posso adicionar gate por role na Fase 1 se quiser.
 
