@@ -1,6 +1,15 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { DocumentTemplate, PatientDocument, DocumentType, DEFAULT_TEMPLATE_BODIES, buildPatientVariables, renderTemplate } from '@/data/documents';
+import {
+  DocumentTemplate,
+  PatientDocument,
+  DocumentType,
+  DEFAULT_TEMPLATE_BODIES,
+  buildPatientVariables,
+  renderTemplate,
+  buildSurgicalRequestHtml,
+  SurgicalRequestData,
+} from '@/data/documents';
 import { renderDocumentToBlob } from '@/lib/pdf-generator';
 import { toast } from 'sonner';
 
@@ -35,14 +44,19 @@ export function useSaveTemplate() {
         header_html: tpl.header_html || '',
         footer_html: tpl.footer_html || '',
         is_default: tpl.is_default ?? false,
+        logo_path: tpl.logo_path ?? null,
+        default_data: tpl.default_data ?? {},
       };
+      let resultId: string | undefined = tpl.id;
       if (tpl.id) {
         const { error } = await supabase.from('document_templates' as any).update(payload).eq('id', tpl.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('document_templates' as any).insert(payload);
+        const { data, error } = await supabase.from('document_templates' as any).insert(payload).select('id').single();
         if (error) throw error;
+        resultId = (data as any)?.id;
       }
+      return resultId;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['document_templates'] });
@@ -67,6 +81,21 @@ export function useDeleteTemplate() {
   });
 }
 
+export async function uploadTemplateLogo(templateId: string, file: File): Promise<string> {
+  const ext = file.name.split('.').pop()?.toLowerCase() || 'png';
+  const path = `template-logos/${templateId}.${ext}`;
+  const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
+    upsert: true,
+    contentType: file.type,
+  });
+  if (error) throw error;
+  return path;
+}
+
+export async function removeTemplateLogo(path: string) {
+  await supabase.storage.from(BUCKET).remove([path]);
+}
+
 /* ---------- Patient documents ---------- */
 
 export function usePatientDocuments(patientId: string | undefined) {
@@ -85,10 +114,6 @@ export function usePatientDocuments(patientId: string | undefined) {
   });
 }
 
-/**
- * Resolve which template body to use for a given (type, surgeon).
- * Priority: exact (type+surgeon) > default for type > generic for type > seed default.
- */
 export function pickTemplate(templates: DocumentTemplate[], type: DocumentType, surgeon: string | null) {
   return (
     templates.find((t) => t.type === type && t.surgeon === surgeon) ||
@@ -103,33 +128,83 @@ export interface GenerateInput {
   patient: any;
   type: DocumentType;
   template: DocumentTemplate | null;
-  /** Optional overrides: body and title already rendered (from preview edits) */
+  /** Simple-mode overrides (HTML) */
   titleOverride?: string;
   bodyOverride?: string;
+  /** Structured-mode payload (currently for surgical_request only) */
+  structuredData?: SurgicalRequestData;
+}
+
+async function getSignedLogoUrl(path: string | null | undefined): Promise<string | undefined> {
+  if (!path) return undefined;
+  const { data } = await supabase.storage.from(BUCKET).createSignedUrl(path, 60 * 10);
+  return data?.signedUrl;
+}
+
+async function recordSuggestions(procedure: string, sd: SurgicalRequestData) {
+  const items: { kind: 'cbhpm' | 'cid' | 'opme'; value: string; label: string }[] = [];
+  if (sd.mainCbhpm.code || sd.mainCbhpm.label) items.push({ kind: 'cbhpm', value: sd.mainCbhpm.code, label: sd.mainCbhpm.label });
+  sd.extraCbhpm.forEach((c) => { if (c.code || c.label) items.push({ kind: 'cbhpm', value: c.code, label: c.label }); });
+  sd.cid.forEach((c) => { if (c.code || c.label) items.push({ kind: 'cid', value: c.code, label: c.label }); });
+  sd.opme.forEach((o) => { if (o.description) items.push({ kind: 'opme', value: '', label: o.description }); });
+
+  for (const it of items) {
+    // upsert with manual increment via select-then-update fallback
+    const { data: existing } = await supabase
+      .from('procedure_code_suggestions' as any)
+      .select('id,usage_count')
+      .eq('procedure', procedure)
+      .eq('kind', it.kind)
+      .eq('value', it.value)
+      .maybeSingle();
+    if (existing) {
+      await supabase.from('procedure_code_suggestions' as any)
+        .update({ usage_count: ((existing as any).usage_count || 0) + 1, last_used_at: new Date().toISOString(), label: it.label })
+        .eq('id', (existing as any).id);
+    } else {
+      await supabase.from('procedure_code_suggestions' as any).insert({
+        procedure, kind: it.kind, value: it.value, label: it.label,
+      });
+    }
+  }
 }
 
 export function useGenerateDocument() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ patient, type, template, titleOverride, bodyOverride }: GenerateInput) => {
+    mutationFn: async ({ patient, type, template, titleOverride, bodyOverride, structuredData }: GenerateInput) => {
       const vars = buildPatientVariables(patient);
       const seed = DEFAULT_TEMPLATE_BODIES[type];
-      const rawTitle = titleOverride ?? template?.title ?? seed.title;
-      const rawBody = bodyOverride ?? template?.body_html ?? seed.body;
-      const title = renderTemplate(rawTitle, vars);
-      const body = renderTemplate(rawBody, vars);
+
+      let title: string;
+      let body: string;
+      let dataPayload: Record<string, any> = {};
+
+      if (type === 'surgical_request' && structuredData) {
+        title = renderTemplate(template?.title ?? seed.title, vars);
+        body = buildSurgicalRequestHtml(structuredData);
+        dataPayload = structuredData as any;
+      } else {
+        const rawTitle = titleOverride ?? template?.title ?? seed.title;
+        const rawBody = bodyOverride ?? template?.body_html ?? seed.body;
+        title = renderTemplate(rawTitle, vars);
+        body = renderTemplate(rawBody, vars);
+      }
+
       const headerHtml = template?.header_html ?? '';
       const footerHtml = template?.footer_html ?? '';
+      const logoUrl = await getSignedLogoUrl(template?.logo_path);
 
-      // 1. Render PDF in client
+      // 1. Render PDF
       const blob = await renderDocumentToBlob({
         title,
         bodyHtml: body,
         headerHtml,
         footerHtml,
+        logoUrl,
       });
 
-      // 2. Insert document row first (we need the ID for the storage path)
+      // 2. Insert document row
       const { data: inserted, error: insertErr } = await supabase
         .from('patient_documents' as any)
         .insert({
@@ -138,6 +213,7 @@ export function useGenerateDocument() {
           type,
           title,
           body_html: body,
+          data: dataPayload,
         } as any)
         .select()
         .single();
@@ -148,18 +224,20 @@ export function useGenerateDocument() {
       const path = `${patient.id}/${docRow.id}.pdf`;
       const { error: upErr } = await supabase.storage
         .from(BUCKET)
-        .upload(path, blob, {
-          contentType: 'application/pdf',
-          upsert: true,
-        });
+        .upload(path, blob, { contentType: 'application/pdf', upsert: true });
       if (upErr) throw upErr;
 
-      // 4. Update row with pdf_path
+      // 4. Update with pdf_path
       const { error: updErr } = await supabase
         .from('patient_documents' as any)
         .update({ pdf_path: path } as any)
         .eq('id', docRow.id);
       if (updErr) throw updErr;
+
+      // 5. Record suggestions (best effort)
+      if (type === 'surgical_request' && structuredData && patient?.procedure) {
+        try { await recordSuggestions(patient.procedure, structuredData); } catch (e) { console.warn('suggestions', e); }
+      }
 
       return { ...docRow, pdf_path: path };
     },
@@ -190,9 +268,6 @@ export function useDeleteDocument() {
   });
 }
 
-/**
- * Get a short-lived signed URL for downloading / previewing a document PDF.
- */
 export async function getDocumentSignedUrl(pdfPath: string): Promise<string | null> {
   const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(pdfPath, 60 * 10);
   if (error) return null;
