@@ -368,7 +368,7 @@ export function PipelineDashboard() {
 
       <DragDropContext onDragEnd={handleDragEnd}>
         <div className="flex-1 overflow-auto">
-          <div className="flex gap-4 p-6 h-full min-w-max">
+          <div className="flex gap-4 p-6 min-h-full min-w-max">
             {ACTIVE_STAGES.map((stage) => {
               const stagePatients = filtered.filter((p) => p.stage === stage).sort((a, b) => {
                 const dateA = new Date(a.indicationDate || a.createdAt || '9999-12-31').getTime();
