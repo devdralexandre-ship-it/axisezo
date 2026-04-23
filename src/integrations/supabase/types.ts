@@ -52,6 +52,111 @@ export type Database = {
           },
         ]
       }
+      document_templates: {
+        Row: {
+          body_html: string
+          created_at: string
+          created_by: string | null
+          footer_html: string
+          header_html: string
+          id: string
+          is_default: boolean
+          surgeon: string | null
+          title: string
+          type: Database["public"]["Enums"]["document_type"]
+          updated_at: string
+        }
+        Insert: {
+          body_html?: string
+          created_at?: string
+          created_by?: string | null
+          footer_html?: string
+          header_html?: string
+          id?: string
+          is_default?: boolean
+          surgeon?: string | null
+          title: string
+          type: Database["public"]["Enums"]["document_type"]
+          updated_at?: string
+        }
+        Update: {
+          body_html?: string
+          created_at?: string
+          created_by?: string | null
+          footer_html?: string
+          header_html?: string
+          id?: string
+          is_default?: boolean
+          surgeon?: string | null
+          title?: string
+          type?: Database["public"]["Enums"]["document_type"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      patient_documents: {
+        Row: {
+          body_html: string
+          created_at: string
+          created_by: string | null
+          drive_file_id: string | null
+          drive_synced_at: string | null
+          id: string
+          patient_id: string
+          pdf_path: string | null
+          sent_via_whatsapp_at: string | null
+          template_id: string | null
+          title: string
+          type: Database["public"]["Enums"]["document_type"]
+          updated_at: string
+        }
+        Insert: {
+          body_html?: string
+          created_at?: string
+          created_by?: string | null
+          drive_file_id?: string | null
+          drive_synced_at?: string | null
+          id?: string
+          patient_id: string
+          pdf_path?: string | null
+          sent_via_whatsapp_at?: string | null
+          template_id?: string | null
+          title: string
+          type: Database["public"]["Enums"]["document_type"]
+          updated_at?: string
+        }
+        Update: {
+          body_html?: string
+          created_at?: string
+          created_by?: string | null
+          drive_file_id?: string | null
+          drive_synced_at?: string | null
+          id?: string
+          patient_id?: string
+          pdf_path?: string | null
+          sent_via_whatsapp_at?: string | null
+          template_id?: string | null
+          title?: string
+          type?: Database["public"]["Enums"]["document_type"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_documents_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_documents_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "document_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patients: {
         Row: {
           age: number | null
@@ -342,6 +447,11 @@ export type Database = {
       app_role: "admin" | "surgeon" | "concierge" | "call_center"
       contact_type: "phone" | "whatsapp" | "email" | "in_person"
       decision_status: "waiting" | "thinking" | "negotiating" | "confirmed"
+      document_type:
+        | "budget"
+        | "surgical_request"
+        | "medical_certificate"
+        | "report"
       loss_reason:
         | "price"
         | "delay"
@@ -490,6 +600,12 @@ export const Constants = {
       app_role: ["admin", "surgeon", "concierge", "call_center"],
       contact_type: ["phone", "whatsapp", "email", "in_person"],
       decision_status: ["waiting", "thinking", "negotiating", "confirmed"],
+      document_type: [
+        "budget",
+        "surgical_request",
+        "medical_certificate",
+        "report",
+      ],
       loss_reason: [
         "price",
         "delay",
