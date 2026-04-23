@@ -54,6 +54,59 @@ export function PipelineDashboard() {
   const [csvImporterOpen, setCsvImporterOpen] = useState(false);
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const rafIdRef = useRef<number | null>(null);
+  const isDraggingRef = useRef(false);
+  const pointerXRef = useRef<number | null>(null);
+
+  const stopAutoScroll = useCallback(() => {
+    if (rafIdRef.current !== null) {
+      cancelAnimationFrame(rafIdRef.current);
+      rafIdRef.current = null;
+    }
+  }, []);
+
+  const tickAutoScroll = useCallback(() => {
+    const container = scrollContainerRef.current;
+    const x = pointerXRef.current;
+    if (!container || x === null || !isDraggingRef.current) {
+      rafIdRef.current = null;
+      return;
+    }
+    const rect = container.getBoundingClientRect();
+    const EDGE = 80;
+    const MAX_SPEED = 16;
+    const MIN_SPEED = 4;
+    let delta = 0;
+    const distLeft = x - rect.left;
+    const distRight = rect.right - x;
+    if (distLeft < EDGE && distLeft >= 0) {
+      const ratio = 1 - distLeft / EDGE;
+      delta = -(MIN_SPEED + (MAX_SPEED - MIN_SPEED) * ratio);
+    } else if (distRight < EDGE && distRight >= 0) {
+      const ratio = 1 - distRight / EDGE;
+      delta = MIN_SPEED + (MAX_SPEED - MIN_SPEED) * ratio;
+    }
+    if (delta !== 0) {
+      const maxScroll = container.scrollWidth - container.clientWidth;
+      const next = Math.max(0, Math.min(maxScroll, container.scrollLeft + delta));
+      container.scrollLeft = next;
+    }
+    rafIdRef.current = requestAnimationFrame(tickAutoScroll);
+  }, []);
+
+  const handlePointerMove = useCallback((e: PointerEvent) => {
+    pointerXRef.current = e.clientX;
+    if (isDraggingRef.current && rafIdRef.current === null) {
+      rafIdRef.current = requestAnimationFrame(tickAutoScroll);
+    }
+  }, [tickAutoScroll]);
+
+  useEffect(() => {
+    return () => {
+      stopAutoScroll();
+      window.removeEventListener('pointermove', handlePointerMove);
+    };
+  }, [stopAutoScroll, handlePointerMove]);
 
   const surgeons = useMemo(() => [...new Set(patients.map((p) => p.surgeon).filter(Boolean))], [patients]);
   const concierges = useMemo(() => [...new Set(patients.map((p) => p.concierge).filter(Boolean))], [patients]);
