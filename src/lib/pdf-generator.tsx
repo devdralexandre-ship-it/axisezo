@@ -1,4 +1,4 @@
-import { Document, Page, Text, View, StyleSheet, pdf } from '@react-pdf/renderer';
+import { Document, Page, Text, View, Image, StyleSheet, pdf } from '@react-pdf/renderer';
 
 const styles = StyleSheet.create({
   page: {
@@ -15,11 +15,20 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#999',
-    textAlign: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  headerLogo: {
+    width: 60,
+    height: 60,
+    objectFit: 'contain',
   },
   headerText: {
     fontSize: 10,
     color: '#444',
+    flex: 1,
+    textAlign: 'center',
   },
   title: {
     fontSize: 16,
@@ -56,15 +65,9 @@ const styles = StyleSheet.create({
   },
 });
 
-/**
- * Lightweight HTML → react-pdf converter.
- * Supports: <p>, <h3>, <ul><li>, <strong>/<b>, <br/>.
- * Strips other tags. Good enough for the document templates we ship.
- */
 function parseSimpleHtml(html: string): React.ReactNode[] {
   if (!html) return [];
 
-  // Normalize line breaks inside source
   const cleaned = html
     .replace(/\r/g, '')
     .replace(/<br\s*\/?>/gi, '\n')
@@ -75,14 +78,12 @@ function parseSimpleHtml(html: string): React.ReactNode[] {
     .replace(/&quot;/g, '"');
 
   const blocks: React.ReactNode[] = [];
-  // Split by block-level tags (paragraphs, headings, lists)
   const blockRegex = /<(p|h3|ul)>([\s\S]*?)<\/\1>/gi;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
   let key = 0;
 
   while ((match = blockRegex.exec(cleaned)) !== null) {
-    // Catch loose text between blocks
     const between = cleaned.slice(lastIndex, match.index).trim();
     if (between) {
       blocks.push(<Text key={`t-${key++}`} style={styles.paragraph}>{renderInline(stripTags(between))}</Text>);
@@ -106,7 +107,6 @@ function parseSimpleHtml(html: string): React.ReactNode[] {
     lastIndex = match.index + match[0].length;
   }
 
-  // Trailing loose text
   const trailing = cleaned.slice(lastIndex).trim();
   if (trailing) {
     blocks.push(<Text key={`t-${key++}`} style={styles.paragraph}>{renderInline(stripTags(trailing))}</Text>);
@@ -119,12 +119,8 @@ function stripTags(s: string): string {
   return s.replace(/<[^>]+>/g, '');
 }
 
-/**
- * Render inline-level content. Handles <strong>/<b> and \n line breaks.
- */
 function renderInline(html: string): React.ReactNode[] {
   const parts: React.ReactNode[] = [];
-  // Split keeping the strong tags
   const tokens = html.split(/(<\s*(?:strong|b)\s*>[\s\S]*?<\s*\/\s*(?:strong|b)\s*>)/gi);
   let key = 0;
   for (const tok of tokens) {
@@ -135,7 +131,6 @@ function renderInline(html: string): React.ReactNode[] {
       parts.push(<Text key={`s-${key++}`} style={styles.bold}>{inner}</Text>);
     } else {
       const cleaned = stripTags(tok);
-      // Preserve explicit line breaks
       const lines = cleaned.split('\n');
       lines.forEach((line, idx) => {
         parts.push(<Text key={`x-${key++}-${idx}`}>{line}</Text>);
@@ -151,17 +146,20 @@ interface DocumentPdfProps {
   bodyHtml: string;
   headerHtml?: string;
   footerHtml?: string;
+  logoUrl?: string;
 }
 
-export function DocumentPdf({ title, bodyHtml, headerHtml, footerHtml }: DocumentPdfProps) {
+export function DocumentPdf({ title, bodyHtml, headerHtml, footerHtml, logoUrl }: DocumentPdfProps) {
+  const hasHeader = !!(logoUrl || (headerHtml && headerHtml.trim()));
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        {headerHtml ? (
+        {hasHeader && (
           <View style={styles.header}>
-            <Text style={styles.headerText}>{stripTags(headerHtml)}</Text>
+            {logoUrl ? <Image src={logoUrl} style={styles.headerLogo} /> : null}
+            {headerHtml ? <Text style={styles.headerText}>{stripTags(headerHtml)}</Text> : <View style={{ flex: 1 }} />}
           </View>
-        ) : null}
+        )}
 
         <Text style={styles.title}>{title}</Text>
 

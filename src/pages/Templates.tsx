@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,16 +16,42 @@ import {
   DocumentTemplate,
 } from '@/data/documents';
 import { SURGEONS } from '@/data/constants';
-import { useDocumentTemplates, useSaveTemplate, useDeleteTemplate } from '@/hooks/useDocuments';
-import { ArrowLeft, Plus, Pencil, Trash2 } from 'lucide-react';
+import {
+  useDocumentTemplates,
+  useSaveTemplate,
+  useDeleteTemplate,
+  uploadTemplateLogo,
+  removeTemplateLogo,
+} from '@/hooks/useDocuments';
+import { supabase } from '@/integrations/supabase/client';
+import { ArrowLeft, Plus, Pencil, Trash2, Upload, Image as ImageIcon, X } from 'lucide-react';
+import { toast } from 'sonner';
 
 const NO_SURGEON = '__none__';
+const BUCKET = 'patient-documents';
 
 export default function Templates() {
   const { data: templates = [], isLoading } = useDocumentTemplates();
   const saveMutation = useSaveTemplate();
   const deleteMutation = useDeleteTemplate();
   const [editing, setEditing] = useState<Partial<DocumentTemplate> | null>(null);
+  const [logoPreviewUrl, setLogoPreviewUrl] = useState<string | null>(null);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Resolve current logo signed URL when editing
+  useEffect(() => {
+    let canceled = false;
+    (async () => {
+      if (editing?.logo_path) {
+        const { data } = await supabase.storage.from(BUCKET).createSignedUrl(editing.logo_path, 600);
+        if (!canceled) setLogoPreviewUrl(data?.signedUrl ?? null);
+      } else {
+        setLogoPreviewUrl(null);
+      }
+    })();
+    return () => { canceled = true; };
+  }, [editing?.logo_path]);
 
   const grouped = useMemo(() => {
     const out: Record<DocumentType, DocumentTemplate[]> = {
@@ -45,14 +71,55 @@ export default function Templates() {
       header_html: '',
       footer_html: '',
       is_default: false,
+      logo_path: null,
+      default_data: {},
     });
   };
 
   const handleSave = async () => {
-    if (!editing?.type || !editing?.title || !editing?.body_html) return;
+    if (!editing?.type || !editing?.title) return;
     await saveMutation.mutateAsync(editing as any);
     setEditing(null);
   };
+
+  const handleLogoUpload = async (file: File) => {
+    if (!editing?.id) {
+      // Need to save first to obtain an id
+      toast.message('Salve o template uma vez antes de enviar a logo.');
+      return;
+    }
+    if (file.size > 1024 * 1024) {
+      toast.error('Logo deve ter no máximo 1MB');
+      return;
+    }
+    setUploadingLogo(true);
+    try {
+      const path = await uploadTemplateLogo(editing.id, file);
+      const updated = { ...editing, logo_path: path };
+      setEditing(updated);
+      await saveMutation.mutateAsync(updated as any);
+      toast.success('Logo enviada!');
+    } catch (e: any) {
+      toast.error(`Erro: ${e.message}`);
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
+  const handleLogoRemove = async () => {
+    if (!editing?.logo_path) return;
+    try {
+      await removeTemplateLogo(editing.logo_path);
+      const updated = { ...editing, logo_path: null };
+      setEditing(updated);
+      if (editing.id) await saveMutation.mutateAsync(updated as any);
+    } catch (e: any) {
+      toast.error(`Erro: ${e.message}`);
+    }
+  };
+
+  const isSurgical = editing?.type === 'surgical_request';
+  const defaults = (editing?.default_data ?? {}) as any;
 
   return (
     <div className="min-h-screen bg-background">
@@ -87,15 +154,22 @@ export default function Templates() {
                 {grouped[type].map((t) => (
                   <Card key={t.id} className="p-4 space-y-2">
                     <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="font-medium text-sm truncate">{t.title}</p>
-                        <div className="flex items-center gap-1 mt-1">
-                          {t.surgeon ? (
-                            <Badge variant="outline" className="text-[10px]">{t.surgeon}</Badge>
-                          ) : (
-                            <Badge variant="secondary" className="text-[10px]">Genérico</Badge>
-                          )}
-                          {t.is_default && <Badge className="text-[10px]">Padrão</Badge>}
+                      <div className="min-w-0 flex items-center gap-2">
+                        {t.logo_path && (
+                          <div className="h-8 w-8 rounded bg-muted shrink-0 flex items-center justify-center">
+                            <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <p className="font-medium text-sm truncate">{t.title}</p>
+                          <div className="flex items-center gap-1 mt-1">
+                            {t.surgeon ? (
+                              <Badge variant="outline" className="text-[10px]">{t.surgeon}</Badge>
+                            ) : (
+                              <Badge variant="secondary" className="text-[10px]">Genérico</Badge>
+                            )}
+                            {t.is_default && <Badge className="text-[10px]">Padrão</Badge>}
+                          </div>
                         </div>
                       </div>
                       <div className="flex gap-1">
@@ -170,8 +244,53 @@ export default function Templates() {
                 />
               </div>
 
+              {/* Logo */}
+              <div className="space-y-2 rounded-lg border border-border p-3">
+                <label className="text-xs font-semibold text-muted-foreground">Logo do cabeçalho (PNG/JPG, máx 1MB)</label>
+                <div className="flex items-center gap-3">
+                  {logoPreviewUrl ? (
+                    <img src={logoPreviewUrl} alt="Logo" className="h-16 w-16 object-contain rounded border border-border bg-muted/30" />
+                  ) : (
+                    <div className="h-16 w-16 rounded border border-dashed border-border bg-muted/30 flex items-center justify-center text-muted-foreground">
+                      <ImageIcon className="h-6 w-6" />
+                    </div>
+                  )}
+                  <div className="flex flex-col gap-1">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/png,image/jpeg"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) handleLogoUpload(f);
+                        e.target.value = '';
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploadingLogo || !editing.id}
+                    >
+                      <Upload className="h-3 w-3 mr-1" />
+                      {logoPreviewUrl ? 'Trocar logo' : 'Enviar logo'}
+                    </Button>
+                    {logoPreviewUrl && (
+                      <Button type="button" size="sm" variant="ghost" className="text-destructive" onClick={handleLogoRemove}>
+                        <X className="h-3 w-3 mr-1" />Remover
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                {!editing.id && (
+                  <p className="text-[11px] text-muted-foreground">Salve o template uma vez antes de enviar a logo.</p>
+                )}
+              </div>
+
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-muted-foreground">Cabeçalho (opcional)</label>
+                <label className="text-xs font-semibold text-muted-foreground">Cabeçalho (texto opcional)</label>
                 <Textarea
                   value={editing.header_html || ''}
                   onChange={(e) => setEditing({ ...editing, header_html: e.target.value })}
@@ -181,15 +300,75 @@ export default function Templates() {
                 />
               </div>
 
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-muted-foreground">Corpo (HTML)</label>
-                <Textarea
-                  value={editing.body_html || ''}
-                  onChange={(e) => setEditing({ ...editing, body_html: e.target.value })}
-                  rows={12}
-                  className="text-xs font-mono"
-                />
-              </div>
+              {isSurgical ? (
+                <div className="space-y-2 rounded-lg border border-border p-3 bg-muted/20">
+                  <p className="text-xs font-semibold text-muted-foreground">
+                    Padrões do formulário cirúrgico (opcional)
+                  </p>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-semibold text-muted-foreground">Descrição cirúrgica padrão</label>
+                    <Textarea
+                      value={defaults.surgicalDescription || ''}
+                      onChange={(e) => setEditing({
+                        ...editing,
+                        default_data: { ...defaults, surgicalDescription: e.target.value },
+                      })}
+                      rows={4}
+                      className="text-sm"
+                      placeholder="Texto análogo ao código cirúrgico solicitado…"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-semibold text-muted-foreground">Regime padrão</label>
+                      <Select
+                        value={defaults.regime || 'inpatient'}
+                        onValueChange={(v) => setEditing({
+                          ...editing,
+                          default_data: { ...defaults, regime: v },
+                        })}
+                      >
+                        <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="inpatient">Hospitalar</SelectItem>
+                          <SelectItem value="day_hospital">Hospital-dia</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-muted-foreground">Corpo (HTML)</label>
+                    <Textarea
+                      value={editing.body_html || ''}
+                      onChange={(e) => setEditing({ ...editing, body_html: e.target.value })}
+                      rows={12}
+                      className="text-xs font-mono"
+                    />
+                  </div>
+
+                  <div className="rounded-lg border border-border p-3 bg-muted/30">
+                    <p className="text-xs font-semibold text-muted-foreground mb-2">
+                      Variáveis disponíveis (clique para copiar):
+                    </p>
+                    <div className="flex flex-wrap gap-1">
+                      {TEMPLATE_VARIABLES.map((v) => (
+                        <button
+                          key={v.key}
+                          type="button"
+                          className="text-[11px] px-2 py-1 rounded bg-background border border-border hover:bg-accent transition-colors font-mono"
+                          onClick={() => navigator.clipboard.writeText(`{{${v.key}}}`)}
+                          title={v.label}
+                        >
+                          {`{{${v.key}}}`}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
 
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-muted-foreground">Rodapé (opcional)</label>
@@ -199,25 +378,6 @@ export default function Templates() {
                   rows={2}
                   className="text-xs font-mono"
                 />
-              </div>
-
-              <div className="rounded-lg border border-border p-3 bg-muted/30">
-                <p className="text-xs font-semibold text-muted-foreground mb-2">
-                  Variáveis disponíveis (clique para copiar):
-                </p>
-                <div className="flex flex-wrap gap-1">
-                  {TEMPLATE_VARIABLES.map((v) => (
-                    <button
-                      key={v.key}
-                      type="button"
-                      className="text-[11px] px-2 py-1 rounded bg-background border border-border hover:bg-accent transition-colors font-mono"
-                      onClick={() => navigator.clipboard.writeText(`{{${v.key}}}`)}
-                      title={v.label}
-                    >
-                      {`{{${v.key}}}`}
-                    </button>
-                  ))}
-                </div>
               </div>
             </div>
           )}

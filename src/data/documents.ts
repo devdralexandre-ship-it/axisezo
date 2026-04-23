@@ -17,6 +17,8 @@ export interface DocumentTemplate {
   header_html: string;
   footer_html: string;
   is_default: boolean;
+  logo_path: string | null;
+  default_data: Record<string, any>;
   created_at: string;
   updated_at: string;
 }
@@ -32,8 +34,144 @@ export interface PatientDocument {
   sent_via_whatsapp_at: string | null;
   drive_file_id: string | null;
   drive_synced_at: string | null;
+  data: Record<string, any>;
   created_at: string;
   updated_at: string;
+}
+
+/* ---------- Surgical Request structured form ---------- */
+
+export interface CodeItem {
+  code: string;
+  label: string;
+}
+
+export interface OpmeItem {
+  description: string;
+  quantity: number;
+}
+
+export type AdmissionRegime = 'inpatient' | 'day_hospital';
+
+export interface SurgicalRequestData {
+  // A — Patient (overridable)
+  patientName: string;
+  patientAge: string;
+  patientPhone: string;
+  responsibleContact: string;
+  payer: string;
+  desiredHospital: string;
+
+  // B — Procedure
+  procedureName: string;
+  mainCbhpm: CodeItem;
+  extraCbhpm: CodeItem[];
+  cid: CodeItem[];
+  opme: OpmeItem[];
+  surgicalDescription: string;
+
+  // C — Regime + reservations
+  regime: AdmissionRegime;
+  icuReservation: boolean;
+  bloodReservation: boolean;
+  bloodUnits: number;
+
+  // D — Billing
+  billingType: string;
+
+  // identification
+  surgeon: string;
+}
+
+export function defaultSurgicalRequestData(patient: any, template?: DocumentTemplate | null): SurgicalRequestData {
+  const seedDefaults = (template?.default_data ?? {}) as Partial<SurgicalRequestData>;
+  const procedureFull = [
+    patient?.procedure,
+    patient?.surgicalApproach,
+    patient?.laterality,
+  ].filter(Boolean).join(' ');
+  return {
+    patientName: patient?.name ?? '',
+    patientAge: patient?.age != null ? `${patient.age} anos` : '',
+    patientPhone: patient?.phone ?? '',
+    responsibleContact: patient?.responsibleContact ?? '',
+    payer: patient?.payer ?? 'Particular',
+    desiredHospital: patient?.desiredHospital ?? '',
+    procedureName: procedureFull || patient?.procedure || '',
+    mainCbhpm: { code: '', label: '' },
+    extraCbhpm: [],
+    cid: [],
+    opme: [],
+    surgicalDescription: seedDefaults.surgicalDescription ?? '',
+    regime: (seedDefaults.regime as AdmissionRegime) ?? 'inpatient',
+    icuReservation: seedDefaults.icuReservation ?? false,
+    bloodReservation: seedDefaults.bloodReservation ?? false,
+    bloodUnits: seedDefaults.bloodUnits ?? 0,
+    billingType: patient?.billingType ?? '',
+    surgeon: patient?.surgeon ?? '',
+  };
+}
+
+const REGIME_LABEL: Record<AdmissionRegime, string> = {
+  inpatient: 'Hospitalar',
+  day_hospital: 'Hospital-dia',
+};
+
+function escapeHtml(s: string): string {
+  return (s || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
+}
+
+export function buildSurgicalRequestHtml(data: SurgicalRequestData): string {
+  const parts: string[] = [];
+  parts.push(`<p>Solicito autorização para realização do procedimento abaixo:</p>`);
+
+  parts.push(`<h3>Identificação</h3>`);
+  parts.push(`<p><strong>Paciente:</strong> ${escapeHtml(data.patientName)}${data.patientAge ? ` (${escapeHtml(data.patientAge)})` : ''}</p>`);
+  if (data.patientPhone) parts.push(`<p><strong>Telefone:</strong> ${escapeHtml(data.patientPhone)}</p>`);
+  if (data.responsibleContact) parts.push(`<p><strong>Responsável:</strong> ${escapeHtml(data.responsibleContact)}</p>`);
+  parts.push(`<p><strong>Convênio:</strong> ${escapeHtml(data.payer || 'Particular')}</p>`);
+  if (data.desiredHospital) parts.push(`<p><strong>Hospital sugerido:</strong> ${escapeHtml(data.desiredHospital)}</p>`);
+
+  parts.push(`<h3>Procedimento</h3>`);
+  const mainLine = `${escapeHtml(data.procedureName)}${data.mainCbhpm.code ? ` <strong>[CBHPM ${escapeHtml(data.mainCbhpm.code)}]</strong>` : ''}`;
+  parts.push(`<p>${mainLine}</p>`);
+  if (data.extraCbhpm.length > 0) {
+    parts.push(`<p><strong>Procedimentos complementares:</strong></p>`);
+    parts.push(`<ul>${data.extraCbhpm.map((c) => `<li>${escapeHtml(c.label)}${c.code ? ` <strong>[CBHPM ${escapeHtml(c.code)}]</strong>` : ''}</li>`).join('')}</ul>`);
+  }
+
+  if (data.cid.length > 0) {
+    parts.push(`<h3>CID</h3>`);
+    parts.push(`<ul>${data.cid.map((c) => `<li><strong>${escapeHtml(c.code)}</strong> — ${escapeHtml(c.label)}</li>`).join('')}</ul>`);
+  }
+
+  if (data.opme.length > 0) {
+    parts.push(`<h3>OPME / Materiais especiais</h3>`);
+    parts.push(`<ul>${data.opme.map((o) => `<li>${escapeHtml(o.description)} — <strong>Qtd: ${o.quantity}</strong></li>`).join('')}</ul>`);
+  }
+
+  if (data.surgicalDescription && data.surgicalDescription.trim()) {
+    parts.push(`<h3>Descrição cirúrgica</h3>`);
+    const safeDesc = escapeHtml(data.surgicalDescription).replace(/\n/g, '<br/>');
+    parts.push(`<p>${safeDesc}</p>`);
+  }
+
+  parts.push(`<h3>Regime e reservas</h3>`);
+  parts.push(`<ul>`);
+  parts.push(`<li><strong>Regime de internação:</strong> ${REGIME_LABEL[data.regime]}</li>`);
+  parts.push(`<li><strong>Reserva de UTI:</strong> ${data.icuReservation ? 'Sim' : 'Não'}</li>`);
+  parts.push(`<li><strong>Reserva de sangue:</strong> ${data.bloodReservation ? `Sim — ${data.bloodUnits} unidade(s)` : 'Não'}</li>`);
+  parts.push(`</ul>`);
+
+  parts.push(`<h3>Faturamento</h3>`);
+  parts.push(`<p><strong>Forma de faturamento:</strong> ${escapeHtml(data.billingType || '—')}</p>`);
+
+  const now = new Date();
+  const months = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+  parts.push(`<p>Salvador, ${now.getDate()} de ${months[now.getMonth()]} de ${now.getFullYear()}</p>`);
+  parts.push(`<p>_________________________________<br/>${escapeHtml(data.surgeon)}</p>`);
+
+  return parts.join('\n');
 }
 
 /**
@@ -78,10 +216,6 @@ function formatCityDate(d: Date) {
   return `Salvador, ${d.getDate()} de ${MONTHS_PT[d.getMonth()]} de ${d.getFullYear()}`;
 }
 
-/**
- * Build the variable map from a Patient. Kept loose-typed to avoid a hard
- * dependency cycle with src/data/types.ts.
- */
 export function buildPatientVariables(patient: any): Record<string, string> {
   const total = (patient?.medicalFees || 0) + (patient?.anesthesiaFees || 0) + (patient?.hospitalBudget || 0) + (patient?.materialsCost || 0);
   const now = new Date();
@@ -107,17 +241,10 @@ export function buildPatientVariables(patient: any): Record<string, string> {
   };
 }
 
-/**
- * Replace {{variable}} placeholders in a template string.
- */
 export function renderTemplate(tpl: string, vars: Record<string, string>): string {
   return tpl.replace(/\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}/g, (_, k) => vars[k] ?? `{{${k}}}`);
 }
 
-/**
- * Default seed templates used when no template exists yet for a (type, surgeon) pair.
- * The user can edit / override these in /templates.
- */
 export const DEFAULT_TEMPLATE_BODIES: Record<DocumentType, { title: string; body: string }> = {
   budget: {
     title: 'Orçamento — {{procedimento}}',
@@ -139,15 +266,7 @@ export const DEFAULT_TEMPLATE_BODIES: Record<DocumentType, { title: string; body
   },
   surgical_request: {
     title: 'Solicitação Cirúrgica — {{paciente.nome}}',
-    body: `<p>Solicito autorização para realização do procedimento abaixo:</p>
-<p><strong>Paciente:</strong> {{paciente.nome}} ({{paciente.idade}})</p>
-<p><strong>Procedimento:</strong> {{procedimento}} {{via_cirurgica}} {{lateralidade}}</p>
-<p><strong>Cirurgião responsável:</strong> {{cirurgiao}}</p>
-<p><strong>Hospital sugerido:</strong> {{hospital}}</p>
-<p><strong>Convênio:</strong> {{convenio}}</p>
-<p><strong>Indicação clínica:</strong> ____________________________________________</p>
-<p>{{cidade_data}}</p>
-<p>_________________________________<br/>{{cirurgiao}}</p>`,
+    body: `<p>Este documento é gerado a partir do formulário estruturado.</p>`,
   },
   medical_certificate: {
     title: 'Atestado Médico — {{paciente.nome}}',

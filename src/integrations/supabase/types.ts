@@ -57,10 +57,12 @@ export type Database = {
           body_html: string
           created_at: string
           created_by: string | null
+          default_data: Json
           footer_html: string
           header_html: string
           id: string
           is_default: boolean
+          logo_path: string | null
           surgeon: string | null
           title: string
           type: Database["public"]["Enums"]["document_type"]
@@ -70,10 +72,12 @@ export type Database = {
           body_html?: string
           created_at?: string
           created_by?: string | null
+          default_data?: Json
           footer_html?: string
           header_html?: string
           id?: string
           is_default?: boolean
+          logo_path?: string | null
           surgeon?: string | null
           title: string
           type: Database["public"]["Enums"]["document_type"]
@@ -83,10 +87,12 @@ export type Database = {
           body_html?: string
           created_at?: string
           created_by?: string | null
+          default_data?: Json
           footer_html?: string
           header_html?: string
           id?: string
           is_default?: boolean
+          logo_path?: string | null
           surgeon?: string | null
           title?: string
           type?: Database["public"]["Enums"]["document_type"]
@@ -99,6 +105,7 @@ export type Database = {
           body_html: string
           created_at: string
           created_by: string | null
+          data: Json
           drive_file_id: string | null
           drive_synced_at: string | null
           id: string
@@ -114,6 +121,7 @@ export type Database = {
           body_html?: string
           created_at?: string
           created_by?: string | null
+          data?: Json
           drive_file_id?: string | null
           drive_synced_at?: string | null
           id?: string
@@ -129,6 +137,7 @@ export type Database = {
           body_html?: string
           created_at?: string
           created_by?: string | null
+          data?: Json
           drive_file_id?: string | null
           drive_synced_at?: string | null
           id?: string
@@ -337,6 +346,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      procedure_code_suggestions: {
+        Row: {
+          created_at: string
+          id: string
+          kind: string
+          label: string
+          last_used_at: string
+          procedure: string
+          updated_at: string
+          usage_count: number
+          value: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kind: string
+          label?: string
+          last_used_at?: string
+          procedure: string
+          updated_at?: string
+          usage_count?: number
+          value: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kind?: string
+          label?: string
+          last_used_at?: string
+          procedure?: string
+          updated_at?: string
+          usage_count?: number
+          value?: string
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
