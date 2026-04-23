@@ -2,67 +2,71 @@
 
 ## Problema
 
-O Kanban possui scroll horizontal (`overflow-x-auto`), mas ao arrastar um card para perto da borda esquerda/direita, a tela **não rola automaticamente**. Isso obriga o usuário a soltar o card, rolar manualmente, e arrastar de novo — quebrando o fluxo.
+O drop está caindo em uma coluna **errada (várias posições atrás)** quando o board faz scroll horizontal durante o arraste. A sessão confirma: card arrastado de `budget_preparation` foi solto sob a coluna visível à direita, mas caiu em `indication` (várias colunas à esquerda — exatamente onde o ponteiro estaria *antes* do scroll).
 
-## Causa
+## Causa raiz
 
-A biblioteca `@hello-pangea/dnd` faz auto-scroll automaticamente, mas precisa que o container com `overflow-auto` seja **identificável como o scroll container do droppable**. Hoje a estrutura está assim:
+A implementação atual de auto-scroll horizontal (adicionada no último ciclo) faz `container.scrollLeft += delta` dentro de um `requestAnimationFrame` disparado por `pointermove`. Isso **invalida o cache interno de posições dos droppables** do `@hello-pangea/dnd`. A biblioteca calcula as bounding boxes dos droppables no `onDragStart` e só as recalcula quando *ela mesma* dispara o scroll. Como o scroll está vindo de fora do ciclo dela, o droppable-alvo é resolvido com base nas coordenadas antigas → o card cai na coluna que estava sob o cursor antes do scroll.
+
+A premissa do plano anterior ("a biblioteca recalcula em cada frame quando o container scrolla") estava incorreta: ela só recalcula quando o scroll vem do auto-scroller dela.
+
+## Por que o auto-scroll nativo da biblioteca não funciona hoje
+
+`@hello-pangea/dnd` faz auto-scroll do **scrollable ancestor mais próximo do Droppable**. Hoje:
 
 ```text
-<DragDropContext>
-  <div ref=scrollContainerRef class="overflow-x-auto">   ← scroll container
-    <div class="flex gap-4 min-w-max">                   ← conteúdo largo
-      <PipelineColumn> (Droppable)
-      <PipelineColumn> (Droppable)
-      ...
+<div overflow-x-auto>          ← board (queremos que ela use esse)
+  <PipelineColumn>
+    <Droppable>
+      <div overflow-y-auto>    ← coluna (a biblioteca acha esse primeiro)
 ```
 
-O `Droppable` está dentro de cada coluna (que tem `overflow-y-auto` próprio para rolagem vertical da lista de cards). A biblioteca encontra primeiro o scroll vertical da coluna e usa ele como referência — então o auto-scroll **horizontal do board** nunca é acionado, apenas o vertical dentro da coluna.
-
-Além disso, na implementação anterior havia um auto-scroll manual via `mousemove` que foi removido (causava o bug do ghost desalinhado). Agora não há nada cobrindo o eixo horizontal.
+Como cada coluna tem seu próprio `overflow-y-auto`, a biblioteca trava nele e nunca enxerga o scroll horizontal do board. Por isso só foi implementado o manual — que causa o bug de drop errado.
 
 ## Solução
 
-Implementar um auto-scroll horizontal **controlado e seguro**, que não conflite com o posicionamento do `@hello-pangea/dnd` (que foi a causa do bug anterior do "card cai na coluna errada").
+Remover o auto-scroll manual e deixar o **auto-scroller nativo** da biblioteca cuidar de ambos os eixos. Para isso, eliminar o scroll vertical interno de cada coluna, fazendo do board o único ancestral scrollável dos droppables — assim a biblioteca faz auto-scroll horizontal *e* vertical sem desincronizar coordenadas.
 
-### Abordagem
+### Mudanças concretas
 
-Em vez de mover o scroll via `scrollLeft +=` durante `mousemove` (que desincroniza coordenadas do DnD), usar os eventos do próprio DnD:
+**1. `src/components/PipelineDashboard.tsx`** — remover toda a lógica manual:
+- Remover `rafIdRef`, `isDraggingRef`, `pointerXRef`, `stopAutoScroll`, `tickAutoScroll`, `handlePointerMove`, o `useEffect` de cleanup desses listeners.
+- Simplificar `handleDragStart` (vira no-op ou removido) e `handleDragEnd` (manter apenas a lógica de mover paciente).
+- Manter `scrollContainerRef` apenas se necessário (provavelmente não será mais).
+- Trocar o wrapper externo para permitir scroll **vertical e horizontal** no board:
+  ```tsx
+  <div className="flex-1 overflow-auto">
+    <div className="flex gap-4 p-6 min-w-max min-h-full">
+      ...colunas...
+    </div>
+  </div>
+  ```
 
-1. **`onDragStart`**: começar a escutar `dragover` (ou `pointermove`) no container.
-2. Durante o drag, se o ponteiro estiver a menos de ~80px da borda esquerda ou direita do container scrollável, iniciar um `requestAnimationFrame` que incrementa `scrollLeft` em pequenos passos (ex.: 8–14px/frame, proporcional à proximidade da borda).
-3. **`onDragEnd` / `onDragUpdate`**: parar o RAF e remover listeners.
-4. Garantir que o scroll afete somente o container do board (`scrollContainerRef`), nunca a janela.
+**2. `src/components/PipelineColumn.tsx`** — remover `overflow-y-auto` do `<div>` do Droppable:
+- Trocar `flex flex-col gap-2 flex-1 overflow-y-auto pr-1 pb-2 min-h-[80px] ...` por `flex flex-col gap-2 flex-1 pr-1 pb-2 min-h-[80px] ...`.
+- Manter `min-w-[240px] max-w-[280px]` e `shrink-0` na coluna externa para preservar o layout.
+- Resultado: o board todo rola (horizontal + vertical), as colunas crescem com o conteúdo.
 
-Por que isso é seguro agora (e não causa o bug antigo do drop na coluna errada):
-- O `@hello-pangea/dnd` recalcula posições dos droppables em cada frame quando o container scrolla, **desde que o scroll seja feito pelo próprio elemento que ele observa**. O bug anterior acontecia porque o scroll era feito de forma fora do ciclo do DnD com transformações concorrentes. Movendo `scrollLeft` no container correto via RAF dentro do ciclo de drag ativo, as coordenadas permanecem consistentes.
-- Adicionar marcador `data-rbd-scroll-container-context-id` não é necessário; basta scrollar o ancestral correto.
+### Por que isso resolve
 
-### Detalhes de UX
+- `@hello-pangea/dnd` agora encontra o board como o único scrollable ancestor → ativa o auto-scroller nativo dela em ambos os eixos quando o ponteiro chega perto da borda.
+- O scroll é feito **dentro do ciclo da biblioteca**, então as posições dos droppables são sempre recalculadas corretamente → o drop cai exatamente sob o cursor, sempre.
+- Elimina o código manual frágil que era a causa do bug.
 
-- Zona de ativação: 80px de cada borda lateral do board.
-- Velocidade: rampa linear de 4px/frame (na borda interna da zona) até 16px/frame (encostando na borda).
-- Parar imediatamente quando: drag termina, ponteiro sai da zona, ou scroll atinge limite.
-- Não fazer scroll vertical da página — somente horizontal do `scrollContainerRef`.
+## Trade-off
+
+- Antes, cada coluna scrollava verticalmente de forma independente. Agora a página inteira do board rola junto. Em colunas muito longas isso é uma mudança visual leve, mas é o padrão típico de Kanban (Trello, Linear) e é o único caminho seguro para auto-scroll horizontal correto com `@hello-pangea/dnd`.
+
+## Verificação
+
+1. Arrastar um card e mover para perto da borda direita → board rola horizontalmente, drop cai na coluna sob o cursor.
+2. Mesmo na borda esquerda.
+3. Drop em coluna que estava fora da viewport inicial cai na coluna **correta** (não mais várias colunas atrás).
+4. Reordenar verticalmente dentro de uma coluna continua funcionando.
+5. Sem drag, o board é navegável com scroll horizontal e vertical normal.
 
 ## Arquivos afetados
 
 - `src/components/PipelineDashboard.tsx`
-  - Adicionar `useRef` para o RAF id e estado de drag ativo.
-  - Implementar `handleDragStart` (ativar listener `pointermove` no container) e estender `handleDragEnd` / cancelamento para limpar.
-  - Função `autoScrollIfNearEdge(clientX)` chamada pelo listener.
-
-## Verificação
-
-Após a implementação:
-1. Arrastar um card e mover o ponteiro até ~50px da borda direita → o board deve rolar suavemente para a direita.
-2. Mesmo teste na borda esquerda.
-3. Soltar o card em uma coluna que estava fora da viewport inicial → deve cair exatamente na coluna sob o cursor (sem o bug de "cair várias colunas atrás").
-4. Sem drag ativo, mover o mouse pelas bordas não deve causar nenhum scroll.
-5. Drag-and-drop dentro de uma mesma coluna (reordenação vertical) continua funcionando.
-
-## Limitações conhecidas
-
-- Em telas muito pequenas onde todas as colunas já cabem na viewport, o auto-scroll simplesmente não terá efeito (esperado).
-- Touch devices: a implementação usará `pointermove`, que cobre mouse e touch; em alguns navegadores móveis o gesto de scroll nativo pode competir — será testado, mas pode exigir ajuste fino se houver conflito.
+- `src/components/PipelineColumn.tsx`
 
