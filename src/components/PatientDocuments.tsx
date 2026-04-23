@@ -15,13 +15,26 @@ export function PatientDocuments({ patient }: Props) {
   const deleteDoc = useDeleteDocument();
   const [genOpen, setGenOpen] = useState(false);
 
-  const handleDownload = async (pdfPath: string) => {
+  const handleDownload = async (pdfPath: string, title: string) => {
     const url = await getDocumentSignedUrl(pdfPath);
     if (!url) {
       toast.error('Não foi possível gerar o link');
       return;
     }
-    window.open(url, '_blank');
+    try {
+      const res = await fetch(url);
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = `${title}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(blobUrl);
+    } catch {
+      toast.error('Falha ao baixar o documento');
+    }
   };
 
   const formatDate = (s: string) => {
@@ -67,7 +80,7 @@ export function PatientDocuments({ patient }: Props) {
                 variant="ghost"
                 size="icon"
                 className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
-                onClick={() => handleDownload(d.pdf_path!)}
+                onClick={() => handleDownload(d.pdf_path!, d.title)}
                 title="Baixar"
               >
                 <Download className="h-3.5 w-3.5" />
