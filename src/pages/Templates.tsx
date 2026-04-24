@@ -311,141 +311,245 @@ export default function Templates() {
                 />
               </div>
 
-              {/* Logo */}
-              <div className="space-y-2 rounded-lg border border-border p-3">
-                <label className="text-xs font-semibold text-muted-foreground">Logo do cabeçalho (PNG/JPG, máx 1MB)</label>
-                <div className="flex items-center gap-3">
-                  {logoPreviewUrl ? (
-                    <img src={logoPreviewUrl} alt="Logo" className="h-16 w-16 object-contain rounded border border-border bg-muted/30" />
-                  ) : (
-                    <div className="h-16 w-16 rounded border border-dashed border-border bg-muted/30 flex items-center justify-center text-muted-foreground">
-                      <ImageIcon className="h-6 w-6" />
+              <Tabs value={currentMode} onValueChange={(v) => setEditing({ ...editing, mode: v as any })}>
+                <TabsList className="grid grid-cols-2 w-full">
+                  <TabsTrigger value="html">HTML (texto simples)</TabsTrigger>
+                  <TabsTrigger value="pdf">PDF Timbrado</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="html" className="space-y-4 mt-4">
+                  {/* Logo */}
+                  <div className="space-y-2 rounded-lg border border-border p-3">
+                    <label className="text-xs font-semibold text-muted-foreground">Logo do cabeçalho (PNG/JPG, máx 1MB)</label>
+                    <div className="flex items-center gap-3">
+                      {logoPreviewUrl ? (
+                        <img src={logoPreviewUrl} alt="Logo" className="h-16 w-16 object-contain rounded border border-border bg-muted/30" />
+                      ) : (
+                        <div className="h-16 w-16 rounded border border-dashed border-border bg-muted/30 flex items-center justify-center text-muted-foreground">
+                          <ImageIcon className="h-6 w-6" />
+                        </div>
+                      )}
+                      <div className="flex flex-col gap-1">
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/png,image/jpeg"
+                          className="hidden"
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) handleLogoUpload(f);
+                            e.target.value = '';
+                          }}
+                        />
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={uploadingLogo || !editing.id}
+                        >
+                          <Upload className="h-3 w-3 mr-1" />
+                          {logoPreviewUrl ? 'Trocar logo' : 'Enviar logo'}
+                        </Button>
+                        {logoPreviewUrl && (
+                          <Button type="button" size="sm" variant="ghost" className="text-destructive" onClick={handleLogoRemove}>
+                            <X className="h-3 w-3 mr-1" />Remover
+                          </Button>
+                        )}
+                      </div>
                     </div>
-                  )}
-                  <div className="flex flex-col gap-1">
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/png,image/jpeg"
-                      className="hidden"
-                      onChange={(e) => {
-                        const f = e.target.files?.[0];
-                        if (f) handleLogoUpload(f);
-                        e.target.value = '';
-                      }}
-                    />
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={uploadingLogo || !editing.id}
-                    >
-                      <Upload className="h-3 w-3 mr-1" />
-                      {logoPreviewUrl ? 'Trocar logo' : 'Enviar logo'}
-                    </Button>
-                    {logoPreviewUrl && (
-                      <Button type="button" size="sm" variant="ghost" className="text-destructive" onClick={handleLogoRemove}>
-                        <X className="h-3 w-3 mr-1" />Remover
-                      </Button>
+                    {!editing.id && (
+                      <p className="text-[11px] text-muted-foreground">Salve o template uma vez antes de enviar a logo.</p>
                     )}
                   </div>
-                </div>
-                {!editing.id && (
-                  <p className="text-[11px] text-muted-foreground">Salve o template uma vez antes de enviar a logo.</p>
-                )}
-              </div>
 
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-muted-foreground">Cabeçalho (texto opcional)</label>
-                <Textarea
-                  value={editing.header_html || ''}
-                  onChange={(e) => setEditing({ ...editing, header_html: e.target.value })}
-                  rows={2}
-                  className="text-xs font-mono"
-                  placeholder="Ex: Clínica Uro — CNPJ 00.000.000/0001-00"
-                />
-              </div>
-
-              {isSurgical ? (
-                <div className="space-y-2 rounded-lg border border-border p-3 bg-muted/20">
-                  <p className="text-xs font-semibold text-muted-foreground">
-                    Padrões do formulário cirúrgico (opcional)
-                  </p>
                   <div className="space-y-1">
-                    <label className="text-[11px] font-semibold text-muted-foreground">Descrição cirúrgica padrão</label>
+                    <label className="text-xs font-semibold text-muted-foreground">Cabeçalho (texto opcional)</label>
                     <Textarea
-                      value={defaults.surgicalDescription || ''}
-                      onChange={(e) => setEditing({
-                        ...editing,
-                        default_data: { ...defaults, surgicalDescription: e.target.value },
-                      })}
-                      rows={4}
-                      className="text-sm"
-                      placeholder="Texto análogo ao código cirúrgico solicitado…"
+                      value={editing.header_html || ''}
+                      onChange={(e) => setEditing({ ...editing, header_html: e.target.value })}
+                      rows={2}
+                      className="text-xs font-mono"
+                      placeholder="Ex: Clínica Uro — CNPJ 00.000.000/0001-00"
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-semibold text-muted-foreground">Regime padrão</label>
-                      <Select
-                        value={defaults.regime || 'inpatient'}
-                        onValueChange={(v) => setEditing({
-                          ...editing,
-                          default_data: { ...defaults, regime: v },
-                        })}
-                      >
-                        <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="inpatient">Hospitalar</SelectItem>
-                          <SelectItem value="day_hospital">Hospital-dia</SelectItem>
-                        </SelectContent>
-                      </Select>
+
+                  {isSurgical ? (
+                    <div className="space-y-2 rounded-lg border border-border p-3 bg-muted/20">
+                      <p className="text-xs font-semibold text-muted-foreground">
+                        Padrões do formulário cirúrgico (opcional)
+                      </p>
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-semibold text-muted-foreground">Descrição cirúrgica padrão</label>
+                        <Textarea
+                          value={defaults.surgicalDescription || ''}
+                          onChange={(e) => setEditing({
+                            ...editing,
+                            default_data: { ...defaults, surgicalDescription: e.target.value },
+                          })}
+                          rows={4}
+                          className="text-sm"
+                          placeholder="Texto análogo ao código cirúrgico solicitado…"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <label className="text-[11px] font-semibold text-muted-foreground">Regime padrão</label>
+                          <Select
+                            value={defaults.regime || 'inpatient'}
+                            onValueChange={(v) => setEditing({
+                              ...editing,
+                              default_data: { ...defaults, regime: v },
+                            })}
+                          >
+                            <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="inpatient">Hospitalar</SelectItem>
+                              <SelectItem value="day_hospital">Hospital-dia</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
-              ) : (
-                <>
+                  ) : (
+                    <>
+                      <div className="space-y-1">
+                        <label className="text-xs font-semibold text-muted-foreground">Corpo (HTML)</label>
+                        <Textarea
+                          value={editing.body_html || ''}
+                          onChange={(e) => setEditing({ ...editing, body_html: e.target.value })}
+                          rows={12}
+                          className="text-xs font-mono"
+                        />
+                      </div>
+
+                      <div className="rounded-lg border border-border p-3 bg-muted/30">
+                        <p className="text-xs font-semibold text-muted-foreground mb-2">
+                          Variáveis disponíveis (clique para copiar):
+                        </p>
+                        <div className="flex flex-wrap gap-1">
+                          {TEMPLATE_VARIABLES.map((v) => (
+                            <button
+                              key={v.key}
+                              type="button"
+                              className="text-[11px] px-2 py-1 rounded bg-background border border-border hover:bg-accent transition-colors font-mono"
+                              onClick={() => navigator.clipboard.writeText(`{{${v.key}}}`)}
+                              title={v.label}
+                            >
+                              {`{{${v.key}}}`}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </>
+                  )}
+
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-muted-foreground">Corpo (HTML)</label>
+                    <label className="text-xs font-semibold text-muted-foreground">Rodapé (opcional)</label>
                     <Textarea
-                      value={editing.body_html || ''}
-                      onChange={(e) => setEditing({ ...editing, body_html: e.target.value })}
-                      rows={12}
+                      value={editing.footer_html || ''}
+                      onChange={(e) => setEditing({ ...editing, footer_html: e.target.value })}
+                      rows={2}
                       className="text-xs font-mono"
                     />
                   </div>
+                </TabsContent>
 
-                  <div className="rounded-lg border border-border p-3 bg-muted/30">
-                    <p className="text-xs font-semibold text-muted-foreground mb-2">
-                      Variáveis disponíveis (clique para copiar):
-                    </p>
-                    <div className="flex flex-wrap gap-1">
-                      {TEMPLATE_VARIABLES.map((v) => (
-                        <button
-                          key={v.key}
+                <TabsContent value="pdf" className="space-y-4 mt-4">
+                  <div className="rounded-lg border border-border p-3 space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1">
+                        <p className="text-xs font-semibold text-muted-foreground mb-1">PDF timbrado do cirurgião</p>
+                        <p className="text-[11px] text-muted-foreground">
+                          Suba o PDF com cabeçalho, marca d'água e rodapé já desenhados. O sistema escreverá apenas o conteúdo do documento dentro da área que você demarcar.
+                        </p>
+                      </div>
+                      <input
+                        ref={pdfInputRef}
+                        type="file"
+                        accept="application/pdf"
+                        className="hidden"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) handlePdfUpload(f);
+                          e.target.value = '';
+                        }}
+                      />
+                      <div className="flex flex-col gap-1 shrink-0">
+                        <Button
                           type="button"
-                          className="text-[11px] px-2 py-1 rounded bg-background border border-border hover:bg-accent transition-colors font-mono"
-                          onClick={() => navigator.clipboard.writeText(`{{${v.key}}}`)}
-                          title={v.label}
+                          size="sm"
+                          variant="outline"
+                          onClick={() => pdfInputRef.current?.click()}
+                          disabled={uploadingPdf || !editing.id}
                         >
-                          {`{{${v.key}}}`}
-                        </button>
-                      ))}
+                          <Upload className="h-3 w-3 mr-1" />
+                          {pdfPreviewUrl ? 'Trocar PDF' : 'Enviar PDF'}
+                        </Button>
+                        {pdfPreviewUrl && (
+                          <Button type="button" size="sm" variant="ghost" className="text-destructive" onClick={handlePdfRemove}>
+                            <X className="h-3 w-3 mr-1" />Remover
+                          </Button>
+                        )}
+                      </div>
                     </div>
+                    {!editing.id && (
+                      <p className="text-[11px] text-muted-foreground">Salve o template uma vez antes de enviar o PDF.</p>
+                    )}
+                    {pdfPreviewUrl && editing.id && (
+                      <div className="pt-2">
+                        <PdfTemplateEditor
+                          fileUrl={pdfPreviewUrl}
+                          contentBox={(editing.content_box as any) ?? null}
+                          signatureBox={(editing.signature_box as any) ?? null}
+                          onChange={({ contentBox, signatureBox }) =>
+                            setEditing({ ...editing, content_box: contentBox, signature_box: signatureBox })
+                          }
+                        />
+                        <p className="text-[11px] text-muted-foreground mt-2">
+                          <FileText className="h-3 w-3 inline mr-1" />
+                          A caixa verde define onde o conteúdo será escrito. A caixa azul reserva espaço para assinatura digital (usada na próxima etapa).
+                        </p>
+                      </div>
+                    )}
                   </div>
-                </>
-              )}
 
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-muted-foreground">Rodapé (opcional)</label>
-                <Textarea
-                  value={editing.footer_html || ''}
-                  onChange={(e) => setEditing({ ...editing, footer_html: e.target.value })}
-                  rows={2}
-                  className="text-xs font-mono"
-                />
-              </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-muted-foreground">Estratégia de continuação (páginas extras)</label>
+                    <Select
+                      value={editing.continuation_strategy ?? 'same_page'}
+                      onValueChange={(v) => setEditing({ ...editing, continuation_strategy: v as any })}
+                    >
+                      <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="same_page">Repetir mesmo timbre em todas as páginas</SelectItem>
+                        <SelectItem value="second_page">Usar página 2 do PDF (se existir)</SelectItem>
+                        <SelectItem value="blank">Folha em branco</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {isSurgical && (
+                    <div className="space-y-2 rounded-lg border border-border p-3 bg-muted/20">
+                      <p className="text-xs font-semibold text-muted-foreground">
+                        Padrões do formulário cirúrgico (opcional)
+                      </p>
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-semibold text-muted-foreground">Descrição cirúrgica padrão</label>
+                        <Textarea
+                          value={defaults.surgicalDescription || ''}
+                          onChange={(e) => setEditing({
+                            ...editing,
+                            default_data: { ...defaults, surgicalDescription: e.target.value },
+                          })}
+                          rows={4}
+                          className="text-sm"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </TabsContent>
+              </Tabs>
             </div>
           )}
 
