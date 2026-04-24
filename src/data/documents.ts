@@ -8,6 +8,19 @@ export const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
   report: 'Relatório',
 };
 
+export type TemplateMode = 'html' | 'pdf';
+export type ContinuationStrategy = 'same_page' | 'second_page' | 'blank';
+
+export interface PdfBox {
+  /** Coordinates in PDF points, origin = bottom-left of page */
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  fontSize?: number;
+  lineHeight?: number;
+}
+
 export interface DocumentTemplate {
   id: string;
   type: DocumentType;
@@ -19,6 +32,12 @@ export interface DocumentTemplate {
   is_default: boolean;
   logo_path: string | null;
   default_data: Record<string, any>;
+  /** PDF mode fields */
+  mode: TemplateMode;
+  pdf_template_path: string | null;
+  content_box: PdfBox | null;
+  signature_box: PdfBox | null;
+  continuation_strategy: ContinuationStrategy;
   created_at: string;
   updated_at: string;
 }
