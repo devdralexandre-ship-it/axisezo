@@ -101,6 +101,26 @@ export async function removeTemplateLogo(path: string) {
   await supabase.storage.from(BUCKET).remove([path]);
 }
 
+export async function uploadTemplatePdf(templateId: string, file: File): Promise<string> {
+  const path = `template-pdfs/${templateId}.pdf`;
+  const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
+    upsert: true,
+    contentType: 'application/pdf',
+  });
+  if (error) throw error;
+  return path;
+}
+
+export async function getTemplatePdfSignedUrl(path: string): Promise<string | null> {
+  const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(path, 600);
+  if (error) return null;
+  return data?.signedUrl ?? null;
+}
+
+export async function removeTemplatePdf(path: string) {
+  await supabase.storage.from(BUCKET).remove([path]);
+}
+
 /* ---------- Patient documents ---------- */
 
 export function usePatientDocuments(patientId: string | undefined) {
