@@ -234,7 +234,7 @@ export function useGenerateDocument() {
           blocks,
           continuationStrategy: template.continuation_strategy ?? 'same_page',
         });
-        blob = new Blob([bytes], { type: 'application/pdf' });
+        blob = new Blob([bytes as BlobPart], { type: 'application/pdf' });
       } else {
         const logoUrl = await getSignedLogoUrl(template?.logo_path);
         blob = await renderDocumentToBlob({
