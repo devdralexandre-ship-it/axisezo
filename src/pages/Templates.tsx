@@ -145,8 +145,48 @@ export default function Templates() {
     }
   };
 
+  const handlePdfUpload = async (file: File) => {
+    if (!editing?.id) {
+      toast.message('Salve o template uma vez antes de enviar o PDF timbrado.');
+      return;
+    }
+    if (file.type !== 'application/pdf') {
+      toast.error('Envie um arquivo PDF');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('PDF deve ter no máximo 5MB');
+      return;
+    }
+    setUploadingPdf(true);
+    try {
+      const path = await uploadTemplatePdf(editing.id, file);
+      const updated = { ...editing, pdf_template_path: path, mode: 'pdf' as const };
+      setEditing(updated);
+      await saveMutation.mutateAsync(updated as any);
+      toast.success('PDF enviado! Agora demarque a área de conteúdo.');
+    } catch (e: any) {
+      toast.error(`Erro: ${e.message}`);
+    } finally {
+      setUploadingPdf(false);
+    }
+  };
+
+  const handlePdfRemove = async () => {
+    if (!editing?.pdf_template_path) return;
+    try {
+      await removeTemplatePdf(editing.pdf_template_path);
+      const updated = { ...editing, pdf_template_path: null, content_box: null, signature_box: null };
+      setEditing(updated);
+      if (editing.id) await saveMutation.mutateAsync(updated as any);
+    } catch (e: any) {
+      toast.error(`Erro: ${e.message}`);
+    }
+  };
+
   const isSurgical = editing?.type === 'surgical_request';
   const defaults = (editing?.default_data ?? {}) as any;
+  const currentMode: 'html' | 'pdf' = (editing?.mode as any) ?? 'html';
 
   return (
     <div className="min-h-screen bg-background">
