@@ -41,8 +41,11 @@ export default function Templates() {
   const deleteMutation = useDeleteTemplate();
   const [editing, setEditing] = useState<Partial<DocumentTemplate> | null>(null);
   const [logoPreviewUrl, setLogoPreviewUrl] = useState<string | null>(null);
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [uploadingPdf, setUploadingPdf] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
 
   // Resolve current logo signed URL when editing
   useEffect(() => {
@@ -57,6 +60,20 @@ export default function Templates() {
     })();
     return () => { canceled = true; };
   }, [editing?.logo_path]);
+
+  // Resolve PDF template signed URL
+  useEffect(() => {
+    let canceled = false;
+    (async () => {
+      if (editing?.pdf_template_path) {
+        const url = await getTemplatePdfSignedUrl(editing.pdf_template_path);
+        if (!canceled) setPdfPreviewUrl(url);
+      } else {
+        setPdfPreviewUrl(null);
+      }
+    })();
+    return () => { canceled = true; };
+  }, [editing?.pdf_template_path]);
 
   const grouped = useMemo(() => {
     const out: Record<DocumentType, DocumentTemplate[]> = {
