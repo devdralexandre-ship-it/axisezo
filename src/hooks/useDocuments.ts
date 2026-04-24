@@ -11,6 +11,7 @@ import {
   SurgicalRequestData,
 } from '@/data/documents';
 import { renderDocumentToBlob } from '@/lib/pdf-generator';
+import { renderInsidePdfTemplate, htmlToBlocks } from '@/lib/pdf-template-renderer';
 import { toast } from 'sonner';
 
 const BUCKET = 'patient-documents';
