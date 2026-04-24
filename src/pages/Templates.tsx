@@ -95,6 +95,11 @@ export default function Templates() {
       is_default: false,
       logo_path: null,
       default_data: {},
+      mode: 'html',
+      pdf_template_path: null,
+      content_box: null,
+      signature_box: null,
+      continuation_strategy: 'same_page',
     });
   };
 
