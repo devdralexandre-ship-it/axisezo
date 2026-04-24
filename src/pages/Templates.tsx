@@ -236,6 +236,7 @@ export default function Templates() {
                               <Badge variant="secondary" className="text-[10px]">Genérico</Badge>
                             )}
                             {t.is_default && <Badge className="text-[10px]">Padrão</Badge>}
+                            {t.mode === 'pdf' && <Badge variant="outline" className="text-[10px] border-primary text-primary">PDF Timbrado</Badge>}
                           </div>
                         </div>
                       </div>
