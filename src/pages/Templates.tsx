@@ -22,9 +22,14 @@ import {
   useDeleteTemplate,
   uploadTemplateLogo,
   removeTemplateLogo,
+  uploadTemplatePdf,
+  getTemplatePdfSignedUrl,
+  removeTemplatePdf,
 } from '@/hooks/useDocuments';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, Plus, Pencil, Trash2, Upload, Image as ImageIcon, X } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { PdfTemplateEditor } from '@/components/PdfTemplateEditor';
+import { ArrowLeft, Plus, Pencil, Trash2, Upload, Image as ImageIcon, X, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 
 const NO_SURGEON = '__none__';
