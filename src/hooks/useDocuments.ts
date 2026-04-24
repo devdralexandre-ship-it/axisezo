@@ -35,17 +35,22 @@ export function useDocumentTemplates() {
 export function useSaveTemplate() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (tpl: Partial<DocumentTemplate> & { type: DocumentType; title: string; body_html: string }) => {
+    mutationFn: async (tpl: Partial<DocumentTemplate> & { type: DocumentType; title: string; body_html?: string }) => {
       const payload: any = {
         type: tpl.type,
         surgeon: tpl.surgeon || null,
         title: tpl.title,
-        body_html: tpl.body_html,
+        body_html: tpl.body_html ?? '',
         header_html: tpl.header_html || '',
         footer_html: tpl.footer_html || '',
         is_default: tpl.is_default ?? false,
         logo_path: tpl.logo_path ?? null,
         default_data: tpl.default_data ?? {},
+        mode: tpl.mode ?? 'html',
+        pdf_template_path: tpl.pdf_template_path ?? null,
+        content_box: tpl.content_box ?? null,
+        signature_box: tpl.signature_box ?? null,
+        continuation_strategy: tpl.continuation_strategy ?? 'same_page',
       };
       let resultId: string | undefined = tpl.id;
       if (tpl.id) {
