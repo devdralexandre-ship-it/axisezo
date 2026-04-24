@@ -11,6 +11,7 @@ import {
   SurgicalRequestData,
 } from '@/data/documents';
 import { renderDocumentToBlob } from '@/lib/pdf-generator';
+import { renderInsidePdfTemplate, htmlToBlocks } from '@/lib/pdf-template-renderer';
 import { toast } from 'sonner';
 
 const BUCKET = 'patient-documents';
@@ -35,17 +36,22 @@ export function useDocumentTemplates() {
 export function useSaveTemplate() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (tpl: Partial<DocumentTemplate> & { type: DocumentType; title: string; body_html: string }) => {
+    mutationFn: async (tpl: Partial<DocumentTemplate> & { type: DocumentType; title: string; body_html?: string }) => {
       const payload: any = {
         type: tpl.type,
         surgeon: tpl.surgeon || null,
         title: tpl.title,
-        body_html: tpl.body_html,
+        body_html: tpl.body_html ?? '',
         header_html: tpl.header_html || '',
         footer_html: tpl.footer_html || '',
         is_default: tpl.is_default ?? false,
         logo_path: tpl.logo_path ?? null,
         default_data: tpl.default_data ?? {},
+        mode: tpl.mode ?? 'html',
+        pdf_template_path: tpl.pdf_template_path ?? null,
+        content_box: tpl.content_box ?? null,
+        signature_box: tpl.signature_box ?? null,
+        continuation_strategy: tpl.continuation_strategy ?? 'same_page',
       };
       let resultId: string | undefined = tpl.id;
       if (tpl.id) {
@@ -93,6 +99,26 @@ export async function uploadTemplateLogo(templateId: string, file: File): Promis
 }
 
 export async function removeTemplateLogo(path: string) {
+  await supabase.storage.from(BUCKET).remove([path]);
+}
+
+export async function uploadTemplatePdf(templateId: string, file: File): Promise<string> {
+  const path = `template-pdfs/${templateId}.pdf`;
+  const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
+    upsert: true,
+    contentType: 'application/pdf',
+  });
+  if (error) throw error;
+  return path;
+}
+
+export async function getTemplatePdfSignedUrl(path: string): Promise<string | null> {
+  const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(path, 600);
+  if (error) return null;
+  return data?.signedUrl ?? null;
+}
+
+export async function removeTemplatePdf(path: string) {
   await supabase.storage.from(BUCKET).remove([path]);
 }
 
@@ -193,16 +219,32 @@ export function useGenerateDocument() {
 
       const headerHtml = template?.header_html ?? '';
       const footerHtml = template?.footer_html ?? '';
-      const logoUrl = await getSignedLogoUrl(template?.logo_path);
 
-      // 1. Render PDF
-      const blob = await renderDocumentToBlob({
-        title,
-        bodyHtml: body,
-        headerHtml,
-        footerHtml,
-        logoUrl,
-      });
+      // 1. Render PDF — branch by template mode
+      let blob: Blob;
+      if (template?.mode === 'pdf' && template.pdf_template_path && template.content_box) {
+        const signedUrl = await getTemplatePdfSignedUrl(template.pdf_template_path);
+        if (!signedUrl) throw new Error('Não foi possível baixar o PDF do template');
+        const resp = await fetch(signedUrl);
+        const templatePdfBytes = await resp.arrayBuffer();
+        const blocks = htmlToBlocks(body);
+        const bytes = await renderInsidePdfTemplate({
+          templatePdfBytes,
+          contentBox: template.content_box,
+          blocks,
+          continuationStrategy: template.continuation_strategy ?? 'same_page',
+        });
+        blob = new Blob([bytes as BlobPart], { type: 'application/pdf' });
+      } else {
+        const logoUrl = await getSignedLogoUrl(template?.logo_path);
+        blob = await renderDocumentToBlob({
+          title,
+          bodyHtml: body,
+          headerHtml,
+          footerHtml,
+          logoUrl,
+        });
+      }
 
       // 2. Insert document row
       const { data: inserted, error: insertErr } = await supabase

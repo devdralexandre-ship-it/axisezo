@@ -55,6 +55,8 @@ export type Database = {
       document_templates: {
         Row: {
           body_html: string
+          content_box: Json | null
+          continuation_strategy: string
           created_at: string
           created_by: string | null
           default_data: Json
@@ -63,6 +65,9 @@ export type Database = {
           id: string
           is_default: boolean
           logo_path: string | null
+          mode: string
+          pdf_template_path: string | null
+          signature_box: Json | null
           surgeon: string | null
           title: string
           type: Database["public"]["Enums"]["document_type"]
@@ -70,6 +75,8 @@ export type Database = {
         }
         Insert: {
           body_html?: string
+          content_box?: Json | null
+          continuation_strategy?: string
           created_at?: string
           created_by?: string | null
           default_data?: Json
@@ -78,6 +85,9 @@ export type Database = {
           id?: string
           is_default?: boolean
           logo_path?: string | null
+          mode?: string
+          pdf_template_path?: string | null
+          signature_box?: Json | null
           surgeon?: string | null
           title: string
           type: Database["public"]["Enums"]["document_type"]
@@ -85,6 +95,8 @@ export type Database = {
         }
         Update: {
           body_html?: string
+          content_box?: Json | null
+          continuation_strategy?: string
           created_at?: string
           created_by?: string | null
           default_data?: Json
@@ -93,6 +105,9 @@ export type Database = {
           id?: string
           is_default?: boolean
           logo_path?: string | null
+          mode?: string
+          pdf_template_path?: string | null
+          signature_box?: Json | null
           surgeon?: string | null
           title?: string
           type?: Database["public"]["Enums"]["document_type"]
