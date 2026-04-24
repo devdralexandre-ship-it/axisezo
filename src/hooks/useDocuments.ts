@@ -218,16 +218,32 @@ export function useGenerateDocument() {
 
       const headerHtml = template?.header_html ?? '';
       const footerHtml = template?.footer_html ?? '';
-      const logoUrl = await getSignedLogoUrl(template?.logo_path);
 
-      // 1. Render PDF
-      const blob = await renderDocumentToBlob({
-        title,
-        bodyHtml: body,
-        headerHtml,
-        footerHtml,
-        logoUrl,
-      });
+      // 1. Render PDF — branch by template mode
+      let blob: Blob;
+      if (template?.mode === 'pdf' && template.pdf_template_path && template.content_box) {
+        const signedUrl = await getTemplatePdfSignedUrl(template.pdf_template_path);
+        if (!signedUrl) throw new Error('Não foi possível baixar o PDF do template');
+        const resp = await fetch(signedUrl);
+        const templatePdfBytes = await resp.arrayBuffer();
+        const blocks = htmlToBlocks(body);
+        const bytes = await renderInsidePdfTemplate({
+          templatePdfBytes,
+          contentBox: template.content_box,
+          blocks,
+          continuationStrategy: template.continuation_strategy ?? 'same_page',
+        });
+        blob = new Blob([bytes], { type: 'application/pdf' });
+      } else {
+        const logoUrl = await getSignedLogoUrl(template?.logo_path);
+        blob = await renderDocumentToBlob({
+          title,
+          bodyHtml: body,
+          headerHtml,
+          footerHtml,
+          logoUrl,
+        });
+      }
 
       // 2. Insert document row
       const { data: inserted, error: insertErr } = await supabase
