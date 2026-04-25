@@ -344,7 +344,7 @@ export default function Templates() {
                           size="sm"
                           variant="outline"
                           onClick={() => fileInputRef.current?.click()}
-                          disabled={uploadingLogo || !editing.id}
+                          disabled={uploadingLogo}
                         >
                           <Upload className="h-3 w-3 mr-1" />
                           {logoPreviewUrl ? 'Trocar logo' : 'Enviar logo'}
