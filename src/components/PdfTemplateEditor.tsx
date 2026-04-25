@@ -215,10 +215,16 @@ export function PdfTemplateEditor({ fileUrl, contentBox, signatureBox, onChange 
         ref={containerRef}
         className="relative inline-block border border-border bg-muted/20 rounded"
       >
-        <Document file={fileUrl} loading={<div className="p-8 text-sm text-muted-foreground">Carregando PDF…</div>}>
+        <Document
+          file={fileUrl}
+          loading={<div className="p-8 text-sm text-muted-foreground">Carregando PDF…</div>}
+          error={<div className="p-8 text-sm text-destructive">Não foi possível carregar o PDF. Verifique se o arquivo é válido.</div>}
+          onLoadError={(err) => console.error('PDF load error', err)}
+        >
           <Page
             pageNumber={1}
             width={520}
+            onLoadSuccess={onPageRender}
             onRenderSuccess={onPageRender}
             renderAnnotationLayer={false}
             renderTextLayer={false}
