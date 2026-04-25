@@ -476,7 +476,7 @@ export default function Templates() {
                           size="sm"
                           variant="outline"
                           onClick={() => pdfInputRef.current?.click()}
-                          disabled={uploadingPdf || !editing.id}
+                          disabled={uploadingPdf}
                         >
                           <Upload className="h-3 w-3 mr-1" />
                           {pdfPreviewUrl ? 'Trocar PDF' : 'Enviar PDF'}
@@ -488,10 +488,7 @@ export default function Templates() {
                         )}
                       </div>
                     </div>
-                    {!editing.id && (
-                      <p className="text-[11px] text-muted-foreground">Salve o template uma vez antes de enviar o PDF.</p>
-                    )}
-                    {pdfPreviewUrl && editing.id && (
+                    {pdfPreviewUrl && (
                       <div className="pt-2">
                         <PdfTemplateEditor
                           fileUrl={pdfPreviewUrl}
