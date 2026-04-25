@@ -112,11 +112,8 @@ export default function Templates() {
   };
 
   const handleLogoUpload = async (file: File) => {
-    if (!editing?.id) {
-      // Need to save first to obtain an id
-      toast.message('Salve o template uma vez antes de enviar a logo.');
-      return;
-    }
+    if (!editing?.id) return;
+
     if (file.size > 1024 * 1024) {
       toast.error('Logo deve ter no máximo 1MB');
       return;
