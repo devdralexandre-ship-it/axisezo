@@ -86,6 +86,8 @@ export default function Templates() {
   const startNew = (type: DocumentType) => {
     const seed = DEFAULT_TEMPLATE_BODIES[type];
     setEditing({
+      // Generate id client-side so uploads (logo/PDF) work before the first save
+      id: crypto.randomUUID(),
       type,
       surgeon: null,
       title: seed.title,
