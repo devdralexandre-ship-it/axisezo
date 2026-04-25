@@ -4,9 +4,12 @@ import { Button } from '@/components/ui/button';
 import { PdfBox } from '@/data/documents';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
+// Bundle the worker locally so its version always matches the pdfjs-dist
+// react-pdf is using internally. Avoids CDN/version mismatches that cause
+// the document to hang on "Loading PDF…" forever.
+import workerSrc from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 
-// Use CDN worker matching installed pdfjs version
-pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.mjs`;
+pdfjs.GlobalWorkerOptions.workerSrc = workerSrc;
 
 interface Props {
   /** Object URL or signed URL of the PDF */
