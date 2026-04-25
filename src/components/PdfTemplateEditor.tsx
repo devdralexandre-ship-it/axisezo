@@ -62,14 +62,15 @@ export function PdfTemplateEditor({ fileUrl, contentBox, signatureBox, onChange 
   const onPageRender = (page: any) => {
     const viewport = page.getViewport({ scale: 1 });
     const el = containerRef.current?.querySelector('canvas') as HTMLCanvasElement | null;
-    if (el) {
-      setMetrics({
-        pdfWidth: viewport.width,
-        pdfHeight: viewport.height,
-        pxWidth: el.clientWidth,
-        pxHeight: el.clientHeight,
-      });
-    }
+    // Fall back to viewport scaled to width=520 (the Page width prop) if canvas not ready yet
+    const fallbackPxWidth = 520;
+    const fallbackPxHeight = (viewport.height / viewport.width) * fallbackPxWidth;
+    setMetrics({
+      pdfWidth: viewport.width,
+      pdfHeight: viewport.height,
+      pxWidth: el?.clientWidth || fallbackPxWidth,
+      pxHeight: el?.clientHeight || fallbackPxHeight,
+    });
   };
 
   const pdfToPx = useCallback(
