@@ -1,75 +1,58 @@
-# Plano confirmado — Templates PDF + Assinatura A1
 
-Decisões registradas:
-- **Etapa A** (template PDF) primeiro → valido com você → **Etapa B1** (A1) na sequência.
-- Multi-página: **repete o mesmo timbre** em todas as páginas adicionais.
-- Assinatura A1 visual: **carimbo textual padrão** ("Assinado digitalmente por Dr. X — CRM xxx — 24/04/2026 — ICP-Brasil") desenhado na área de assinatura marcada no template.
+# Diagnóstico e plano de correção
 
----
+## Problema 1 — "Por que preciso salvar antes do upload?"
 
-## Etapa A — Template em PDF timbrado (a fazer agora)
+**Não é necessário.** Foi uma decisão arbitrária de implementação: o `handlePdfUpload` exige `editing.id` para usar como nome do arquivo (`template-pdfs/{id}.pdf`). Se você ainda não salvou, não tem `id`, então o botão fica desabilitado e mostra a mensagem "Salve o template uma vez antes de enviar o PDF".
 
-### Banco
-Migração adicionando em `document_templates`:
-- `mode text not null default 'html'` (`'html'` | `'pdf'`)
-- `pdf_template_path text` (path no bucket `patient-documents/template-pdfs/{id}.pdf`)
-- `content_box jsonb` (`{ x, y, width, height, fontSize, lineHeight }` em pontos PDF)
-- `signature_box jsonb` (área onde o carimbo de assinatura vai ser desenhado na Etapa B; aceita null)
+**Correção**: gerar um UUID no client no momento em que você clica em "Novo template" (via `crypto.randomUUID()`) e usar esse id já no `editing.id` desde o início. Quando salvar, o insert usa esse id em vez de deixar o banco gerar. Resultado: dá pra fazer upload de logo e PDF imediatamente, sem salvar antes. Mesma correção vale para a logo no modo HTML.
 
-### Dependências
-- `pdf-lib` (manipulação do PDF base, desenho de texto, exportação)
-- `react-pdf` + `pdfjs-dist` (visualização do PDF no editor de área)
+## Problema 2 — "Carregando PDF…" infinito + caixas verde/azul não aparecem
 
-### Componentes novos
-- `src/components/PdfTemplateEditor.tsx`: renderiza a primeira página do PDF subido em canvas (via react-pdf), overlay com 2 retângulos arrastáveis/redimensionáveis (caixa de conteúdo em verde, caixa de assinatura em azul). Mostra coordenadas em mm, botão "Salvar áreas".
-- `src/lib/pdf-template-renderer.ts`: nova função `renderInsidePdfTemplate({ templatePdfBytes, contentBox, blocks })` que carrega o PDF base com pdf-lib, clona páginas conforme necessário e desenha texto block-by-block dentro da `content_box`, com quebra de página automática e Helvetica/Helvetica-Bold embutidas.
+**Causa raiz**: incompatibilidade de versão do worker do PDF.js.
 
-### Modificações
-- `src/pages/Templates.tsx`: tabs **HTML** / **PDF Timbrado** no formulário; em PDF: upload do `.pdf`, preview com `PdfTemplateEditor`, salvar template com `mode='pdf'`.
-- `src/hooks/useDocuments.ts → useGenerateDocument`: branch — se `template.mode === 'pdf'`, baixa o PDF base via signed URL, monta os blocos de texto (estruturado para `surgical_request`, HTML simples para os outros) e usa `renderInsidePdfTemplate`. Caso contrário, fluxo atual com `@react-pdf/renderer`.
-- Manter `pdf-generator.tsx` atual intacto para o modo HTML legado.
+No `PdfTemplateEditor.tsx` o worker é carregado da CDN como `.mjs`:
+```ts
+pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.mjs`;
+```
 
-### Storage
-Bucket `patient-documents` já existe e cobre. Subpasta `template-pdfs/` criada na hora do primeiro upload.
+Mas:
+- `pdfjs-dist` instalado: **5.6.205**
+- `react-pdf@10.4.1` internamente usa `pdfjs-dist@4.x` — então `pdfjs.version` resolve pra **4.x**, não 5.x
+- Pior: a CDN cdnjs nem sempre tem o `.mjs` para todas as versões; e com versões mistas o worker rejeita silenciosamente carregar o documento → o `<Document>` fica preso em "Loading PDF…" para sempre, sem erro visível.
 
-### O que a secretária verá
-1. `/templates` → "Novo template" → tipo "Solicitação Cirúrgica" → cirurgião "Dr Estrela" → tab **PDF Timbrado** → sobe o PDF do papel timbrado dele → arrasta a caixa verde para demarcar a área branca onde o conteúdo deve ser escrito → arrasta a caixa azul para a área da assinatura (vazia agora, usada na Etapa B) → Salvar.
-2. No paciente → Novo documento → Solicitação Cirúrgica → preenche o formulário estruturado normalmente → Gerar PDF → o PDF baixado é o **timbre do Dr Estrela com o conteúdo da solicitação dentro da caixa**.
+Como o `<Document>` nunca termina de carregar, o `onRenderSuccess` da `<Page>` nunca dispara, `metrics` permanece `null`, e o `useEffect` que cria as caixas default (verde e azul) nunca roda. Por isso você não vê nada.
 
-### Limitações já assumidas
-- Fonte do conteúdo é Helvetica/Helvetica-Bold padrão do PDF (não a fonte do timbre).
-- Caixa única retangular igual em todas as páginas.
-- Quebra de linha simples (palavra a palavra com largura calculada por Helvetica). Sem justificação avançada nem hifenização.
+**Correção**:
+1. Servir o worker **localmente** a partir do próprio bundle, garantindo casamento de versão exato com a `pdfjs-dist` que `react-pdf` está usando:
+   ```ts
+   import workerSrc from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+   pdfjs.GlobalWorkerOptions.workerSrc = workerSrc;
+   ```
+   O `?url` do Vite resolve pro asset versionado correto e evita a CDN.
+2. Adicionar fallback de erro visível no `<Document>` (`onLoadError`, prop `error`) para que, se algo falhar, apareça uma mensagem em vez de "Carregando…" eterno.
+3. Renderizar as caixas verde/azul **mesmo antes** do `metrics` estar pronto, usando posições default em pixels durante o loading — e re-posicionar quando o PDF termina de renderizar. Assim, mesmo num cenário de fallback, você vê a UI.
+4. Garantir que a página é renderizada com `onLoadSuccess` na `<Page>` também (não só `onRenderSuccess`), porque `onRenderSuccess` depende do canvas estar pintado — em telas pequenas/lentas pode demorar e dar a sensação de travado.
 
----
+## Arquivos afetados
 
-## Etapa B1 — Assinatura digital A1 (depois de A validado)
+- `src/components/PdfTemplateEditor.tsx`: trocar workerSrc para local + handlers de erro + inicialização mais robusta de `metrics`.
+- `src/pages/Templates.tsx`: 
+  - Em `startNew`, gerar `id: crypto.randomUUID()` e iniciar `editing` com ele.
+  - Remover guards `!editing.id` dos botões de upload de logo e PDF e das mensagens "Salve o template antes…".
+  - Em `handleLogoUpload`/`handlePdfUpload`, remover o `if (!editing.id)` early return.
+- `src/hooks/useDocuments.ts → useSaveTemplate`: passar `id` no insert payload quando vier do client (em vez de deixar o banco gerar). Isso é seguro: o tipo da coluna já é `uuid` com default; aceitar um valor explícito não muda nada.
 
-Faço só depois que você confirmar que a Etapa A está funcionando. Resumo do que virá:
+## Verificação
 
-- Tabela `surgeon_certificates` (1 linha por cirurgião): `surgeon`, `cert_path`, `cert_password_secret_name`, `valid_until`, `crm`, `auto_sign boolean`.
-- Bucket privado novo `surgeon-certificates` com RLS bloqueando todo acesso autenticado direto (só `service_role`).
-- Página `/settings/certificates`: upload do `.pfx`, campo de senha (vai virar secret no Lovable Cloud com nome `CERT_PWD_<surgeon_slug>`), CRM, toggle "Assinar automaticamente".
-- Edge function `sign-pdf` (Deno): recebe `{ pdfBase64, surgeonId, signatureBox }`, baixa `.pfx`, lê senha do secret, assina com `@signpdf/signpdf` + `@signpdf/signer-p12` (PAdES-B), desenha o carimbo textual padrão na `signature_box`, devolve PDF assinado.
-- `useGenerateDocument`: depois de gerar o PDF (Etapa A), se `surgeon_certificates.auto_sign === true` para esse cirurgião, chama `sign-pdf` antes do upload no storage. Botão manual "Assinar agora" em documentos não assinados.
-- Coluna nova em `patient_documents`: `signed_at timestamptz`, `signed_by_certificate_serial text`.
+1. `/templates` → "Novo template" → "Solicitação Cirúrgica" → ir direto na tab **PDF Timbrado** → clicar "Enviar PDF" → upload acontece sem precisar salvar antes.
+2. PDF carrega em poucos segundos, primeira página aparece, caixas verde (conteúdo) e azul (assinatura) aparecem sobre ela com tamanhos default.
+3. Arrastar/redimensionar as caixas funciona; coordenadas em mm aparecem nos rótulos.
+4. Clicar Salvar → template salvo com `pdf_template_path` + `content_box` + `signature_box` populados.
+5. Templates já existentes (HTML mode) continuam funcionando normalmente.
 
-### Riscos da Etapa B1 que você está aceitando ao aprovar
-- O `.pfx` fica no bucket privado do Lovable Cloud (acessível por edge function via service role).
-- A senha do `.pfx` fica como secret do projeto.
-- Equivale a confiar a custódia do certificado A1 à infra do Lovable Cloud — não é o mesmo nível de segurança de um token físico ou HSM. Para a clínica, isso é prática comum quando o objetivo é assinar em lote sem intervenção humana; juridicamente válido, mas tecnicamente o cirurgião deve estar ciente de que cedeu o controle direto.
+## Limitação
 
----
+Se um cirurgião subir um PDF com mais de 1 página, o editor visual mostra só a página 1 — a estratégia de continuação ("repetir mesmo timbre") já está cuidando do resto na geração. Sem mudança aqui.
 
-## Verificação ao final da Etapa A
-
-1. `/templates` → criar template "Solicitação — Dr Estrela" modo PDF, subir um PDF timbrado de teste, marcar caixa de conteúdo no centro da página.
-2. Abrir paciente do Dr Estrela → Novo documento → Solicitação Cirúrgica → preencher CBHPM/CID/OPME → Gerar.
-3. Baixar o PDF → verificar:
-   - Timbre do cirurgião visível (cabeçalho, marca d'água, rodapé).
-   - Conteúdo da solicitação aparece **dentro** da caixa marcada, sem invadir o cabeçalho/rodapé.
-   - Quebra de linha funcionando, negrito nos rótulos.
-   - Documento longo gera 2ª página com mesmo timbre.
-4. Templates HTML antigos continuam gerando PDF normalmente (não regredir).
-
-Aprove para eu começar pela **Etapa A**.
+Aprove para corrigir.
