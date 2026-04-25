@@ -4,9 +4,12 @@ import { Button } from '@/components/ui/button';
 import { PdfBox } from '@/data/documents';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
+// Bundle the worker locally so its version always matches the pdfjs-dist
+// react-pdf is using internally. Avoids CDN/version mismatches that cause
+// the document to hang on "Loading PDF…" forever.
+import workerSrc from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 
-// Use CDN worker matching installed pdfjs version
-pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.mjs`;
+pdfjs.GlobalWorkerOptions.workerSrc = workerSrc;
 
 interface Props {
   /** Object URL or signed URL of the PDF */
@@ -59,14 +62,15 @@ export function PdfTemplateEditor({ fileUrl, contentBox, signatureBox, onChange 
   const onPageRender = (page: any) => {
     const viewport = page.getViewport({ scale: 1 });
     const el = containerRef.current?.querySelector('canvas') as HTMLCanvasElement | null;
-    if (el) {
-      setMetrics({
-        pdfWidth: viewport.width,
-        pdfHeight: viewport.height,
-        pxWidth: el.clientWidth,
-        pxHeight: el.clientHeight,
-      });
-    }
+    // Fall back to viewport scaled to width=520 (the Page width prop) if canvas not ready yet
+    const fallbackPxWidth = 520;
+    const fallbackPxHeight = (viewport.height / viewport.width) * fallbackPxWidth;
+    setMetrics({
+      pdfWidth: viewport.width,
+      pdfHeight: viewport.height,
+      pxWidth: el?.clientWidth || fallbackPxWidth,
+      pxHeight: el?.clientHeight || fallbackPxHeight,
+    });
   };
 
   const pdfToPx = useCallback(
@@ -212,10 +216,16 @@ export function PdfTemplateEditor({ fileUrl, contentBox, signatureBox, onChange 
         ref={containerRef}
         className="relative inline-block border border-border bg-muted/20 rounded"
       >
-        <Document file={fileUrl} loading={<div className="p-8 text-sm text-muted-foreground">Carregando PDF…</div>}>
+        <Document
+          file={fileUrl}
+          loading={<div className="p-8 text-sm text-muted-foreground">Carregando PDF…</div>}
+          error={<div className="p-8 text-sm text-destructive">Não foi possível carregar o PDF. Verifique se o arquivo é válido.</div>}
+          onLoadError={(err) => console.error('PDF load error', err)}
+        >
           <Page
             pageNumber={1}
             width={520}
+            onLoadSuccess={onPageRender}
             onRenderSuccess={onPageRender}
             renderAnnotationLayer={false}
             renderTextLayer={false}

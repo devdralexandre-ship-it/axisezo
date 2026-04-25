@@ -86,6 +86,8 @@ export default function Templates() {
   const startNew = (type: DocumentType) => {
     const seed = DEFAULT_TEMPLATE_BODIES[type];
     setEditing({
+      // Generate id client-side so uploads (logo/PDF) work before the first save
+      id: crypto.randomUUID(),
       type,
       surgeon: null,
       title: seed.title,
@@ -110,11 +112,8 @@ export default function Templates() {
   };
 
   const handleLogoUpload = async (file: File) => {
-    if (!editing?.id) {
-      // Need to save first to obtain an id
-      toast.message('Salve o template uma vez antes de enviar a logo.');
-      return;
-    }
+    if (!editing?.id) return;
+
     if (file.size > 1024 * 1024) {
       toast.error('Logo deve ter no máximo 1MB');
       return;
@@ -146,10 +145,8 @@ export default function Templates() {
   };
 
   const handlePdfUpload = async (file: File) => {
-    if (!editing?.id) {
-      toast.message('Salve o template uma vez antes de enviar o PDF timbrado.');
-      return;
-    }
+    if (!editing?.id) return;
+
     if (file.type !== 'application/pdf') {
       toast.error('Envie um arquivo PDF');
       return;
@@ -347,7 +344,7 @@ export default function Templates() {
                           size="sm"
                           variant="outline"
                           onClick={() => fileInputRef.current?.click()}
-                          disabled={uploadingLogo || !editing.id}
+                          disabled={uploadingLogo}
                         >
                           <Upload className="h-3 w-3 mr-1" />
                           {logoPreviewUrl ? 'Trocar logo' : 'Enviar logo'}
@@ -359,9 +356,6 @@ export default function Templates() {
                         )}
                       </div>
                     </div>
-                    {!editing.id && (
-                      <p className="text-[11px] text-muted-foreground">Salve o template uma vez antes de enviar a logo.</p>
-                    )}
                   </div>
 
                   <div className="space-y-1">
@@ -482,7 +476,7 @@ export default function Templates() {
                           size="sm"
                           variant="outline"
                           onClick={() => pdfInputRef.current?.click()}
-                          disabled={uploadingPdf || !editing.id}
+                          disabled={uploadingPdf}
                         >
                           <Upload className="h-3 w-3 mr-1" />
                           {pdfPreviewUrl ? 'Trocar PDF' : 'Enviar PDF'}
@@ -494,10 +488,7 @@ export default function Templates() {
                         )}
                       </div>
                     </div>
-                    {!editing.id && (
-                      <p className="text-[11px] text-muted-foreground">Salve o template uma vez antes de enviar o PDF.</p>
-                    )}
-                    {pdfPreviewUrl && editing.id && (
+                    {pdfPreviewUrl && (
                       <div className="pt-2">
                         <PdfTemplateEditor
                           fileUrl={pdfPreviewUrl}

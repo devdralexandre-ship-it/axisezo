@@ -54,9 +54,24 @@ export function useSaveTemplate() {
         continuation_strategy: tpl.continuation_strategy ?? 'same_page',
       };
       let resultId: string | undefined = tpl.id;
+      // Check if a row with this id already exists (client-generated ids mean
+      // we can't blindly insert — could collide on retries; can't blindly update
+      // — row may not exist yet). Use upsert semantics.
       if (tpl.id) {
-        const { error } = await supabase.from('document_templates' as any).update(payload).eq('id', tpl.id);
-        if (error) throw error;
+        const { data: existing } = await supabase
+          .from('document_templates' as any)
+          .select('id')
+          .eq('id', tpl.id)
+          .maybeSingle();
+        if (existing) {
+          const { error } = await supabase.from('document_templates' as any).update(payload).eq('id', tpl.id);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase
+            .from('document_templates' as any)
+            .insert({ ...payload, id: tpl.id });
+          if (error) throw error;
+        }
       } else {
         const { data, error } = await supabase.from('document_templates' as any).insert(payload).select('id').single();
         if (error) throw error;
