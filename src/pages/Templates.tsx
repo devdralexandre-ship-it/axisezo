@@ -356,9 +356,6 @@ export default function Templates() {
                         )}
                       </div>
                     </div>
-                    {!editing.id && (
-                      <p className="text-[11px] text-muted-foreground">Salve o template uma vez antes de enviar a logo.</p>
-                    )}
                   </div>
 
                   <div className="space-y-1">
