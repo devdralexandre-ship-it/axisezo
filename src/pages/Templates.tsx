@@ -145,10 +145,8 @@ export default function Templates() {
   };
 
   const handlePdfUpload = async (file: File) => {
-    if (!editing?.id) {
-      toast.message('Salve o template uma vez antes de enviar o PDF timbrado.');
-      return;
-    }
+    if (!editing?.id) return;
+
     if (file.type !== 'application/pdf') {
       toast.error('Envie um arquivo PDF');
       return;
