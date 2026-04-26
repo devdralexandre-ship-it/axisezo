@@ -50,6 +50,13 @@ export type Database = {
             referencedRelation: "patients"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "contact_records_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients_no_financials"
+            referencedColumns: ["id"]
+          },
         ]
       }
       document_templates: {
@@ -170,6 +177,13 @@ export type Database = {
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_documents_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients_no_financials"
             referencedColumns: ["id"]
           },
           {
@@ -328,6 +342,13 @@ export type Database = {
             referencedRelation: "patients"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "pending_items_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients_no_financials"
+            referencedColumns: ["id"]
+          },
         ]
       }
       preop_checklist_items: {
@@ -358,6 +379,13 @@ export type Database = {
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "preop_checklist_items_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients_no_financials"
             referencedColumns: ["id"]
           },
         ]
@@ -400,23 +428,32 @@ export type Database = {
       }
       profiles: {
         Row: {
+          active: boolean
+          concierge_name: string | null
           created_at: string
           display_name: string | null
           id: string
+          surgeon_name: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          active?: boolean
+          concierge_name?: string | null
           created_at?: string
           display_name?: string | null
           id?: string
+          surgeon_name?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          active?: boolean
+          concierge_name?: string | null
           created_at?: string
           display_name?: string | null
           id?: string
+          surgeon_name?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -467,6 +504,13 @@ export type Database = {
             referencedRelation: "patients"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "tasks_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients_no_financials"
+            referencedColumns: ["id"]
+          },
         ]
       }
       user_roles: {
@@ -492,9 +536,129 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      patients_no_financials: {
+        Row: {
+          age: number | null
+          alerts: string | null
+          anesthesia_fees: number | null
+          billing_type: string | null
+          concierge: string | null
+          created_at: string | null
+          decision_status: Database["public"]["Enums"]["decision_status"] | null
+          desired_hospital: string | null
+          email: string | null
+          estimated_value: number | null
+          hospital_budget: number | null
+          id: string | null
+          indication_date: string | null
+          indication_location: string | null
+          last_interaction_date: string | null
+          laterality: string | null
+          loss_reason: Database["public"]["Enums"]["loss_reason"] | null
+          loss_reason_detail: string | null
+          materials_cost: number | null
+          medical_fees: number | null
+          name: string | null
+          next_follow_up_date: string | null
+          notes: string | null
+          owner: string | null
+          patient_type: string | null
+          payer: string | null
+          phone: string | null
+          procedure_category: string | null
+          procedure_name: string | null
+          responsible_contact: string | null
+          stage: Database["public"]["Enums"]["pipeline_stage"] | null
+          stage_entered_at: string | null
+          surgeon: string | null
+          surgical_approach: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          age?: number | null
+          alerts?: string | null
+          anesthesia_fees?: never
+          billing_type?: never
+          concierge?: string | null
+          created_at?: string | null
+          decision_status?:
+            | Database["public"]["Enums"]["decision_status"]
+            | null
+          desired_hospital?: string | null
+          email?: string | null
+          estimated_value?: never
+          hospital_budget?: never
+          id?: string | null
+          indication_date?: string | null
+          indication_location?: string | null
+          last_interaction_date?: string | null
+          laterality?: string | null
+          loss_reason?: Database["public"]["Enums"]["loss_reason"] | null
+          loss_reason_detail?: string | null
+          materials_cost?: never
+          medical_fees?: never
+          name?: string | null
+          next_follow_up_date?: string | null
+          notes?: string | null
+          owner?: string | null
+          patient_type?: string | null
+          payer?: string | null
+          phone?: string | null
+          procedure_category?: string | null
+          procedure_name?: string | null
+          responsible_contact?: string | null
+          stage?: Database["public"]["Enums"]["pipeline_stage"] | null
+          stage_entered_at?: string | null
+          surgeon?: string | null
+          surgical_approach?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          age?: number | null
+          alerts?: string | null
+          anesthesia_fees?: never
+          billing_type?: never
+          concierge?: string | null
+          created_at?: string | null
+          decision_status?:
+            | Database["public"]["Enums"]["decision_status"]
+            | null
+          desired_hospital?: string | null
+          email?: string | null
+          estimated_value?: never
+          hospital_budget?: never
+          id?: string | null
+          indication_date?: string | null
+          indication_location?: string | null
+          last_interaction_date?: string | null
+          laterality?: string | null
+          loss_reason?: Database["public"]["Enums"]["loss_reason"] | null
+          loss_reason_detail?: string | null
+          materials_cost?: never
+          medical_fees?: never
+          name?: string | null
+          next_follow_up_date?: string | null
+          notes?: string | null
+          owner?: string | null
+          patient_type?: string | null
+          payer?: string | null
+          phone?: string | null
+          procedure_category?: string | null
+          procedure_name?: string | null
+          responsible_contact?: string | null
+          stage?: Database["public"]["Enums"]["pipeline_stage"] | null
+          stage_entered_at?: string | null
+          surgeon?: string | null
+          surgical_approach?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
+      can_access_patient: { Args: { _patient_id: string }; Returns: boolean }
+      current_concierge_name: { Args: never; Returns: string }
+      current_surgeon_name: { Args: never; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

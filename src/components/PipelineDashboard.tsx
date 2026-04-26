@@ -11,7 +11,8 @@ import { LossReasonDialog } from './LossReasonDialog';
 import { DeletePatientDialog } from './DeletePatientDialog';
 import { CsvImporter } from './CsvImporter';
 import { Button } from '@/components/ui/button';
-import { Plus, Users, DollarSign, TrendingUp, LogOut, Upload, FileText } from 'lucide-react';
+import { Plus, Users, DollarSign, TrendingUp, LogOut, Upload, FileText, Shield } from 'lucide-react';
+import { useUserRole } from '@/hooks/useUserRole';
 import { Link } from 'react-router-dom';
 import { DragDropContext, DropResult } from '@hello-pangea/dnd';
 import { toast } from 'sonner';
@@ -32,6 +33,7 @@ export function PipelineDashboard() {
   const deletePatientMutation = useDeletePatient();
   const importPatientsMutation = useImportPatients();
   const { signOut, user } = useAuth();
+  const { isAdmin, canSeeFinancials } = useUserRole();
   const queryClient = useQueryClient();
 
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
@@ -322,6 +324,11 @@ export function PipelineDashboard() {
             <Button asChild variant="outline" size="sm">
               <Link to="/templates"><FileText className="h-4 w-4" />Templates</Link>
             </Button>
+            {isAdmin && (
+              <Button asChild variant="outline" size="sm">
+                <Link to="/admin/users"><Shield className="h-4 w-4" />Usuários</Link>
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={() => setCsvImporterOpen(true)}>
               <Upload className="h-4 w-4" />
               Importar CSV
@@ -342,11 +349,13 @@ export function PipelineDashboard() {
             <span className="text-muted-foreground">Ativos:</span>
             <span className="font-semibold text-foreground">{activeFiltered.length}</span>
           </div>
-          <div className="flex items-center gap-2 text-sm">
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-            <span className="text-muted-foreground">Pipeline:</span>
-            <span className="font-semibold text-foreground">{formatCurrency(totalValue)}</span>
-          </div>
+          {canSeeFinancials && (
+            <div className="flex items-center gap-2 text-sm">
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
+              <span className="text-muted-foreground">Pipeline:</span>
+              <span className="font-semibold text-foreground">{formatCurrency(totalValue)}</span>
+            </div>
+          )}
           <div className="flex items-center gap-2 text-sm">
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
             <span className="text-muted-foreground">Conversão:</span>
