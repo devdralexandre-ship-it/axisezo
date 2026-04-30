@@ -7,8 +7,9 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Upload, AlertTriangle, CheckCircle2, XCircle, FileText, ChevronRight } from 'lucide-react';
-import { PipelineStage, STAGE_LABELS } from '@/data/types';
+import { Textarea } from '@/components/ui/textarea';
+import { Upload, AlertTriangle, CheckCircle2, XCircle, FileText, ChevronRight, Pencil, X, Check } from 'lucide-react';
+import { PipelineStage, STAGE_LABELS, PIPELINE_STAGES } from '@/data/types';
 import { PROCEDURES, PAYERS } from '@/data/constants';
 import { toast } from 'sonner';
 
