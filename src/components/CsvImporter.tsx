@@ -523,47 +523,201 @@ export function CsvImporter({ open, onClose, onImport, existingPatientNames }: C
               {/* Patient list */}
               <ScrollArea className="h-[400px]">
                 <div className="space-y-2">
-                  {rows.map((row, idx) => (
-                    <div
-                      key={idx}
-                      className={`border rounded-lg p-3 text-sm transition-colors ${
-                        row.selected ? 'border-primary/30 bg-primary/5' : 'border-border opacity-60'
-                      }`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <Checkbox
-                          checked={row.selected}
-                          onCheckedChange={() => toggleRow(idx)}
-                          className="mt-0.5"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="font-medium truncate">
-                              {row.mapped.name || <span className="italic text-muted-foreground">Sem nome</span>}
-                            </span>
-                            <Badge variant="secondary" className="text-[10px] px-1.5 shrink-0">
-                              {STAGE_LABELS[row.mapped.stage]} • {defaultSurgeon.replace('Dr ', '')}
-                            </Badge>
-                          </div>
-                          <div className="text-xs text-muted-foreground space-y-0.5">
-                            {row.mapped.procedure && <p>Proc: {row.mapped.procedure}</p>}
-                            {row.mapped.payer && <p>Convênio: {row.mapped.payer}</p>}
-                            {row.mapped.desiredHospital && <p>Hospital: {row.mapped.desiredHospital}</p>}
-                            {row.mapped.phone && <p>Tel: {row.mapped.phone}</p>}
-                          </div>
-                          {row.warnings.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-2">
-                              {row.warnings.map((w, wi) => (
-                                <span key={wi} className={`text-[10px] px-1.5 py-0.5 rounded-full ${warningBadge(w.type)}`}>
-                                  ⚠ {w.message}
-                                </span>
-                              ))}
+                  {rows.map((row, idx) => {
+                    const isEditing = editingIndex === idx;
+                    const draft = isEditing ? editDraft! : row.mapped;
+                    const procedureIsKnown = !draft.procedure || (PROCEDURES as readonly string[]).includes(draft.procedure);
+                    return (
+                      <div
+                        key={idx}
+                        className={`border rounded-lg p-3 text-sm transition-colors ${
+                          isEditing ? 'border-primary bg-primary/5' :
+                          row.selected ? 'border-primary/30 bg-primary/5' : 'border-border opacity-60'
+                        }`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <Checkbox
+                            checked={row.selected}
+                            onCheckedChange={() => toggleRow(idx)}
+                            disabled={isEditing}
+                            className="mt-0.5"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="font-medium truncate">
+                                {row.mapped.name || <span className="italic text-muted-foreground">Sem nome</span>}
+                              </span>
+                              <Badge variant="secondary" className="text-[10px] px-1.5 shrink-0">
+                                {STAGE_LABELS[row.mapped.stage]} • {defaultSurgeon.replace('Dr ', '')}
+                              </Badge>
                             </div>
+                            {!isEditing && (
+                              <div className="text-xs text-muted-foreground space-y-0.5">
+                                {row.mapped.procedure && <p>Proc: {row.mapped.procedure}</p>}
+                                {row.mapped.payer && <p>Convênio: {row.mapped.payer}</p>}
+                                {row.mapped.desiredHospital && <p>Hospital: {row.mapped.desiredHospital}</p>}
+                                {row.mapped.phone && <p>Tel: {row.mapped.phone}</p>}
+                              </div>
+                            )}
+                            {row.warnings.length > 0 && !isEditing && (
+                              <div className="flex flex-wrap gap-1 mt-2">
+                                {row.warnings.map((w, wi) => (
+                                  <span key={wi} className={`text-[10px] px-1.5 py-0.5 rounded-full ${warningBadge(w.type)}`}>
+                                    ⚠ {w.message}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          {!isEditing && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 px-2 shrink-0"
+                              onClick={() => startEditing(idx)}
+                              title="Editar este registro"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
                           )}
                         </div>
+
+                        {isEditing && editDraft && (
+                          <div className="mt-3 pt-3 border-t border-border space-y-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              <div className="space-y-1">
+                                <Label className="text-xs">Nome do paciente *</Label>
+                                <Input
+                                  value={editDraft.name}
+                                  onChange={(e) => setEditDraft({ ...editDraft, name: e.target.value })}
+                                  className="h-8 text-sm"
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-xs">Telefone</Label>
+                                <Input
+                                  value={editDraft.phone}
+                                  onChange={(e) => setEditDraft({ ...editDraft, phone: e.target.value })}
+                                  className="h-8 text-sm"
+                                />
+                              </div>
+                              <div className="space-y-1 sm:col-span-2">
+                                <Label className="text-xs">Procedimento</Label>
+                                <Select
+                                  value={procedureIsKnown ? (editDraft.procedure || '__empty') : '__custom'}
+                                  onValueChange={(v) => {
+                                    if (v === '__custom') {
+                                      setEditDraft({ ...editDraft, procedure: editDraft.procedure || '' });
+                                    } else if (v === '__empty') {
+                                      setEditDraft({ ...editDraft, procedure: '' });
+                                    } else {
+                                      setEditDraft({ ...editDraft, procedure: v });
+                                    }
+                                  }}
+                                >
+                                  <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                                  <SelectContent className="max-h-64">
+                                    <SelectItem value="__empty">— A definir —</SelectItem>
+                                    {PROCEDURES.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                                    <SelectItem value="__custom">Outro (texto livre)</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                {!procedureIsKnown && (
+                                  <Input
+                                    value={editDraft.procedure}
+                                    onChange={(e) => setEditDraft({ ...editDraft, procedure: e.target.value })}
+                                    placeholder="Descrever procedimento"
+                                    className="h-8 text-sm mt-1"
+                                  />
+                                )}
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-xs">Convênio</Label>
+                                <Select
+                                  value={(PAYERS as readonly string[]).includes(editDraft.payer) ? editDraft.payer : (editDraft.payer ? '__custom' : '__empty')}
+                                  onValueChange={(v) => {
+                                    if (v === '__custom') return;
+                                    if (v === '__empty') setEditDraft({ ...editDraft, payer: '' });
+                                    else setEditDraft({ ...editDraft, payer: v });
+                                  }}
+                                >
+                                  <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                                  <SelectContent className="max-h-64">
+                                    <SelectItem value="__empty">— Não informado —</SelectItem>
+                                    {PAYERS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                                    {editDraft.payer && !(PAYERS as readonly string[]).includes(editDraft.payer) && (
+                                      <SelectItem value="__custom">Original: {editDraft.payer}</SelectItem>
+                                    )}
+                                  </SelectContent>
+                                </Select>
+                                {editDraft.payer && !(PAYERS as readonly string[]).includes(editDraft.payer) && (
+                                  <Input
+                                    value={editDraft.payer}
+                                    onChange={(e) => setEditDraft({ ...editDraft, payer: e.target.value })}
+                                    placeholder="Convênio (texto livre)"
+                                    className="h-8 text-sm mt-1"
+                                  />
+                                )}
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-xs">Estágio do pipeline</Label>
+                                <Select
+                                  value={editDraft.stage}
+                                  onValueChange={(v) => setEditDraft({ ...editDraft, stage: v as PipelineStage })}
+                                >
+                                  <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                                  <SelectContent>
+                                    {PIPELINE_STAGES.filter(s => s !== 'lost').map(s => (
+                                      <SelectItem key={s} value={s}>{STAGE_LABELS[s]}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="space-y-1 sm:col-span-2">
+                                <Label className="text-xs">Hospital desejado</Label>
+                                <Input
+                                  list={`hospitals-${idx}`}
+                                  value={editDraft.desiredHospital}
+                                  onChange={(e) => setEditDraft({ ...editDraft, desiredHospital: e.target.value })}
+                                  className="h-8 text-sm"
+                                />
+                                <datalist id={`hospitals-${idx}`}>
+                                  {Array.from(knownHospitalsRef.values()).map(h => (
+                                    <option key={h} value={h} />
+                                  ))}
+                                </datalist>
+                              </div>
+                              <div className="space-y-1 sm:col-span-2">
+                                <Label className="text-xs">Origem / Indicação</Label>
+                                <Input
+                                  value={editDraft.indicationLocation}
+                                  onChange={(e) => setEditDraft({ ...editDraft, indicationLocation: e.target.value })}
+                                  className="h-8 text-sm"
+                                />
+                              </div>
+                              <div className="space-y-1 sm:col-span-2">
+                                <Label className="text-xs">Notas</Label>
+                                <Textarea
+                                  value={editDraft.notes}
+                                  onChange={(e) => setEditDraft({ ...editDraft, notes: e.target.value })}
+                                  rows={2}
+                                  className="text-sm resize-none"
+                                />
+                              </div>
+                            </div>
+                            <div className="flex justify-end gap-2 pt-1">
+                              <Button variant="ghost" size="sm" onClick={cancelEditing}>
+                                <X className="h-3.5 w-3.5 mr-1" /> Cancelar
+                              </Button>
+                              <Button size="sm" onClick={saveEditing} disabled={!editDraft.name.trim()}>
+                                <Check className="h-3.5 w-3.5 mr-1" /> Salvar
+                              </Button>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </ScrollArea>
             </div>
