@@ -379,6 +379,8 @@ export function CsvImporter({ open, onClose, onImport, existingPatientNames }: C
     setRows([]);
     setImporting(false);
     setImportResult({ success: 0, failed: 0 });
+    setEditingIndex(null);
+    setEditDraft(null);
     onClose();
   }, [onClose]);
 
