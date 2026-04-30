@@ -231,8 +231,22 @@ export function CsvImporter({ open, onClose, onImport, existingPatientNames }: C
   const [importResult, setImportResult] = useState<{ success: number; failed: number }>({ success: 0, failed: 0 });
   const [defaultSurgeon, setDefaultSurgeon] = useState('Dr Alexandre Ziomkowski');
   const [defaultResponsible, setDefaultResponsible] = useState('Margô');
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editDraft, setEditDraft] = useState<ParsedRow['mapped'] | null>(null);
 
   const existingSet = useMemo(() => new Set(existingPatientNames.map(n => normalizeStr(n))), [existingPatientNames]);
+
+  // Hospitals seen in the current CSV — used for both initial mapping and post-edit re-validation
+  const knownHospitalsRef = useMemo(() => {
+    const map = new Map<string, string>();
+    rows.forEach(r => {
+      if (r.mapped.desiredHospital) {
+        const n = normalizeStr(r.mapped.desiredHospital);
+        if (!map.has(n)) map.set(n, r.mapped.desiredHospital);
+      }
+    });
+    return map;
+  }, [rows]);
 
   const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
