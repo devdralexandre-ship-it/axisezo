@@ -296,6 +296,39 @@ export function CsvImporter({ open, onClose, onImport, existingPatientNames }: C
     setRows(prev => prev.map(r => ({ ...r, selected: false })));
   }, []);
 
+  const startEditing = useCallback((index: number) => {
+    setEditingIndex(index);
+    setEditDraft({ ...rows[index].mapped });
+  }, [rows]);
+
+  const cancelEditing = useCallback(() => {
+    setEditingIndex(null);
+    setEditDraft(null);
+  }, []);
+
+  const saveEditing = useCallback(() => {
+    if (editingIndex === null || !editDraft) return;
+    setRows(prev => prev.map((r, i) => {
+      if (i !== editingIndex) return r;
+      const csvDup = r.warnings.find(w => w.type === 'duplicate' && w.message.startsWith('Nome duplicado no CSV'));
+      const newWarnings = computeWarnings(editDraft, existingSet, knownHospitalsRef, !!csvDup, csvDup);
+      const stageWarning = r.warnings.find(w => w.type === 'unknown_stage');
+      if (stageWarning && editDraft.stage === r.mapped.stage) {
+        newWarnings.push(stageWarning);
+      }
+      const stillMissingName = newWarnings.some(w => w.type === 'missing_name');
+      return {
+        ...r,
+        mapped: { ...editDraft },
+        warnings: newWarnings,
+        selected: stillMissingName ? false : r.selected,
+      };
+    }));
+    setEditingIndex(null);
+    setEditDraft(null);
+  }, [editingIndex, editDraft, existingSet, knownHospitalsRef]);
+
+
   const selectedRows = rows.filter(r => r.selected);
   const warningRows = rows.filter(r => r.warnings.length > 0);
   const cleanRows = rows.filter(r => r.warnings.length === 0);
