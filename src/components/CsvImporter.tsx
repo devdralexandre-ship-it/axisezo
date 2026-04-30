@@ -7,8 +7,9 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Upload, AlertTriangle, CheckCircle2, XCircle, FileText, ChevronRight } from 'lucide-react';
-import { PipelineStage, STAGE_LABELS } from '@/data/types';
+import { Textarea } from '@/components/ui/textarea';
+import { Upload, AlertTriangle, CheckCircle2, XCircle, FileText, ChevronRight, Pencil, X, Check } from 'lucide-react';
+import { PipelineStage, STAGE_LABELS, PIPELINE_STAGES } from '@/data/types';
 import { PROCEDURES, PAYERS } from '@/data/constants';
 import { toast } from 'sonner';
 
@@ -135,6 +136,45 @@ function normalizeStr(s: string): string {
   return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
 }
 
+function computeWarnings(
+  mapped: ParsedRow['mapped'],
+  existingNames: Set<string>,
+  knownHospitals: Map<string, string>,
+  preserveDuplicate?: boolean,
+  existingDuplicateWarning?: ImportWarning,
+): ImportWarning[] {
+  const warnings: ImportWarning[] = [];
+
+  if (mapped.payer) {
+    const payerNorm = normalizeStr(mapped.payer);
+    const knownPayer = (PAYERS as readonly string[]).some(p => normalizeStr(p) === payerNorm);
+    if (!knownPayer) {
+      warnings.push({ type: 'unknown_payer', message: `Convênio desconhecido: "${mapped.payer}"` });
+    }
+  }
+
+  if (mapped.name && existingNames.has(normalizeStr(mapped.name))) {
+    warnings.push({ type: 'duplicate', message: `Possível duplicata: "${mapped.name}" já existe no sistema` });
+  } else if (preserveDuplicate && existingDuplicateWarning) {
+    // Keep CSV-internal duplicates (added cross-check) — they're not derived from existingNames
+    warnings.push(existingDuplicateWarning);
+  }
+
+  if (!mapped.name.trim()) {
+    warnings.push({ type: 'missing_name', message: 'Nome do paciente não informado' });
+  }
+
+  if (mapped.desiredHospital) {
+    const hospNorm = normalizeStr(mapped.desiredHospital);
+    const existing = knownHospitals.get(hospNorm);
+    if (existing && existing !== mapped.desiredHospital) {
+      warnings.push({ type: 'inconsistent_hospital', message: `Hospital "${mapped.desiredHospital}" pode ser variação de "${existing}"` });
+    }
+  }
+
+  return warnings;
+}
+
 function mapRow(raw: Record<string, string>, existingNames: Set<string>, knownHospitals: Map<string, string>): ParsedRow {
   const mapped: ParsedRow['mapped'] = {
     name: '',
@@ -170,35 +210,12 @@ function mapRow(raw: Record<string, string>, existingNames: Set<string>, knownHo
     }
   }
 
-  // Check procedure — unknown procedures are imported as custom text (no warning)
-  // We keep the original procedure text as-is
+  // Add validation warnings from shared validator
+  warnings.push(...computeWarnings(mapped, existingNames, knownHospitals));
 
-  // Check payer
-  if (mapped.payer) {
-    const payerNorm = normalizeStr(mapped.payer);
-    const knownPayer = (PAYERS as readonly string[]).some(p => normalizeStr(p) === payerNorm);
-    if (!knownPayer) {
-      warnings.push({ type: 'unknown_payer', message: `Convênio desconhecido: "${mapped.payer}"` });
-    }
-  }
-
-  // Check duplicate
-  if (mapped.name && existingNames.has(normalizeStr(mapped.name))) {
-    warnings.push({ type: 'duplicate', message: `Possível duplicata: "${mapped.name}" já existe no sistema` });
-  }
-
-  // Check missing name
-  if (!mapped.name.trim()) {
-    warnings.push({ type: 'missing_name', message: 'Nome do paciente não informado' });
-  }
-
-  // Check hospital consistency
+  // Track this hospital so subsequent rows can be checked against it
   if (mapped.desiredHospital) {
     const hospNorm = normalizeStr(mapped.desiredHospital);
-    const existing = knownHospitals.get(hospNorm);
-    if (existing && existing !== mapped.desiredHospital) {
-      warnings.push({ type: 'inconsistent_hospital', message: `Hospital "${mapped.desiredHospital}" pode ser variação de "${existing}"` });
-    }
     if (!knownHospitals.has(hospNorm)) {
       knownHospitals.set(hospNorm, mapped.desiredHospital);
     }
@@ -214,8 +231,22 @@ export function CsvImporter({ open, onClose, onImport, existingPatientNames }: C
   const [importResult, setImportResult] = useState<{ success: number; failed: number }>({ success: 0, failed: 0 });
   const [defaultSurgeon, setDefaultSurgeon] = useState('Dr Alexandre Ziomkowski');
   const [defaultResponsible, setDefaultResponsible] = useState('Margô');
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editDraft, setEditDraft] = useState<ParsedRow['mapped'] | null>(null);
 
   const existingSet = useMemo(() => new Set(existingPatientNames.map(n => normalizeStr(n))), [existingPatientNames]);
+
+  // Hospitals seen in the current CSV — used for both initial mapping and post-edit re-validation
+  const knownHospitalsRef = useMemo(() => {
+    const map = new Map<string, string>();
+    rows.forEach(r => {
+      if (r.mapped.desiredHospital) {
+        const n = normalizeStr(r.mapped.desiredHospital);
+        if (!map.has(n)) map.set(n, r.mapped.desiredHospital);
+      }
+    });
+    return map;
+  }, [rows]);
 
   const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -264,6 +295,39 @@ export function CsvImporter({ open, onClose, onImport, existingPatientNames }: C
   const deselectAll = useCallback(() => {
     setRows(prev => prev.map(r => ({ ...r, selected: false })));
   }, []);
+
+  const startEditing = useCallback((index: number) => {
+    setEditingIndex(index);
+    setEditDraft({ ...rows[index].mapped });
+  }, [rows]);
+
+  const cancelEditing = useCallback(() => {
+    setEditingIndex(null);
+    setEditDraft(null);
+  }, []);
+
+  const saveEditing = useCallback(() => {
+    if (editingIndex === null || !editDraft) return;
+    setRows(prev => prev.map((r, i) => {
+      if (i !== editingIndex) return r;
+      const csvDup = r.warnings.find(w => w.type === 'duplicate' && w.message.startsWith('Nome duplicado no CSV'));
+      const newWarnings = computeWarnings(editDraft, existingSet, knownHospitalsRef, !!csvDup, csvDup);
+      const stageWarning = r.warnings.find(w => w.type === 'unknown_stage');
+      if (stageWarning && editDraft.stage === r.mapped.stage) {
+        newWarnings.push(stageWarning);
+      }
+      const stillMissingName = newWarnings.some(w => w.type === 'missing_name');
+      return {
+        ...r,
+        mapped: { ...editDraft },
+        warnings: newWarnings,
+        selected: stillMissingName ? false : r.selected,
+      };
+    }));
+    setEditingIndex(null);
+    setEditDraft(null);
+  }, [editingIndex, editDraft, existingSet, knownHospitalsRef]);
+
 
   const selectedRows = rows.filter(r => r.selected);
   const warningRows = rows.filter(r => r.warnings.length > 0);
@@ -315,6 +379,8 @@ export function CsvImporter({ open, onClose, onImport, existingPatientNames }: C
     setRows([]);
     setImporting(false);
     setImportResult({ success: 0, failed: 0 });
+    setEditingIndex(null);
+    setEditDraft(null);
     onClose();
   }, [onClose]);
 
@@ -457,47 +523,201 @@ export function CsvImporter({ open, onClose, onImport, existingPatientNames }: C
               {/* Patient list */}
               <ScrollArea className="h-[400px]">
                 <div className="space-y-2">
-                  {rows.map((row, idx) => (
-                    <div
-                      key={idx}
-                      className={`border rounded-lg p-3 text-sm transition-colors ${
-                        row.selected ? 'border-primary/30 bg-primary/5' : 'border-border opacity-60'
-                      }`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <Checkbox
-                          checked={row.selected}
-                          onCheckedChange={() => toggleRow(idx)}
-                          className="mt-0.5"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="font-medium truncate">
-                              {row.mapped.name || <span className="italic text-muted-foreground">Sem nome</span>}
-                            </span>
-                            <Badge variant="secondary" className="text-[10px] px-1.5 shrink-0">
-                              {STAGE_LABELS[row.mapped.stage]} • {defaultSurgeon.replace('Dr ', '')}
-                            </Badge>
-                          </div>
-                          <div className="text-xs text-muted-foreground space-y-0.5">
-                            {row.mapped.procedure && <p>Proc: {row.mapped.procedure}</p>}
-                            {row.mapped.payer && <p>Convênio: {row.mapped.payer}</p>}
-                            {row.mapped.desiredHospital && <p>Hospital: {row.mapped.desiredHospital}</p>}
-                            {row.mapped.phone && <p>Tel: {row.mapped.phone}</p>}
-                          </div>
-                          {row.warnings.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-2">
-                              {row.warnings.map((w, wi) => (
-                                <span key={wi} className={`text-[10px] px-1.5 py-0.5 rounded-full ${warningBadge(w.type)}`}>
-                                  ⚠ {w.message}
-                                </span>
-                              ))}
+                  {rows.map((row, idx) => {
+                    const isEditing = editingIndex === idx;
+                    const draft = isEditing ? editDraft! : row.mapped;
+                    const procedureIsKnown = !draft.procedure || (PROCEDURES as readonly string[]).includes(draft.procedure);
+                    return (
+                      <div
+                        key={idx}
+                        className={`border rounded-lg p-3 text-sm transition-colors ${
+                          isEditing ? 'border-primary bg-primary/5' :
+                          row.selected ? 'border-primary/30 bg-primary/5' : 'border-border opacity-60'
+                        }`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <Checkbox
+                            checked={row.selected}
+                            onCheckedChange={() => toggleRow(idx)}
+                            disabled={isEditing}
+                            className="mt-0.5"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="font-medium truncate">
+                                {row.mapped.name || <span className="italic text-muted-foreground">Sem nome</span>}
+                              </span>
+                              <Badge variant="secondary" className="text-[10px] px-1.5 shrink-0">
+                                {STAGE_LABELS[row.mapped.stage]} • {defaultSurgeon.replace('Dr ', '')}
+                              </Badge>
                             </div>
+                            {!isEditing && (
+                              <div className="text-xs text-muted-foreground space-y-0.5">
+                                {row.mapped.procedure && <p>Proc: {row.mapped.procedure}</p>}
+                                {row.mapped.payer && <p>Convênio: {row.mapped.payer}</p>}
+                                {row.mapped.desiredHospital && <p>Hospital: {row.mapped.desiredHospital}</p>}
+                                {row.mapped.phone && <p>Tel: {row.mapped.phone}</p>}
+                              </div>
+                            )}
+                            {row.warnings.length > 0 && !isEditing && (
+                              <div className="flex flex-wrap gap-1 mt-2">
+                                {row.warnings.map((w, wi) => (
+                                  <span key={wi} className={`text-[10px] px-1.5 py-0.5 rounded-full ${warningBadge(w.type)}`}>
+                                    ⚠ {w.message}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          {!isEditing && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 px-2 shrink-0"
+                              onClick={() => startEditing(idx)}
+                              title="Editar este registro"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
                           )}
                         </div>
+
+                        {isEditing && editDraft && (
+                          <div className="mt-3 pt-3 border-t border-border space-y-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              <div className="space-y-1">
+                                <Label className="text-xs">Nome do paciente *</Label>
+                                <Input
+                                  value={editDraft.name}
+                                  onChange={(e) => setEditDraft({ ...editDraft, name: e.target.value })}
+                                  className="h-8 text-sm"
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-xs">Telefone</Label>
+                                <Input
+                                  value={editDraft.phone}
+                                  onChange={(e) => setEditDraft({ ...editDraft, phone: e.target.value })}
+                                  className="h-8 text-sm"
+                                />
+                              </div>
+                              <div className="space-y-1 sm:col-span-2">
+                                <Label className="text-xs">Procedimento</Label>
+                                <Select
+                                  value={procedureIsKnown ? (editDraft.procedure || '__empty') : '__custom'}
+                                  onValueChange={(v) => {
+                                    if (v === '__custom') {
+                                      setEditDraft({ ...editDraft, procedure: editDraft.procedure || '' });
+                                    } else if (v === '__empty') {
+                                      setEditDraft({ ...editDraft, procedure: '' });
+                                    } else {
+                                      setEditDraft({ ...editDraft, procedure: v });
+                                    }
+                                  }}
+                                >
+                                  <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                                  <SelectContent className="max-h-64">
+                                    <SelectItem value="__empty">— A definir —</SelectItem>
+                                    {PROCEDURES.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                                    <SelectItem value="__custom">Outro (texto livre)</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                {!procedureIsKnown && (
+                                  <Input
+                                    value={editDraft.procedure}
+                                    onChange={(e) => setEditDraft({ ...editDraft, procedure: e.target.value })}
+                                    placeholder="Descrever procedimento"
+                                    className="h-8 text-sm mt-1"
+                                  />
+                                )}
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-xs">Convênio</Label>
+                                <Select
+                                  value={(PAYERS as readonly string[]).includes(editDraft.payer) ? editDraft.payer : (editDraft.payer ? '__custom' : '__empty')}
+                                  onValueChange={(v) => {
+                                    if (v === '__custom') return;
+                                    if (v === '__empty') setEditDraft({ ...editDraft, payer: '' });
+                                    else setEditDraft({ ...editDraft, payer: v });
+                                  }}
+                                >
+                                  <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                                  <SelectContent className="max-h-64">
+                                    <SelectItem value="__empty">— Não informado —</SelectItem>
+                                    {PAYERS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                                    {editDraft.payer && !(PAYERS as readonly string[]).includes(editDraft.payer) && (
+                                      <SelectItem value="__custom">Original: {editDraft.payer}</SelectItem>
+                                    )}
+                                  </SelectContent>
+                                </Select>
+                                {editDraft.payer && !(PAYERS as readonly string[]).includes(editDraft.payer) && (
+                                  <Input
+                                    value={editDraft.payer}
+                                    onChange={(e) => setEditDraft({ ...editDraft, payer: e.target.value })}
+                                    placeholder="Convênio (texto livre)"
+                                    className="h-8 text-sm mt-1"
+                                  />
+                                )}
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-xs">Estágio do pipeline</Label>
+                                <Select
+                                  value={editDraft.stage}
+                                  onValueChange={(v) => setEditDraft({ ...editDraft, stage: v as PipelineStage })}
+                                >
+                                  <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                                  <SelectContent>
+                                    {PIPELINE_STAGES.filter(s => s !== 'lost').map(s => (
+                                      <SelectItem key={s} value={s}>{STAGE_LABELS[s]}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="space-y-1 sm:col-span-2">
+                                <Label className="text-xs">Hospital desejado</Label>
+                                <Input
+                                  list={`hospitals-${idx}`}
+                                  value={editDraft.desiredHospital}
+                                  onChange={(e) => setEditDraft({ ...editDraft, desiredHospital: e.target.value })}
+                                  className="h-8 text-sm"
+                                />
+                                <datalist id={`hospitals-${idx}`}>
+                                  {Array.from(knownHospitalsRef.values()).map(h => (
+                                    <option key={h} value={h} />
+                                  ))}
+                                </datalist>
+                              </div>
+                              <div className="space-y-1 sm:col-span-2">
+                                <Label className="text-xs">Origem / Indicação</Label>
+                                <Input
+                                  value={editDraft.indicationLocation}
+                                  onChange={(e) => setEditDraft({ ...editDraft, indicationLocation: e.target.value })}
+                                  className="h-8 text-sm"
+                                />
+                              </div>
+                              <div className="space-y-1 sm:col-span-2">
+                                <Label className="text-xs">Notas</Label>
+                                <Textarea
+                                  value={editDraft.notes}
+                                  onChange={(e) => setEditDraft({ ...editDraft, notes: e.target.value })}
+                                  rows={2}
+                                  className="text-sm resize-none"
+                                />
+                              </div>
+                            </div>
+                            <div className="flex justify-end gap-2 pt-1">
+                              <Button variant="ghost" size="sm" onClick={cancelEditing}>
+                                <X className="h-3.5 w-3.5 mr-1" /> Cancelar
+                              </Button>
+                              <Button size="sm" onClick={saveEditing} disabled={!editDraft.name.trim()}>
+                                <Check className="h-3.5 w-3.5 mr-1" /> Salvar
+                              </Button>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </ScrollArea>
             </div>
