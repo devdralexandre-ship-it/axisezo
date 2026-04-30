@@ -136,6 +136,45 @@ function normalizeStr(s: string): string {
   return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
 }
 
+function computeWarnings(
+  mapped: ParsedRow['mapped'],
+  existingNames: Set<string>,
+  knownHospitals: Map<string, string>,
+  preserveDuplicate?: boolean,
+  existingDuplicateWarning?: ImportWarning,
+): ImportWarning[] {
+  const warnings: ImportWarning[] = [];
+
+  if (mapped.payer) {
+    const payerNorm = normalizeStr(mapped.payer);
+    const knownPayer = (PAYERS as readonly string[]).some(p => normalizeStr(p) === payerNorm);
+    if (!knownPayer) {
+      warnings.push({ type: 'unknown_payer', message: `Convênio desconhecido: "${mapped.payer}"` });
+    }
+  }
+
+  if (mapped.name && existingNames.has(normalizeStr(mapped.name))) {
+    warnings.push({ type: 'duplicate', message: `Possível duplicata: "${mapped.name}" já existe no sistema` });
+  } else if (preserveDuplicate && existingDuplicateWarning) {
+    // Keep CSV-internal duplicates (added cross-check) — they're not derived from existingNames
+    warnings.push(existingDuplicateWarning);
+  }
+
+  if (!mapped.name.trim()) {
+    warnings.push({ type: 'missing_name', message: 'Nome do paciente não informado' });
+  }
+
+  if (mapped.desiredHospital) {
+    const hospNorm = normalizeStr(mapped.desiredHospital);
+    const existing = knownHospitals.get(hospNorm);
+    if (existing && existing !== mapped.desiredHospital) {
+      warnings.push({ type: 'inconsistent_hospital', message: `Hospital "${mapped.desiredHospital}" pode ser variação de "${existing}"` });
+    }
+  }
+
+  return warnings;
+}
+
 function mapRow(raw: Record<string, string>, existingNames: Set<string>, knownHospitals: Map<string, string>): ParsedRow {
   const mapped: ParsedRow['mapped'] = {
     name: '',
@@ -171,35 +210,12 @@ function mapRow(raw: Record<string, string>, existingNames: Set<string>, knownHo
     }
   }
 
-  // Check procedure — unknown procedures are imported as custom text (no warning)
-  // We keep the original procedure text as-is
+  // Add validation warnings from shared validator
+  warnings.push(...computeWarnings(mapped, existingNames, knownHospitals));
 
-  // Check payer
-  if (mapped.payer) {
-    const payerNorm = normalizeStr(mapped.payer);
-    const knownPayer = (PAYERS as readonly string[]).some(p => normalizeStr(p) === payerNorm);
-    if (!knownPayer) {
-      warnings.push({ type: 'unknown_payer', message: `Convênio desconhecido: "${mapped.payer}"` });
-    }
-  }
-
-  // Check duplicate
-  if (mapped.name && existingNames.has(normalizeStr(mapped.name))) {
-    warnings.push({ type: 'duplicate', message: `Possível duplicata: "${mapped.name}" já existe no sistema` });
-  }
-
-  // Check missing name
-  if (!mapped.name.trim()) {
-    warnings.push({ type: 'missing_name', message: 'Nome do paciente não informado' });
-  }
-
-  // Check hospital consistency
+  // Track this hospital so subsequent rows can be checked against it
   if (mapped.desiredHospital) {
     const hospNorm = normalizeStr(mapped.desiredHospital);
-    const existing = knownHospitals.get(hospNorm);
-    if (existing && existing !== mapped.desiredHospital) {
-      warnings.push({ type: 'inconsistent_hospital', message: `Hospital "${mapped.desiredHospital}" pode ser variação de "${existing}"` });
-    }
     if (!knownHospitals.has(hospNorm)) {
       knownHospitals.set(hospNorm, mapped.desiredHospital);
     }
