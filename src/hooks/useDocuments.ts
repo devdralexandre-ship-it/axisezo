@@ -236,10 +236,26 @@ export function useGenerateDocument() {
       let body: string;
       let dataPayload: Record<string, any> = {};
 
-      if (type === 'surgical_request' && structuredData) {
+      if (structuredData) {
         title = renderTemplate(template?.title ?? seed.title, vars);
-        body = buildSurgicalRequestHtml(structuredData);
-        dataPayload = structuredData as any;
+        switch (structuredData.kind) {
+          case 'surgical_request':
+            body = buildSurgicalRequestHtml(structuredData.data);
+            break;
+          case 'prescription':
+            body = buildPrescriptionHtml(structuredData.data);
+            break;
+          case 'medical_certificate':
+            body = buildMedicalCertificateHtml(structuredData.data);
+            break;
+          case 'report':
+            body = buildReportHtml(structuredData.data);
+            break;
+          case 'budget':
+            body = buildBudgetHtml(structuredData.data);
+            break;
+        }
+        dataPayload = structuredData.data as any;
       } else {
         const rawTitle = titleOverride ?? template?.title ?? seed.title;
         const rawBody = bodyOverride ?? template?.body_html ?? seed.body;
