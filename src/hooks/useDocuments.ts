@@ -8,7 +8,15 @@ import {
   buildPatientVariables,
   renderTemplate,
   buildSurgicalRequestHtml,
+  buildPrescriptionHtml,
+  buildMedicalCertificateHtml,
+  buildReportHtml,
+  buildBudgetHtml,
   SurgicalRequestData,
+  PrescriptionData,
+  MedicalCertificateData,
+  ReportData,
+  BudgetData,
 } from '@/data/documents';
 import { renderDocumentToBlob } from '@/lib/pdf-generator';
 import { renderInsidePdfTemplate, htmlToBlocks } from '@/lib/pdf-template-renderer';
@@ -165,15 +173,22 @@ export function pickTemplate(templates: DocumentTemplate[], type: DocumentType, 
   );
 }
 
+export type StructuredPayload =
+  | { kind: 'surgical_request'; data: SurgicalRequestData }
+  | { kind: 'prescription'; data: PrescriptionData }
+  | { kind: 'medical_certificate'; data: MedicalCertificateData }
+  | { kind: 'report'; data: ReportData }
+  | { kind: 'budget'; data: BudgetData };
+
 export interface GenerateInput {
   patient: any;
   type: DocumentType;
   template: DocumentTemplate | null;
-  /** Simple-mode overrides (HTML) */
+  /** Simple-mode overrides (HTML) — kept for legacy / fallback */
   titleOverride?: string;
   bodyOverride?: string;
-  /** Structured-mode payload (currently for surgical_request only) */
-  structuredData?: SurgicalRequestData;
+  /** Structured-mode payload */
+  structuredData?: StructuredPayload;
 }
 
 async function getSignedLogoUrl(path: string | null | undefined): Promise<string | undefined> {
@@ -221,10 +236,26 @@ export function useGenerateDocument() {
       let body: string;
       let dataPayload: Record<string, any> = {};
 
-      if (type === 'surgical_request' && structuredData) {
+      if (structuredData) {
         title = renderTemplate(template?.title ?? seed.title, vars);
-        body = buildSurgicalRequestHtml(structuredData);
-        dataPayload = structuredData as any;
+        switch (structuredData.kind) {
+          case 'surgical_request':
+            body = buildSurgicalRequestHtml(structuredData.data);
+            break;
+          case 'prescription':
+            body = buildPrescriptionHtml(structuredData.data);
+            break;
+          case 'medical_certificate':
+            body = buildMedicalCertificateHtml(structuredData.data);
+            break;
+          case 'report':
+            body = buildReportHtml(structuredData.data);
+            break;
+          case 'budget':
+            body = buildBudgetHtml(structuredData.data);
+            break;
+        }
+        dataPayload = structuredData.data as any;
       } else {
         const rawTitle = titleOverride ?? template?.title ?? seed.title;
         const rawBody = bodyOverride ?? template?.body_html ?? seed.body;
@@ -292,8 +323,8 @@ export function useGenerateDocument() {
       if (updErr) throw updErr;
 
       // 5. Record suggestions (best effort)
-      if (type === 'surgical_request' && structuredData && patient?.procedure) {
-        try { await recordSuggestions(patient.procedure, structuredData); } catch (e) { console.warn('suggestions', e); }
+      if (structuredData?.kind === 'surgical_request' && patient?.procedure) {
+        try { await recordSuggestions(patient.procedure, structuredData.data); } catch (e) { console.warn('suggestions', e); }
       }
 
       return { ...docRow, pdf_path: path };

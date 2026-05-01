@@ -676,6 +676,7 @@ export type Database = {
         | "surgical_request"
         | "medical_certificate"
         | "report"
+        | "prescription"
       loss_reason:
         | "price"
         | "delay"
@@ -829,6 +830,7 @@ export const Constants = {
         "surgical_request",
         "medical_certificate",
         "report",
+        "prescription",
       ],
       loss_reason: [
         "price",
