@@ -1,4 +1,10 @@
-export const DOCUMENT_TYPES = ['budget', 'surgical_request', 'medical_certificate', 'report'] as const;
+export const DOCUMENT_TYPES = [
+  'budget',
+  'surgical_request',
+  'medical_certificate',
+  'report',
+  'prescription',
+] as const;
 export type DocumentType = typeof DOCUMENT_TYPES[number];
 
 export const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
@@ -6,6 +12,7 @@ export const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
   surgical_request: 'Solicitação Cirúrgica',
   medical_certificate: 'Atestado',
   report: 'Relatório',
+  prescription: 'Receita Médica',
 };
 
 export type TemplateMode = 'html' | 'pdf';
@@ -56,6 +63,44 @@ export interface PatientDocument {
   data: Record<string, any>;
   created_at: string;
   updated_at: string;
+}
+
+/* ---------- Shared helpers ---------- */
+
+const MONTHS_PT = [
+  'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
+  'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro',
+];
+
+function escapeHtml(s: string): string {
+  return (s || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
+}
+
+function formatBRL(v: number | null | undefined): string {
+  if (v == null || isNaN(v as number)) return 'R$ 0,00';
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v as number);
+}
+
+function formatDateBR(d: Date) {
+  return d.toLocaleDateString('pt-BR');
+}
+
+function formatCityDate(city: string, d: Date) {
+  return `${city}, ${d.getDate()} de ${MONTHS_PT[d.getMonth()]} de ${d.getFullYear()}`;
+}
+
+function parseISODate(s: string | null | undefined): Date | null {
+  if (!s) return null;
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function todayISO(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function signatureBlock(surgeon: string): string {
+  return `<p>_________________________________<br/>${escapeHtml(surgeon)}</p>`;
 }
 
 /* ---------- Surgical Request structured form ---------- */
@@ -136,10 +181,6 @@ const REGIME_LABEL: Record<AdmissionRegime, string> = {
   day_hospital: 'Hospital-dia',
 };
 
-function escapeHtml(s: string): string {
-  return (s || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
-}
-
 export function buildSurgicalRequestHtml(data: SurgicalRequestData): string {
   const parts: string[] = [];
   parts.push(`<p>Solicito autorização para realização do procedimento abaixo:</p>`);
@@ -185,13 +226,214 @@ export function buildSurgicalRequestHtml(data: SurgicalRequestData): string {
   parts.push(`<h3>Faturamento</h3>`);
   parts.push(`<p><strong>Forma de faturamento:</strong> ${escapeHtml(data.billingType || '—')}</p>`);
 
-  const now = new Date();
-  const months = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
-  parts.push(`<p>Salvador, ${now.getDate()} de ${months[now.getMonth()]} de ${now.getFullYear()}</p>`);
-  parts.push(`<p>_________________________________<br/>${escapeHtml(data.surgeon)}</p>`);
+  parts.push(`<p>${formatCityDate('Salvador', new Date())}</p>`);
+  parts.push(signatureBlock(data.surgeon));
 
   return parts.join('\n');
 }
+
+/* ---------- Prescription (Receita) ---------- */
+
+export interface PrescriptionData {
+  patientName: string;
+  medications: string;       // free text
+  date: string | null;       // ISO date or null
+  showDate: boolean;
+  city: string;
+  surgeon: string;
+}
+
+export function defaultPrescriptionData(patient: any, _template?: DocumentTemplate | null): PrescriptionData {
+  return {
+    patientName: patient?.name ?? '',
+    medications: '',
+    date: todayISO(),
+    showDate: true,
+    city: 'Salvador',
+    surgeon: patient?.surgeon ?? '',
+  };
+}
+
+export function buildPrescriptionHtml(data: PrescriptionData): string {
+  const parts: string[] = [];
+  parts.push(`<div style="text-align:center;font-size:48px;font-family:Georgia,serif;line-height:1;margin:8px 0 4px;">℞</div>`);
+  parts.push(`<p style="text-align:center;font-size:11px;letter-spacing:2px;color:#666;margin-top:0;">RECEITA MÉDICA</p>`);
+  parts.push(`<p><strong>Paciente:</strong> ${escapeHtml(data.patientName)}</p>`);
+  parts.push(`<h3>Prescrição</h3>`);
+  const meds = escapeHtml(data.medications || '').replace(/\n/g, '<br/>');
+  parts.push(`<p>${meds || '<em>—</em>'}</p>`);
+  if (data.showDate && data.date) {
+    const d = parseISODate(data.date);
+    if (d) parts.push(`<p>${formatCityDate(data.city || 'Salvador', d)}</p>`);
+  }
+  parts.push(signatureBlock(data.surgeon));
+  return parts.join('\n');
+}
+
+/* ---------- Medical Certificate (Atestado) ---------- */
+
+export interface MedicalCertificateData {
+  patientName: string;
+  days: number;
+  cid: CodeItem;
+  date: string;              // ISO
+  patientConsentsCid: boolean;
+  city: string;
+  surgeon: string;
+}
+
+export function defaultMedicalCertificateData(patient: any, _template?: DocumentTemplate | null): MedicalCertificateData {
+  return {
+    patientName: patient?.name ?? '',
+    days: 1,
+    cid: { code: '', label: '' },
+    date: todayISO(),
+    patientConsentsCid: false,
+    city: 'Salvador',
+    surgeon: patient?.surgeon ?? '',
+  };
+}
+
+export function buildMedicalCertificateHtml(data: MedicalCertificateData): string {
+  const parts: string[] = [];
+  const days = data.days || 0;
+  parts.push(`<p>Atesto, para os devidos fins, que o(a) paciente <strong>${escapeHtml(data.patientName)}</strong> esteve sob meus cuidados médicos nesta data, sendo necessário afastamento de suas atividades habituais por <strong>${days}</strong> dia(s).</p>`);
+  if (data.patientConsentsCid && (data.cid.code || data.cid.label)) {
+    parts.push(`<p><strong>CID:</strong> ${escapeHtml(data.cid.code)}${data.cid.label ? ` — ${escapeHtml(data.cid.label)}` : ''}</p>`);
+    parts.push(`<p style="font-size:11px;color:#444;font-style:italic;">O paciente concorda com a inclusão do CID neste atestado.</p>`);
+  } else if (data.cid.code || data.cid.label) {
+    parts.push(`<p style="font-size:11px;color:#444;font-style:italic;">CID omitido a pedido do paciente.</p>`);
+  }
+  const d = parseISODate(data.date) ?? new Date();
+  parts.push(`<p>${formatCityDate(data.city || 'Salvador', d)}</p>`);
+  parts.push(signatureBlock(data.surgeon));
+  return parts.join('\n');
+}
+
+/* ---------- Medical Report (Relatório) ---------- */
+
+export interface ReportData {
+  patientName: string;
+  patientAge: string;
+  reportText: string;
+  date: string;
+  city: string;
+  surgeon: string;
+}
+
+export function defaultReportData(patient: any, _template?: DocumentTemplate | null): ReportData {
+  return {
+    patientName: patient?.name ?? '',
+    patientAge: patient?.age != null ? `${patient.age} anos` : '',
+    reportText: '',
+    date: todayISO(),
+    city: 'Salvador',
+    surgeon: patient?.surgeon ?? '',
+  };
+}
+
+export function buildReportHtml(data: ReportData): string {
+  const parts: string[] = [];
+  parts.push(`<p><strong>Paciente:</strong> ${escapeHtml(data.patientName)}${data.patientAge ? ` (${escapeHtml(data.patientAge)})` : ''}</p>`);
+  parts.push(`<h3>Relatório Médico</h3>`);
+  const text = escapeHtml(data.reportText || '').replace(/\n/g, '<br/>');
+  parts.push(`<p>${text || '<em>—</em>'}</p>`);
+  const d = parseISODate(data.date) ?? new Date();
+  parts.push(`<p>${formatCityDate(data.city || 'Salvador', d)}</p>`);
+  parts.push(signatureBlock(data.surgeon));
+  return parts.join('\n');
+}
+
+/* ---------- Budget (Orçamento) ---------- */
+
+export interface BudgetData {
+  patientName: string;
+  procedureName: string;
+  hospital: string;
+  payer: string;
+  surgeonFee: number;
+  includeFirstAssistant: boolean;
+  firstAssistantFee: number;
+  scrubNurseFee: number;       // instrumentador
+  anesthesiaFee: number;
+  hospitalBudget: number;
+  materialsCost: number;
+  validityDays: number;
+  notes: string;
+  date: string;
+  city: string;
+  surgeon: string;
+}
+
+export function defaultBudgetData(patient: any, _template?: DocumentTemplate | null): BudgetData {
+  const procedureFull = [patient?.procedure, patient?.surgicalApproach, patient?.laterality]
+    .filter(Boolean).join(' ');
+  return {
+    patientName: patient?.name ?? '',
+    procedureName: procedureFull || patient?.procedure || '',
+    hospital: patient?.desiredHospital ?? '',
+    payer: patient?.payer ?? 'Particular',
+    surgeonFee: Number(patient?.medicalFees ?? 0),
+    includeFirstAssistant: false,
+    firstAssistantFee: 0,
+    scrubNurseFee: 0,
+    anesthesiaFee: Number(patient?.anesthesiaFees ?? 0),
+    hospitalBudget: Number(patient?.hospitalBudget ?? 0),
+    materialsCost: Number(patient?.materialsCost ?? 0),
+    validityDays: 30,
+    notes: '',
+    date: todayISO(),
+    city: 'Salvador',
+    surgeon: patient?.surgeon ?? '',
+  };
+}
+
+export function budgetTotal(data: BudgetData): number {
+  return (
+    (data.surgeonFee || 0) +
+    (data.includeFirstAssistant ? (data.firstAssistantFee || 0) : 0) +
+    (data.scrubNurseFee || 0) +
+    (data.anesthesiaFee || 0) +
+    (data.hospitalBudget || 0) +
+    (data.materialsCost || 0)
+  );
+}
+
+export function buildBudgetHtml(data: BudgetData): string {
+  const parts: string[] = [];
+  parts.push(`<p><strong>Paciente:</strong> ${escapeHtml(data.patientName)}</p>`);
+  parts.push(`<p><strong>Procedimento:</strong> ${escapeHtml(data.procedureName)}</p>`);
+  parts.push(`<p><strong>Cirurgião:</strong> ${escapeHtml(data.surgeon)}</p>`);
+  if (data.hospital) parts.push(`<p><strong>Hospital:</strong> ${escapeHtml(data.hospital)}</p>`);
+  parts.push(`<p><strong>Convênio:</strong> ${escapeHtml(data.payer || 'Particular')}</p>`);
+
+  parts.push(`<h3>Composição do orçamento</h3>`);
+  parts.push(`<ul>`);
+  parts.push(`<li>Honorários do cirurgião: <strong>${formatBRL(data.surgeonFee)}</strong></li>`);
+  if (data.includeFirstAssistant) {
+    parts.push(`<li>Honorários do 1º auxiliar: <strong>${formatBRL(data.firstAssistantFee)}</strong></li>`);
+  }
+  if (data.scrubNurseFee > 0) {
+    parts.push(`<li>Honorários do instrumentador: <strong>${formatBRL(data.scrubNurseFee)}</strong></li>`);
+  }
+  parts.push(`<li>Honorários de anestesia: <strong>${formatBRL(data.anesthesiaFee)}</strong></li>`);
+  parts.push(`<li>Orçamento hospitalar: <strong>${formatBRL(data.hospitalBudget)}</strong></li>`);
+  parts.push(`<li>Materiais especiais: <strong>${formatBRL(data.materialsCost)}</strong></li>`);
+  parts.push(`</ul>`);
+
+  parts.push(`<p><strong>Valor total estimado:</strong> ${formatBRL(budgetTotal(data))}</p>`);
+  parts.push(`<p>Validade do orçamento: ${data.validityDays || 30} dias.</p>`);
+  if (data.notes && data.notes.trim()) {
+    const safeNotes = escapeHtml(data.notes).replace(/\n/g, '<br/>');
+    parts.push(`<h3>Observações</h3><p>${safeNotes}</p>`);
+  }
+  const d = parseISODate(data.date) ?? new Date();
+  parts.push(`<p>${formatCityDate(data.city || 'Salvador', d)}</p>`);
+  parts.push(signatureBlock(data.surgeon));
+  return parts.join('\n');
+}
+
+/* ---------- Template variables (legacy free-form templates) ---------- */
 
 /**
  * Available variables that can be used inside templates with {{variable}} syntax.
@@ -217,24 +459,6 @@ export const TEMPLATE_VARIABLES: { key: string; label: string }[] = [
   { key: 'cidade_data', label: 'Salvador, DD de mês de AAAA' },
 ];
 
-const MONTHS_PT = [
-  'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
-  'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro',
-];
-
-function formatBRL(v: number | null | undefined): string {
-  if (v == null) return '—';
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
-}
-
-function formatDateBR(d: Date) {
-  return d.toLocaleDateString('pt-BR');
-}
-
-function formatCityDate(d: Date) {
-  return `Salvador, ${d.getDate()} de ${MONTHS_PT[d.getMonth()]} de ${d.getFullYear()}`;
-}
-
 export function buildPatientVariables(patient: any): Record<string, string> {
   const total = (patient?.medicalFees || 0) + (patient?.anesthesiaFees || 0) + (patient?.hospitalBudget || 0) + (patient?.materialsCost || 0);
   const now = new Date();
@@ -256,7 +480,7 @@ export function buildPatientVariables(patient: any): Record<string, string> {
     materiais: formatBRL(patient?.materialsCost),
     valor_total: total > 0 ? formatBRL(total) : '—',
     data: formatDateBR(now),
-    cidade_data: formatCityDate(now),
+    cidade_data: formatCityDate('Salvador', now),
   };
 }
 
@@ -267,42 +491,22 @@ export function renderTemplate(tpl: string, vars: Record<string, string>): strin
 export const DEFAULT_TEMPLATE_BODIES: Record<DocumentType, { title: string; body: string }> = {
   budget: {
     title: 'Orçamento — {{procedimento}}',
-    body: `<p><strong>Paciente:</strong> {{paciente.nome}} ({{paciente.idade}})</p>
-<p><strong>Procedimento:</strong> {{procedimento}} {{via_cirurgica}} {{lateralidade}}</p>
-<p><strong>Cirurgião:</strong> {{cirurgiao}}</p>
-<p><strong>Hospital:</strong> {{hospital}}</p>
-<p><strong>Convênio:</strong> {{convenio}}</p>
-<h3>Composição do orçamento</h3>
-<ul>
-  <li>Honorários médicos: {{honorarios_medicos}}</li>
-  <li>Honorários anestesia: {{honorarios_anestesia}}</li>
-  <li>Orçamento hospitalar: {{orcamento_hospitalar}}</li>
-  <li>Materiais especiais: {{materiais}}</li>
-</ul>
-<p><strong>Valor total estimado:</strong> {{valor_total}}</p>
-<p>Validade: 30 dias.</p>
-<p>{{cidade_data}}</p>`,
+    body: `<p>Documento gerado a partir do formulário estruturado de Orçamento.</p>`,
   },
   surgical_request: {
     title: 'Solicitação Cirúrgica — {{paciente.nome}}',
-    body: `<p>Este documento é gerado a partir do formulário estruturado.</p>`,
+    body: `<p>Documento gerado a partir do formulário estruturado.</p>`,
   },
   medical_certificate: {
     title: 'Atestado Médico — {{paciente.nome}}',
-    body: `<p>Atesto, para os devidos fins, que o(a) paciente <strong>{{paciente.nome}}</strong> esteve sob meus cuidados médicos nesta data, sendo necessário afastamento de suas atividades habituais por _____ dias.</p>
-<p>CID: ______</p>
-<p>{{cidade_data}}</p>
-<p>_________________________________<br/>{{cirurgiao}}</p>`,
+    body: `<p>Documento gerado a partir do formulário estruturado de Atestado.</p>`,
   },
   report: {
     title: 'Relatório Médico — {{paciente.nome}}',
-    body: `<p><strong>Paciente:</strong> {{paciente.nome}} ({{paciente.idade}})</p>
-<p><strong>Procedimento realizado:</strong> {{procedimento}} {{via_cirurgica}} {{lateralidade}}</p>
-<p><strong>Cirurgião:</strong> {{cirurgiao}}</p>
-<p><strong>Hospital:</strong> {{hospital}}</p>
-<p><strong>Histórico clínico:</strong> ____________________________________________</p>
-<p><strong>Conduta / Observações:</strong> ____________________________________________</p>
-<p>{{cidade_data}}</p>
-<p>_________________________________<br/>{{cirurgiao}}</p>`,
+    body: `<p>Documento gerado a partir do formulário estruturado de Relatório.</p>`,
+  },
+  prescription: {
+    title: 'Receita Médica — {{paciente.nome}}',
+    body: `<p>Documento gerado a partir do formulário estruturado de Receita.</p>`,
   },
 };
