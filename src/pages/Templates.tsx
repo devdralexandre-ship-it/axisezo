@@ -77,7 +77,7 @@ export default function Templates() {
 
   const grouped = useMemo(() => {
     const out: Record<DocumentType, DocumentTemplate[]> = {
-      budget: [], surgical_request: [], medical_certificate: [], report: [],
+      budget: [], surgical_request: [], medical_certificate: [], report: [], prescription: [],
     };
     templates.forEach((t) => out[t.type]?.push(t));
     return out;
