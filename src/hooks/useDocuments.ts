@@ -323,8 +323,8 @@ export function useGenerateDocument() {
       if (updErr) throw updErr;
 
       // 5. Record suggestions (best effort)
-      if (type === 'surgical_request' && structuredData && patient?.procedure) {
-        try { await recordSuggestions(patient.procedure, structuredData); } catch (e) { console.warn('suggestions', e); }
+      if (structuredData?.kind === 'surgical_request' && patient?.procedure) {
+        try { await recordSuggestions(patient.procedure, structuredData.data); } catch (e) { console.warn('suggestions', e); }
       }
 
       return { ...docRow, pdf_path: path };
