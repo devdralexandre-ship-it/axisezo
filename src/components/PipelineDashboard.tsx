@@ -310,8 +310,11 @@ export function PipelineDashboard() {
       <header className="border-b border-border px-6 py-4">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-xl font-bold text-foreground tracking-tight">Axis</h1>
-            <p className="text-sm text-muted-foreground">Pipeline de decisão cirúrgica</p>
+            <h1 className="leading-none flex items-baseline">
+              <span className="font-serif text-2xl font-semibold text-primary tracking-wide">EZO</span>
+              <span className="ml-2 font-sans text-[11px] uppercase tracking-[0.22em] text-muted-foreground">Urologia</span>
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1.5">Pipeline de decisão cirúrgica</p>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground hidden sm:inline">{user?.email}</span>

@@ -13,7 +13,7 @@ import { PipelineStage, STAGE_LABELS, PIPELINE_STAGES } from '@/data/types';
 import { PROCEDURES, PAYERS } from '@/data/constants';
 import { toast } from 'sonner';
 
-// Status mapping from spreadsheet values to Axis stages
+// Status mapping from spreadsheet values to EZO pipeline stages
 const STATUS_MAP: Record<string, PipelineStage> = {
   'agendada': 'surgery_scheduled',
   'cirurgia agendada': 'surgery_scheduled',

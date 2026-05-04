@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Cormorant+Garamond:wght@500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,93 +6,64 @@
 
 @layer base {
   :root {
-    --background: 210 20% 98%;
-    --foreground: 220 25% 10%;
+    /* Surfaces */
+    --background: 60 14% 98%;          /* Warm White #FAFAF8 */
+    --foreground: 0 0% 25%;            /* Charcoal #3F3F3F */
 
-    --card: 0 0% 100%;
-    --card-foreground: 220 25% 10%;
+    --card: 0 0% 100%;                 /* Soft White */
+    --card-foreground: 0 0% 25%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 25% 10%;
+    --popover-foreground: 0 0% 25%;
 
-    --primary: 215 65% 36%;
+    /* Brand */
+    --primary: 177 100% 12%;           /* Deep Medical Teal #003F3C */
     --primary-foreground: 0 0% 100%;
+    --primary-hover: 174 77% 26%;      /* Muted Teal #0F766E */
 
-    --secondary: 210 25% 93%;
-    --secondary-foreground: 220 25% 10%;
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 0 0% 25%;
 
-    --muted: 210 20% 94%;
-    --muted-foreground: 215 15% 47%;
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;    /* Muted Gray #6B7280 */
 
-    --accent: 210 25% 93%;
-    --accent-foreground: 220 25% 10%;
+    --accent: 220 14% 96%;
+    --accent-foreground: 0 0% 25%;
 
-    --destructive: 0 72% 51%;
+    --destructive: 0 72% 35%;          /* Crítico #991B1B */
     --destructive-foreground: 0 0% 100%;
 
-    --border: 214 20% 88%;
-    --input: 214 20% 88%;
-    --ring: 215 65% 36%;
+    --border: 220 13% 91%;             /* Light Clinical Gray #E5E7EB */
+    --input: 220 13% 91%;
+    --ring: 177 100% 12%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
 
-    --pipeline-blue: 215 65% 36%;
-    --pipeline-green: 152 55% 38%;
-    --pipeline-amber: 38 92% 50%;
-    --pipeline-gray: 215 15% 47%;
+    /* Operational status (light backgrounds, dark text) */
+    --status-success: 142 61% 24%;     /* #166534 */
+    --status-success-bg: 142 50% 94%;
+    --status-warning: 30 91% 37%;      /* #B45309 */
+    --status-warning-bg: 38 92% 94%;
+    --status-critical: 0 72% 35%;      /* #991B1B */
+    --status-critical-bg: 0 70% 95%;
+    --status-info: 224 76% 48%;        /* #1D4ED8 */
+    --status-info-bg: 224 80% 95%;
 
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
-  }
+    /* Pipeline (kept names for back-compat, remapped to operational tones) */
+    --pipeline-blue: 224 76% 48%;
+    --pipeline-green: 142 61% 24%;
+    --pipeline-amber: 30 91% 37%;
+    --pipeline-gray: 220 9% 46%;
 
-  .dark {
-    --background: 220 25% 6%;
-    --foreground: 210 20% 96%;
-
-    --card: 220 25% 9%;
-    --card-foreground: 210 20% 96%;
-
-    --popover: 220 25% 9%;
-    --popover-foreground: 210 20% 96%;
-
-    --primary: 215 65% 55%;
-    --primary-foreground: 0 0% 100%;
-
-    --secondary: 217 30% 16%;
-    --secondary-foreground: 210 20% 96%;
-
-    --muted: 217 30% 16%;
-    --muted-foreground: 215 15% 60%;
-
-    --accent: 217 30% 16%;
-    --accent-foreground: 210 20% 96%;
-
-    --destructive: 0 62% 30%;
-    --destructive-foreground: 210 20% 96%;
-
-    --border: 217 25% 18%;
-    --input: 217 25% 18%;
-    --ring: 215 65% 55%;
-
-    --pipeline-blue: 215 65% 55%;
-    --pipeline-green: 152 55% 50%;
-    --pipeline-amber: 38 92% 60%;
-    --pipeline-gray: 215 15% 60%;
-
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    /* Sidebar — Deep Teal institutional */
+    --sidebar-background: 177 100% 12%;
+    --sidebar-foreground: 174 30% 92%;
+    --sidebar-primary: 0 0% 100%;
+    --sidebar-primary-foreground: 177 100% 12%;
+    --sidebar-accent: 174 77% 26%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 177 60% 18%;
+    --sidebar-ring: 174 77% 50%;
   }
 }
 
@@ -103,6 +74,8 @@
 
   body {
     @apply bg-background text-foreground;
-    font-family: 'IBM Plex Sans', sans-serif;
+    font-family: 'Inter', system-ui, sans-serif;
+    font-feature-settings: 'cv11', 'ss01';
+    -webkit-font-smoothing: antialiased;
   }
 }

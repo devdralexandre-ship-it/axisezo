@@ -13,6 +13,10 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        sans: ['Inter', 'system-ui', 'sans-serif'],
+        serif: ['"Cormorant Garamond"', 'Georgia', 'serif'],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -61,6 +65,26 @@ export default {
         "pipeline-green": "hsl(var(--pipeline-green))",
         "pipeline-amber": "hsl(var(--pipeline-amber))",
         "pipeline-gray": "hsl(var(--pipeline-gray))",
+        success: {
+          DEFAULT: "hsl(var(--status-success))",
+          foreground: "hsl(var(--status-success))",
+          bg: "hsl(var(--status-success-bg))",
+        },
+        warning: {
+          DEFAULT: "hsl(var(--status-warning))",
+          foreground: "hsl(var(--status-warning))",
+          bg: "hsl(var(--status-warning-bg))",
+        },
+        critical: {
+          DEFAULT: "hsl(var(--status-critical))",
+          foreground: "hsl(var(--status-critical))",
+          bg: "hsl(var(--status-critical-bg))",
+        },
+        info: {
+          DEFAULT: "hsl(var(--status-info))",
+          foreground: "hsl(var(--status-info))",
+          bg: "hsl(var(--status-info-bg))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
