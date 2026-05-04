@@ -200,7 +200,11 @@ const REGIME_LABEL: Record<AdmissionRegime, string> = {
   day_hospital: 'Hospital-dia',
 };
 
-export function buildSurgicalRequestHtml(data: SurgicalRequestData): string {
+function buildSignature(data: { surgeon: string }, signatureInfo?: Partial<SignatureInfo>): string {
+  return signatureBlock({ name: signatureInfo?.name || data.surgeon, ...signatureInfo, name: signatureInfo?.name || data.surgeon } as SignatureInfo);
+}
+
+export function buildSurgicalRequestHtml(data: SurgicalRequestData, signatureInfo?: Partial<SignatureInfo>): string {
   const parts: string[] = [];
   parts.push(`<p>Solicito autorização para realização do procedimento abaixo:</p>`);
 
