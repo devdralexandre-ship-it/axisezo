@@ -36,8 +36,11 @@ export default function Auth() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-sm">
-        <CardHeader className="text-center">
-          <CardTitle className="text-xl">Axis</CardTitle>
+        <CardHeader className="text-center space-y-3">
+          <div className="flex items-baseline justify-center">
+            <span className="font-serif text-4xl font-semibold text-primary tracking-wide">EZO</span>
+            <span className="ml-2 font-sans text-xs uppercase tracking-[0.22em] text-muted-foreground">Urologia</span>
+          </div>
           <CardDescription>
             {mode === 'login'
               ? 'Entre na sua conta'
