@@ -99,8 +99,27 @@ function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-function signatureBlock(surgeon: string): string {
-  return `<p>_________________________________<br/>${escapeHtml(surgeon)}</p>`;
+export interface SignatureInfo {
+  name: string;
+  crm?: string;
+  crmUf?: string;
+  rqe?: string;
+  title?: string;
+}
+
+function signatureBlock(info: string | SignatureInfo): string {
+  const data: SignatureInfo = typeof info === 'string' ? { name: info } : info;
+  const lines: string[] = [];
+  lines.push(`<p style="margin-top:56px;margin-bottom:0;">_________________________________</p>`);
+  lines.push(`<p style="margin-top:4px;margin-bottom:0;"><strong>${escapeHtml(data.name)}</strong></p>`);
+  if (data.title) lines.push(`<p style="margin:0;font-size:12px;color:#444;">${escapeHtml(data.title)}</p>`);
+  const crmLine = data.crm
+    ? `CRM ${data.crmUf ? `${escapeHtml(data.crmUf)} ` : ''}${escapeHtml(data.crm)}`
+    : '';
+  const rqeLine = data.rqe ? `RQE ${escapeHtml(data.rqe)}` : '';
+  const credentials = [crmLine, rqeLine].filter(Boolean).join(' · ');
+  if (credentials) lines.push(`<p style="margin:0;font-size:12px;color:#444;">${credentials}</p>`);
+  return lines.join('\n');
 }
 
 /* ---------- Surgical Request structured form ---------- */
