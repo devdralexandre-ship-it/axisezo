@@ -201,7 +201,9 @@ const REGIME_LABEL: Record<AdmissionRegime, string> = {
 };
 
 function buildSignature(data: { surgeon: string }, signatureInfo?: Partial<SignatureInfo>): string {
-  return signatureBlock({ name: signatureInfo?.name || data.surgeon, ...signatureInfo, name: signatureInfo?.name || data.surgeon } as SignatureInfo);
+  const merged: SignatureInfo = { name: data.surgeon, ...(signatureInfo || {}) };
+  if (!merged.name) merged.name = data.surgeon;
+  return signatureBlock(merged);
 }
 
 export function buildSurgicalRequestHtml(data: SurgicalRequestData, signatureInfo?: Partial<SignatureInfo>): string {
