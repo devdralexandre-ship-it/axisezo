@@ -189,6 +189,8 @@ export interface GenerateInput {
   bodyOverride?: string;
   /** Structured-mode payload */
   structuredData?: StructuredPayload;
+  /** Signature credentials of the surgeon (CRM/RQE/title) */
+  signatureInfo?: { name?: string; crm?: string; crmUf?: string; rqe?: string; title?: string };
 }
 
 async function getSignedLogoUrl(path: string | null | undefined): Promise<string | undefined> {
@@ -228,7 +230,7 @@ async function recordSuggestions(procedure: string, sd: SurgicalRequestData) {
 export function useGenerateDocument() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ patient, type, template, titleOverride, bodyOverride, structuredData }: GenerateInput) => {
+    mutationFn: async ({ patient, type, template, titleOverride, bodyOverride, structuredData, signatureInfo }: GenerateInput) => {
       const vars = buildPatientVariables(patient);
       const seed = DEFAULT_TEMPLATE_BODIES[type];
 
@@ -240,19 +242,19 @@ export function useGenerateDocument() {
         title = renderTemplate(template?.title ?? seed.title, vars);
         switch (structuredData.kind) {
           case 'surgical_request':
-            body = buildSurgicalRequestHtml(structuredData.data);
+            body = buildSurgicalRequestHtml(structuredData.data, signatureInfo);
             break;
           case 'prescription':
-            body = buildPrescriptionHtml(structuredData.data);
+            body = buildPrescriptionHtml(structuredData.data, signatureInfo);
             break;
           case 'medical_certificate':
-            body = buildMedicalCertificateHtml(structuredData.data);
+            body = buildMedicalCertificateHtml(structuredData.data, signatureInfo);
             break;
           case 'report':
-            body = buildReportHtml(structuredData.data);
+            body = buildReportHtml(structuredData.data, signatureInfo);
             break;
           case 'budget':
-            body = buildBudgetHtml(structuredData.data);
+            body = buildBudgetHtml(structuredData.data, signatureInfo);
             break;
         }
         dataPayload = structuredData.data as any;

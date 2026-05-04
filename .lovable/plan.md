@@ -1,130 +1,188 @@
-# Refinamento estético — EZO Urologia
+## Escopo deste ciclo
 
-Aplicar identidade visual institucional sóbria ao CRM, sem logo gráfico, com wordmark textual, mantendo PDFs neutros.
+**Itens executados agora:** 1, 1.1, 2, 3, 6, 7, 8 (revisado — aprendizado incremental).
+**Itens preparados/respondidos:** 4 (integração futura) e 5 (consentimentos automáticos).
 
-## 1. Tokens de cor — `src/index.css`
+---
 
-Substituir o bloco `:root` (modo claro, único tema ativo) pelos novos tokens HSL. Conversão das cores hex do manual:
+### 1 + 1.1 — Notificações como pilar operacional
 
-```text
-Deep Medical Teal   #003F3C → 177 100% 12%   (primary, ring, sidebar-primary)
-Muted Teal          #0F766E → 174 77% 26%    (primary hover, accent ativo)
-Charcoal Gray       #3F3F3F → 0 0% 25%       (foreground)
-Muted Gray          #6B7280 → 220 9% 46%     (muted-foreground)
-Warm White          #FAFAF8 → 60 14% 98%     (background)
-Soft White          #FFFFFF → 0 0% 100%      (card, popover)
-Light Clinical Gray #E5E7EB → 220 13% 91%    (border, input, divisórias)
-Sucesso             #166534 → 142 61% 24%
-Atenção             #B45309 → 30 91% 37%
-Crítico             #991B1B → 0 72% 35%
-Info / andamento    #1D4ED8 → 224 76% 48%
-```
+**Mudanças no `NotificationBell`:**
+- Cabeçalho com data do dia + contador "X demandas para hoje".
+- Lista agrupada e ordenada por prioridade fixa:
+  1. **Atrasadas** (vermelho, com nº de dias de atraso)
+  2. **Vencem hoje** (âmbar, ordenadas por horário)
+  3. **Sem próxima ação definida** (cinza-vermelho — paciente parado)
+  4. **Próximas 48h** (verde, colapsável)
+- Cada item mostra: paciente, etapa, ação, responsável, prazo.
+- Filtro "minhas / todas" por responsável.
+- Auto-abertura do sino no primeiro login do dia (flag em `localStorage` por usuário+data).
 
-Mapeamento aos tokens existentes:
-- `--background` Warm White; `--foreground` Charcoal
-- `--card`, `--popover` Soft White; foregrounds Charcoal
-- `--primary` Deep Teal; `--primary-foreground` branco
-- `--secondary`, `--accent`, `--muted` cinza muito claro (`220 14% 96%`); foregrounds Charcoal
-- `--muted-foreground` Muted Gray
-- `--border`, `--input` Light Clinical Gray; `--ring` Deep Teal
-- `--destructive` Crítico
-- `--radius` 0.75rem (cards 12–16px)
-- Pipeline tokens (mantêm os nomes para não quebrar componentes):
-  - `--pipeline-blue` → Info (`224 76% 48%`)
-  - `--pipeline-green` → Sucesso (`142 61% 24%`)
-  - `--pipeline-amber` → Atenção (`30 91% 37%`)
-  - `--pipeline-gray` → Muted Gray
-- Sidebar:
-  - `--sidebar-background` Deep Teal; `--sidebar-foreground` branco/teal claro
-  - `--sidebar-primary` branco; `--sidebar-accent` Muted Teal
-  - `--sidebar-border` teal escuro translúcido
-- Bloco `.dark` será removido (sistema fica somente em modo claro, conforme memória do projeto).
+**1.1** No `AddTaskDialog` o rótulo do campo de data passa a ser **"Prazo máximo"**.
 
-Adicionar tokens semânticos extras para badges:
-- `--status-success`, `--status-warning`, `--status-critical`, `--status-info` (e respectivos `-foreground` escuros), usados em fundos claros.
+---
 
-Atualizar `@import` da fonte:
-```css
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Cormorant+Garamond:wght@500;600;700&display=swap');
-```
-`body` passa a usar `Inter`. Remover IBM Plex Sans.
+### 2 — Ações com presets em dropdown
 
-## 2. `tailwind.config.ts`
+No `AddTaskDialog`, novo campo "Tipo de ação" (Select) com presets:
+- Atualizar etapa no follow-up
+- Checar documentos
+- Emitir documentos
+- Consultar convênio
+- Consultar hospital
+- Ligar para o paciente
+- Confirmar agendamento
+- Solicitar exames/laudos
+- Outro (libera campo livre)
 
-- Estender `fontFamily`:
-  - `sans: ['Inter', 'system-ui', 'sans-serif']`
-  - `serif: ['"Cormorant Garamond"', 'Georgia', 'serif']` (para wordmark)
-- Estender `colors` com tokens semânticos: `success`, `warning`, `critical`, `info` (apontando para os novos CSS vars).
-- `borderRadius` mantém ligado a `--radius` (agora 0.75rem).
-- Sem alterações de breakpoints, container ou animações.
+Ao escolher um preset, o "Título" é pré-preenchido e ainda editável. Presets vivem em `src/data/constants.ts` (`TASK_PRESETS`).
 
-## 3. Wordmark "EZO Urologia"
+---
 
-Componente leve inline (não criar logo gráfico). Usado em três lugares:
+### 3 — Reordenar `PatientPanel`
 
-- **Sidebar/Header** (`src/components/PipelineDashboard.tsx`, linha do `h1` "Axis"):
-  ```tsx
-  <h1 className="leading-none">
-    <span className="font-serif text-2xl font-semibold text-primary tracking-wide">EZO</span>
-    <span className="ml-1.5 font-sans text-xs uppercase tracking-[0.2em] text-muted-foreground">Urologia</span>
-  </h1>
-  ```
-- **Auth** (`src/pages/Auth.tsx`): substituir `<CardTitle>Axis</CardTitle>` pelo mesmo wordmark, centralizado, em tamanho maior.
-- **`index.html`**: atualizar `<title>` e og/twitter para "EZO Urologia — Gestão da Jornada Cirúrgica". Comentário em `CsvImporter.tsx` linha 16: trocar "Axis" por "EZO".
+Nova ordem:
+1. Cabeçalho (já existe)
+2. Alertas (já existe)
+3. **Ações** (movido para cima)
+4. Identificação / dados clínicos / financeiro
+5. Pré-op checklist (quando aplicável)
+6. Documentos
+7. Observações
 
-Sem ícone, sem símbolo, sem SVG.
+---
 
-## 4. Componentes que serão alterados (apenas estilo)
+### 6 — Receita médica: assinatura + CRM/RQE
 
-Todos via tokens — sem alterar lógica, props, estados ou fluxos:
+Em `PrescriptionForm` e `buildPrescriptionHtml`:
+- Espaço maior entre data e assinatura (`margin-top: 56px`).
+- Bloco de assinatura com 3 linhas: nome, **CRM**, **RQE** — puxados do perfil profissional.
+- Mesmo tratamento aplicado a `buildSurgicalRequestHtml`, `buildMedicalCertificateHtml`, `buildReportHtml`, `buildBudgetHtml`.
+- `signatureBlock` passa a aceitar `{ name, crm, crmUf, rqe }`.
 
-- `src/index.css`, `tailwind.config.ts` — base de tokens e fontes.
-- `src/components/ui/button.tsx` — ajustar `variant.default` para usar Deep Teal (já vem via token); adicionar hover Muted Teal (`hover:bg-[hsl(var(--primary-hover))]` via novo token `--primary-hover`); `outline` ganha hover `bg-muted`.
-- `src/components/ui/badge.tsx` — adicionar variantes `success`, `warning`, `critical`, `info` (fundo claro + texto escuro + borda sutil); manter as existentes.
-- `src/components/ui/card.tsx` — `rounded-xl`, `shadow-none` (ou `shadow-[0_1px_2px_rgba(0,0,0,0.04)]`), borda padrão `border-border`.
-- `src/components/ui/input.tsx`, `textarea.tsx`, `select.tsx` — bordas e focus ring Deep Teal (já via token).
-- `src/components/ui/table.tsx` — divisórias horizontais `border-border`, hover `bg-muted/40`.
-- `src/components/ui/tabs.tsx`, `dialog.tsx`, `sheet.tsx`, `dropdown-menu.tsx`, `popover.tsx`, `tooltip.tsx`, `sonner.tsx` — verificação de que tokens novos renderizam bem (geralmente sem mudança de classes).
-- `src/components/ui/sidebar.tsx` — confirmar uso dos tokens `--sidebar-*` (já parametrizado).
-- `src/components/PipelineDashboard.tsx` — wordmark; ajustar header para fundo branco com borda inferior `border-border`; títulos em `text-primary`.
-- `src/components/PipelineColumn.tsx` — cabeçalho de coluna sóbrio (texto `text-muted-foreground uppercase tracking-wide text-[11px]`, contagem em badge neutra), fundo `bg-muted/40`.
-- `src/components/PatientCard.tsx` — manter densidade; trocar cores de urgência para tokens `success/warning/critical`; nome em `text-foreground`, procedimento em `text-muted-foreground`.
-- `src/components/PatientPanel.tsx`, `FilterBar.tsx`, `NotificationBell.tsx`, `FollowUpTimeline.tsx`, `PreOpChecklist.tsx`, `PatientDocuments.tsx`, `LossReasonDialog.tsx`, `DeletePatientDialog.tsx`, `AddPatientForm.tsx`, `AddTaskDialog.tsx`, `CsvImporter.tsx`, `GenerateDocumentDialog.tsx`, `BudgetForm.tsx`, `MedicalCertificateForm.tsx`, `PrescriptionForm.tsx`, `ReportForm.tsx`, `SurgicalRequestForm.tsx`, `CodeAutocomplete.tsx` — varredura para substituir cores hardcoded (ex.: classes `bg-blue-*`, `text-green-*`, `bg-pipeline-*`) por tokens semânticos novos. Sem mudança estrutural.
-- `src/pages/Auth.tsx` — wordmark, fundo `bg-background` (Warm White), card `shadow-none border-border`.
-- `src/pages/AdminUsers.tsx`, `Templates.tsx`, `Index.tsx`, `NotFound.tsx`, `ResetPassword.tsx` — herdam tokens; pequenos ajustes pontuais de espaçamento/títulos se necessário.
-- `index.html` — title e meta tags.
+---
 
-## 5. Componentes que NÃO serão alterados
+### 7 — Perfil profissional do cirurgião / concierge
 
-- **Templates de PDF e geração de documentos médicos** — permanecem neutros:
-  - `src/lib/pdf-generator.tsx`
-  - `src/lib/pdf-template-renderer.ts`
-  - `src/components/PdfTemplateEditor.tsx`
-  - `src/data/documents.ts` (HTML builders de receita, atestado, relatório, orçamento, solicitação cirúrgica)
-- **Edge functions** (`supabase/functions/admin-users`).
-- **Lógica de hooks** (`useDocuments`, `usePatients`, `useUserRole`) e contexto `AuthContext`.
-- **Schema/migrations Supabase**.
-- **Tipos e dados** (`src/data/types.ts`, `constants.ts`) — exceto se precisarem de mapeamento de cor (não precisam).
+**Nova tabela `professional_profiles`:**
+- `user_id` (FK auth.users, unique)
+- `crm` (text), `crm_uf` (text)
+- `rqe` (text)
+- `signature_title` (text — ex.: "Urologista")
+- `phone_professional`, `email_professional`
+- RLS: usuário lê/edita o próprio; admin lê/edita todos.
 
-## 6. Confirmação explícita sobre PDFs
+**Nova rota `/perfil`** (item de menu visível para todos os papéis):
+- Formulário com nome, CRM/UF, RQE, especialidade, telefone, e-mail profissional.
+- Aviso: "Em breve: seus templates pessoais aparecerão aqui."
 
-Os documentos clínicos formais — **receitas, atestados, relatórios médicos, solicitações cirúrgicas, orçamentos, declarações** — permanecerão com o estilo neutro atual. Nenhuma classe Tailwind, token CSS ou fonte do refinamento institucional será aplicada aos arquivos de geração/template de PDF. A nova paleta e tipografia ficam restritas à interface React do CRM.
+**Hook `useProfessionalProfile(userIdOrSurgeonName)`** consumido pelos formulários de documento.
 
-## 7. Direção visual aplicada
+---
 
-- Header: fundo branco, borda inferior `border-border`, wordmark à esquerda, ações à direita.
-- Sidebar: Deep Teal sólido, itens em branco/teal claro, item ativo com fundo Muted Teal.
-- Cards: brancos, borda fina, raio 12–16px, sombra praticamente ausente.
-- Botões primários Deep Teal, hover Muted Teal; secundários brancos com borda.
-- Badges: fundos claros derivados das cores funcionais com texto escuro e borda sutil.
-- Kanban: colunas em fundo Warm White/cinza muito leve, cabeçalhos em caixa alta discreta, cards compactos.
-- Tipografia: Inter para UI; Cormorant Garamond apenas no wordmark "EZO".
+### 8 (REVISADO) — Aprendizado incremental de CBHPM/OPME
 
-## 8. Fora de escopo
+**Sem seed manual.** A base de defaults é construída no uso real.
 
-- Lógica funcional, fluxos, RLS, banco de dados, autenticação.
-- Templates e renderização de PDFs.
-- Criação de logo, ícones decorativos, ilustrações.
-- Modo escuro (mantido apenas modo claro, conforme memória do projeto).
+**Nova tabela `procedure_default_codes`:**
+- `id` uuid pk
+- `procedure` (text, nome canônico)
+- `scope` ('surgeon' | 'concierge') — padronização por papel
+- `scope_owner` (text — `surgeon_name` ou `concierge_name`)
+- `kind` ('cbhpm_main' | 'cbhpm_extra' | 'cid' | 'opme')
+- `code` (text, nullable para OPME)
+- `label` (text)
+- `quantity` (int, default 1 — usado por OPME)
+- `position` (int)
+- `created_by` (uuid)
+- `updated_at` timestamp
+- Único: `(procedure, scope, scope_owner, kind, code, label)` — evita duplicatas.
 
-Após sua aprovação, troco para o modo de implementação e aplico as mudanças nesta ordem: tokens (`index.css` + `tailwind.config.ts`) → wordmark (header, sidebar, auth, index.html) → ajustes de componentes UI base (button, badge, card, table) → varredura de cores hardcoded nas telas.
+RLS: SELECT autenticado; INSERT/UPDATE/DELETE para admin/surgeon/concierge.
+
+**Fluxo no `GenerateDocumentDialog` (apenas tipo `surgical_request`):**
+
+1. Ao abrir o diálogo, chamar `useDefaultProcedureCodes(procedure, surgeon, concierge)` que busca defaults nesta ordem de precedência:
+   - **Cirurgião** primeiro (mais específico clinicamente)
+   - **Concierge** como fallback complementar
+   - Se houver itens em ambos, fazer merge sem duplicar `(kind, code)`.
+2. Pré-preencher `mainCbhpm`, `extraCbhpm`, `cid`, `opme` em `defaultSurgicalRequestData`.
+3. Usuário edita normalmente (incluir/remover/alterar).
+4. **Ao clicar em "Gerar PDF"**, abrir um pequeno diálogo de confirmação **somente se houver pelo menos um código preenchido**:
+
+   ```
+   ┌─────────────────────────────────────────────┐
+   │ Salvar como padrão para próximas solicitações?│
+   │                                              │
+   │ Procedimento: Prostatectomia Radical         │
+   │                                              │
+   │ ☑ Salvar para o cirurgião (Dr Alexandre…)   │
+   │ ☐ Salvar para a concierge (Margô)            │
+   │                                              │
+   │ Itens que serão salvos:                      │
+   │  • CBHPM principal: 31309127 — Prost. radical│
+   │  • CBHPM extra: …                            │
+   │  • CID: N40                                  │
+   │  • OPME: 2× Pinça…                           │
+   │                                              │
+   │      [Não salvar]    [Gerar e salvar]        │
+   └─────────────────────────────────────────────┘
+   ```
+
+   - Cada checkbox é opcional; se nenhuma marcada → apenas gera o PDF.
+   - "Não salvar" e "Gerar e salvar" sempre geram o PDF — só a persistência dos defaults muda.
+   - Marcar uma escolha faz **upsert idempotente** em `procedure_default_codes` para todos os itens preenchidos do formulário (o upsert garante que repetir o mesmo código não cria duplicata; só atualiza `position` e `updated_at`).
+5. Toggle "Não perguntar novamente para este procedimento + papel" (preferência salva em `localStorage`) para o usuário maduro que já validou seus padrões.
+
+**Gerenciamento dos defaults:**
+- Pequena seção na rota `/perfil` ("Meus códigos padrão") listando, por procedimento, os defaults salvos com botão de remover individual. Isso permite limpar erros sem precisar de admin.
+
+**Resultado prático:** você não preenche nada manualmente agora; conforme cada cirurgião emite a primeira solicitação de cada procedimento, a base se popula sozinha e os próximos pacientes já vêm pré-preenchidos.
+
+---
+
+### Itens não-execução
+
+**Item 4 — Integração futura com banco de leads:** **Sim, viável.** Caminho:
+- Adicionar `patients.external_lead_id` (text, unique nullable) + `source` ('manual' | 'call_center' | 'crm_externo') quando você sinalizar.
+- Edge function `ingest-lead` (POST com API key) faz upsert por `external_lead_id`, cria paciente em `indication`.
+- Edge function `export-patient-update` notifica webhook externo nas mudanças de etapa.
+- Não criado neste ciclo.
+
+**Item 5 — Consentimentos automáticos:** Próximo ciclo dedicado. Esboço:
+- Tipo `'consent'` em `DOCUMENT_TYPES`.
+- `PdfTemplateEditor` ganha N caixas customizadas com `{ key, label, source }` (`paciente.nome | procedimento | cirurgiao | data | livre`).
+- Trigger `auto_generate_consent: true` por procedimento → cria `patient_documents` automaticamente ao cadastrar o paciente.
+- **Vou precisar do PDF do termo de Postectomia atual + lista de procedimentos com termo padronizado** para abrir esse ciclo.
+
+---
+
+### Resumo técnico
+
+**Migrations:**
+- `professional_profiles` + RLS
+- `procedure_default_codes` + RLS + índice único
+- `tasks.preset` (text nullable, opcional, para analytics futura)
+
+**Front-end novo:**
+- `src/data/constants.ts` — `TASK_PRESETS`
+- `src/hooks/useProfessionalProfile.ts`
+- `src/hooks/useDefaultProcedureCodes.ts`
+- `src/pages/Profile.tsx` (rota `/perfil`)
+- `src/components/SaveDefaultsDialog.tsx` — diálogo de confirmação do item 8
+
+**Front-end alterado:**
+- `AddTaskDialog.tsx` — preset dropdown + label "Prazo máximo"
+- `NotificationBell.tsx` — agrupamento por prioridade, contador, filtro
+- `PipelineDashboard.tsx` — auto-abrir sino + nova lógica de notificações (sem-ação, próximas 48h)
+- `PatientPanel.tsx` — reordenar seções
+- `PrescriptionForm.tsx` + `documents.ts` — `signatureBlock` com CRM/RQE; espaçamento
+- `SurgicalRequestForm.tsx` — consumir defaults do hook
+- `GenerateDocumentDialog.tsx` — disparar `SaveDefaultsDialog` no submit de `surgical_request`
+- `App.tsx` — registrar rota `/perfil`
+
+**Não muda:** PDFs (estilo neutro), RLS de pacientes, fluxo de auth, edge functions.
+
+---
+
+Confirma? Se sim, implemento na próxima passada.

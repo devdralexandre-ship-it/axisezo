@@ -11,7 +11,7 @@ import { LossReasonDialog } from './LossReasonDialog';
 import { DeletePatientDialog } from './DeletePatientDialog';
 import { CsvImporter } from './CsvImporter';
 import { Button } from '@/components/ui/button';
-import { Plus, Users, DollarSign, TrendingUp, LogOut, Upload, FileText, Shield } from 'lucide-react';
+import { Plus, Users, DollarSign, TrendingUp, LogOut, Upload, FileText, Shield, UserCircle } from 'lucide-react';
 import { useUserRole } from '@/hooks/useUserRole';
 import { Link } from 'react-router-dom';
 import { DragDropContext, DropResult } from '@hello-pangea/dnd';
@@ -323,7 +323,11 @@ export function PipelineDashboard() {
               onMarkRead={handleMarkNotificationRead}
               onMarkAllRead={handleMarkAllRead}
               onClickNotification={handleNotificationClick}
+              autoOpenKey={user?.id}
             />
+            <Button asChild variant="outline" size="sm">
+              <Link to="/perfil"><UserCircle className="h-4 w-4" />Perfil</Link>
+            </Button>
             <Button asChild variant="outline" size="sm">
               <Link to="/templates"><FileText className="h-4 w-4" />Templates</Link>
             </Button>

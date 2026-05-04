@@ -99,8 +99,27 @@ function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-function signatureBlock(surgeon: string): string {
-  return `<p>_________________________________<br/>${escapeHtml(surgeon)}</p>`;
+export interface SignatureInfo {
+  name: string;
+  crm?: string;
+  crmUf?: string;
+  rqe?: string;
+  title?: string;
+}
+
+function signatureBlock(info: string | SignatureInfo): string {
+  const data: SignatureInfo = typeof info === 'string' ? { name: info } : info;
+  const lines: string[] = [];
+  lines.push(`<p style="margin-top:56px;margin-bottom:0;">_________________________________</p>`);
+  lines.push(`<p style="margin-top:4px;margin-bottom:0;"><strong>${escapeHtml(data.name)}</strong></p>`);
+  if (data.title) lines.push(`<p style="margin:0;font-size:12px;color:#444;">${escapeHtml(data.title)}</p>`);
+  const crmLine = data.crm
+    ? `CRM ${data.crmUf ? `${escapeHtml(data.crmUf)} ` : ''}${escapeHtml(data.crm)}`
+    : '';
+  const rqeLine = data.rqe ? `RQE ${escapeHtml(data.rqe)}` : '';
+  const credentials = [crmLine, rqeLine].filter(Boolean).join(' · ');
+  if (credentials) lines.push(`<p style="margin:0;font-size:12px;color:#444;">${credentials}</p>`);
+  return lines.join('\n');
 }
 
 /* ---------- Surgical Request structured form ---------- */
@@ -181,7 +200,13 @@ const REGIME_LABEL: Record<AdmissionRegime, string> = {
   day_hospital: 'Hospital-dia',
 };
 
-export function buildSurgicalRequestHtml(data: SurgicalRequestData): string {
+function buildSignature(data: { surgeon: string }, signatureInfo?: Partial<SignatureInfo>): string {
+  const merged: SignatureInfo = { name: data.surgeon, ...(signatureInfo || {}) };
+  if (!merged.name) merged.name = data.surgeon;
+  return signatureBlock(merged);
+}
+
+export function buildSurgicalRequestHtml(data: SurgicalRequestData, signatureInfo?: Partial<SignatureInfo>): string {
   const parts: string[] = [];
   parts.push(`<p>Solicito autorização para realização do procedimento abaixo:</p>`);
 
@@ -227,7 +252,7 @@ export function buildSurgicalRequestHtml(data: SurgicalRequestData): string {
   parts.push(`<p><strong>Forma de faturamento:</strong> ${escapeHtml(data.billingType || '—')}</p>`);
 
   parts.push(`<p>${formatCityDate('Salvador', new Date())}</p>`);
-  parts.push(signatureBlock(data.surgeon));
+  parts.push(buildSignature(data, signatureInfo));
 
   return parts.join('\n');
 }
@@ -254,7 +279,7 @@ export function defaultPrescriptionData(patient: any, _template?: DocumentTempla
   };
 }
 
-export function buildPrescriptionHtml(data: PrescriptionData): string {
+export function buildPrescriptionHtml(data: PrescriptionData, signatureInfo?: Partial<SignatureInfo>): string {
   const parts: string[] = [];
   parts.push(`<div style="text-align:center;font-size:48px;font-family:Georgia,serif;line-height:1;margin:8px 0 4px;">℞</div>`);
   parts.push(`<p style="text-align:center;font-size:11px;letter-spacing:2px;color:#666;margin-top:0;">RECEITA MÉDICA</p>`);
@@ -266,7 +291,7 @@ export function buildPrescriptionHtml(data: PrescriptionData): string {
     const d = parseISODate(data.date);
     if (d) parts.push(`<p>${formatCityDate(data.city || 'Salvador', d)}</p>`);
   }
-  parts.push(signatureBlock(data.surgeon));
+  parts.push(buildSignature(data, signatureInfo));
   return parts.join('\n');
 }
 
@@ -294,7 +319,7 @@ export function defaultMedicalCertificateData(patient: any, _template?: Document
   };
 }
 
-export function buildMedicalCertificateHtml(data: MedicalCertificateData): string {
+export function buildMedicalCertificateHtml(data: MedicalCertificateData, signatureInfo?: Partial<SignatureInfo>): string {
   const parts: string[] = [];
   const days = data.days || 0;
   parts.push(`<p>Atesto, para os devidos fins, que o(a) paciente <strong>${escapeHtml(data.patientName)}</strong> esteve sob meus cuidados médicos nesta data, sendo necessário afastamento de suas atividades habituais por <strong>${days}</strong> dia(s).</p>`);
@@ -306,7 +331,7 @@ export function buildMedicalCertificateHtml(data: MedicalCertificateData): strin
   }
   const d = parseISODate(data.date) ?? new Date();
   parts.push(`<p>${formatCityDate(data.city || 'Salvador', d)}</p>`);
-  parts.push(signatureBlock(data.surgeon));
+  parts.push(buildSignature(data, signatureInfo));
   return parts.join('\n');
 }
 
@@ -332,7 +357,7 @@ export function defaultReportData(patient: any, _template?: DocumentTemplate | n
   };
 }
 
-export function buildReportHtml(data: ReportData): string {
+export function buildReportHtml(data: ReportData, signatureInfo?: Partial<SignatureInfo>): string {
   const parts: string[] = [];
   parts.push(`<p><strong>Paciente:</strong> ${escapeHtml(data.patientName)}${data.patientAge ? ` (${escapeHtml(data.patientAge)})` : ''}</p>`);
   parts.push(`<h3>Relatório Médico</h3>`);
@@ -340,7 +365,7 @@ export function buildReportHtml(data: ReportData): string {
   parts.push(`<p>${text || '<em>—</em>'}</p>`);
   const d = parseISODate(data.date) ?? new Date();
   parts.push(`<p>${formatCityDate(data.city || 'Salvador', d)}</p>`);
-  parts.push(signatureBlock(data.surgeon));
+  parts.push(buildSignature(data, signatureInfo));
   return parts.join('\n');
 }
 
@@ -399,7 +424,7 @@ export function budgetTotal(data: BudgetData): number {
   );
 }
 
-export function buildBudgetHtml(data: BudgetData): string {
+export function buildBudgetHtml(data: BudgetData, signatureInfo?: Partial<SignatureInfo>): string {
   const parts: string[] = [];
   parts.push(`<p><strong>Paciente:</strong> ${escapeHtml(data.patientName)}</p>`);
   parts.push(`<p><strong>Procedimento:</strong> ${escapeHtml(data.procedureName)}</p>`);
@@ -429,7 +454,7 @@ export function buildBudgetHtml(data: BudgetData): string {
   }
   const d = parseISODate(data.date) ?? new Date();
   parts.push(`<p>${formatCityDate(data.city || 'Salvador', d)}</p>`);
-  parts.push(signatureBlock(data.surgeon));
+  parts.push(buildSignature(data, signatureInfo));
   return parts.join('\n');
 }
 
