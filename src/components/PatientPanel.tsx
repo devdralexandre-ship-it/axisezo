@@ -186,6 +186,52 @@ export function PatientPanel({ patient, open, onClose, onCompleteTask, onAddTask
             </div>
           )}
 
+          {/* Ações — movido para o topo (alta prioridade operacional) */}
+          {!editing && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  Ações ({pendingTasks.length} pendente{pendingTasks.length !== 1 ? 's' : ''})
+                </label>
+                <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => onAddTask(patient.id)}>
+                  <Plus className="h-3 w-3 mr-1" /> Nova ação
+                </Button>
+              </div>
+              <div className="space-y-1.5">
+                {pendingTasks.length === 0 && completedTasks.length === 0 && (
+                  <p className="text-sm text-muted-foreground py-3 text-center">
+                    Nenhuma ação definida. Defina o próximo passo para avançar este paciente.
+                  </p>
+                )}
+                {pendingTasks.map((task) => {
+                  const urgency = getTaskUrgency(task);
+                  return (
+                    <div key={task.id} className="flex items-center gap-2 p-2 rounded-lg bg-muted/50 group">
+                      <button onClick={() => onCompleteTask(patient.id, task.id)} className="shrink-0 hover:scale-110 transition-transform">
+                        <Circle className={`h-4 w-4 ${urgencyColors[urgency]}`} />
+                      </button>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm text-foreground truncate">{task.title}</p>
+                        <p className="text-[11px] text-muted-foreground">{formatDate(task.dueDate)} {task.dueTime} • {task.responsible}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+                {completedTasks.length > 0 && (
+                  <div className="pt-2 space-y-1.5">
+                    <p className="text-[11px] text-muted-foreground">Concluídas ({completedTasks.length})</p>
+                    {completedTasks.map((task) => (
+                      <div key={task.id} className="flex items-center gap-2 p-2 rounded-lg opacity-50">
+                        <CheckCircle2 className="h-4 w-4 text-pipeline-green shrink-0" />
+                        <p className="text-sm text-foreground line-through truncate">{task.title}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Edit toggle */}
           <div className="flex justify-end">
             {editing ? (
@@ -443,49 +489,7 @@ export function PatientPanel({ patient, open, onClose, onCompleteTask, onAddTask
           {/* Documents */}
           <PatientDocuments patient={patient} />
 
-          {/* Tasks */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Ações ({pendingTasks.length} pendente{pendingTasks.length !== 1 ? 's' : ''})
-              </label>
-              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => onAddTask(patient.id)}>
-                <Plus className="h-3 w-3 mr-1" /> Nova ação
-              </Button>
-            </div>
-            <div className="space-y-1.5">
-              {pendingTasks.length === 0 && completedTasks.length === 0 && (
-                <p className="text-sm text-muted-foreground py-3 text-center">
-                  Nenhuma ação definida. Defina o próximo passo para avançar este paciente.
-                </p>
-              )}
-              {pendingTasks.map((task) => {
-                const urgency = getTaskUrgency(task);
-                return (
-                  <div key={task.id} className="flex items-center gap-2 p-2 rounded-lg bg-muted/50 group">
-                    <button onClick={() => onCompleteTask(patient.id, task.id)} className="shrink-0 hover:scale-110 transition-transform">
-                      <Circle className={`h-4 w-4 ${urgencyColors[urgency]}`} />
-                    </button>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm text-foreground truncate">{task.title}</p>
-                      <p className="text-[11px] text-muted-foreground">{formatDate(task.dueDate)} {task.dueTime} • {task.responsible}</p>
-                    </div>
-                  </div>
-                );
-              })}
-              {completedTasks.length > 0 && (
-                <div className="pt-2 space-y-1.5">
-                  <p className="text-[11px] text-muted-foreground">Concluídas ({completedTasks.length})</p>
-                  {completedTasks.map((task) => (
-                    <div key={task.id} className="flex items-center gap-2 p-2 rounded-lg opacity-50">
-                      <CheckCircle2 className="h-4 w-4 text-pipeline-green shrink-0" />
-                      <p className="text-sm text-foreground line-through truncate">{task.title}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
+          {/* Tasks bloco antigo removido — agora aparece no topo */}
         </div>
       </SheetContent>
     </Sheet>
