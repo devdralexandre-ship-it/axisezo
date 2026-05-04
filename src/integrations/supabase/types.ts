@@ -426,6 +426,90 @@ export type Database = {
         }
         Relationships: []
       }
+      procedure_default_codes: {
+        Row: {
+          code: string
+          created_at: string
+          created_by: string | null
+          id: string
+          kind: string
+          label: string
+          position: number
+          procedure: string
+          quantity: number
+          scope: string
+          scope_owner: string
+          updated_at: string
+        }
+        Insert: {
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          kind: string
+          label?: string
+          position?: number
+          procedure: string
+          quantity?: number
+          scope: string
+          scope_owner: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          kind?: string
+          label?: string
+          position?: number
+          procedure?: string
+          quantity?: number
+          scope?: string
+          scope_owner?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      professional_profiles: {
+        Row: {
+          created_at: string
+          crm: string | null
+          crm_uf: string | null
+          email_professional: string | null
+          id: string
+          phone_professional: string | null
+          rqe: string | null
+          signature_title: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          crm?: string | null
+          crm_uf?: string | null
+          email_professional?: string | null
+          id?: string
+          phone_professional?: string | null
+          rqe?: string | null
+          signature_title?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          crm?: string | null
+          crm_uf?: string | null
+          email_professional?: string | null
+          id?: string
+          phone_professional?: string | null
+          rqe?: string | null
+          signature_title?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           active: boolean
@@ -468,6 +552,7 @@ export type Database = {
           due_time: string
           id: string
           patient_id: string
+          preset: string | null
           responsible: string
           title: string
           updated_at: string
@@ -480,6 +565,7 @@ export type Database = {
           due_time?: string
           id?: string
           patient_id: string
+          preset?: string | null
           responsible?: string
           title: string
           updated_at?: string
@@ -492,6 +578,7 @@ export type Database = {
           due_time?: string
           id?: string
           patient_id?: string
+          preset?: string | null
           responsible?: string
           title?: string
           updated_at?: string
