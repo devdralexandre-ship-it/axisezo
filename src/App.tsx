@@ -11,6 +11,7 @@ import Templates from "./pages/Templates.tsx";
 import ResetPassword from "./pages/ResetPassword.tsx";
 import AdminUsers from "./pages/AdminUsers.tsx";
 import Profile from "./pages/Profile.tsx";
+import MfaEnroll from "./pages/MfaEnroll.tsx";
 
 const queryClient = new QueryClient();
 
@@ -42,6 +43,7 @@ const App = () => (
             <Route path="/templates" element={<ProtectedRoute><Templates /></ProtectedRoute>} />
             <Route path="/admin/users" element={<ProtectedRoute><AdminUsers /></ProtectedRoute>} />
             <Route path="/perfil" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+            <Route path="/perfil/mfa" element={<ProtectedRoute><MfaEnroll /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

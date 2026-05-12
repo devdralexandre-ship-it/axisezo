@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { usePatientDocuments, useDeleteDocument, getDocumentSignedUrl } from '@/hooks/useDocuments';
-import { useSurgeonCertStatus, useSignDocument } from '@/hooks/useSigning';
+import { useSurgeonCertStatus, useSignDocument, useAuthorizeDocumentSignature } from '@/hooks/useSigning';
+import { useUserRole } from '@/hooks/useUserRole';
 import { DOCUMENT_TYPE_LABELS } from '@/data/documents';
 import { GenerateDocumentDialog } from './GenerateDocumentDialog';
-import { FileText, Plus, Download, Trash2, Loader2, ShieldCheck, PenLine } from 'lucide-react';
+import { SignatureConfirmDialog } from './SignatureConfirmDialog';
+import { FileText, Plus, Download, Trash2, Loader2, ShieldCheck, PenLine, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Props {
@@ -16,8 +18,12 @@ export function PatientDocuments({ patient }: Props) {
   const deleteDoc = useDeleteDocument();
   const { data: certStatus } = useSurgeonCertStatus(patient?.id);
   const signDoc = useSignDocument();
+  const authorizeDoc = useAuthorizeDocumentSignature();
+  const { isSurgeon, surgeonName } = useUserRole();
   const [genOpen, setGenOpen] = useState(false);
-  const [signingId, setSigningId] = useState<string | null>(null);
+  const [confirmDoc, setConfirmDoc] = useState<{ id: string; title: string } | null>(null);
+
+  const isResponsibleSurgeon = isSurgeon && surgeonName === patient?.surgeon;
 
   const handleDownload = async (pdfPath: string, title: string) => {
     const url = await getDocumentSignedUrl(pdfPath);
@@ -41,13 +47,20 @@ export function PatientDocuments({ patient }: Props) {
     }
   };
 
-  const handleSign = (docId: string) => {
-    if (!certStatus?.has_cert) {
-      toast.error(`Dr(a). ${certStatus?.surgeon_name ?? patient?.surgeon} ainda não cadastrou o certificado A1`);
-      return;
-    }
-    setSigningId(docId);
-    signDoc.mutate(docId, { onSettled: () => setSigningId(null) });
+  const handleConfirmSign = (password: string) => {
+    if (!confirmDoc) return;
+    signDoc.mutate(
+      { documentId: confirmDoc.id, password },
+      { onSuccess: () => setConfirmDoc(null) },
+    );
+  };
+
+  const canDelegateSign = (d: any) => {
+    if (!certStatus?.has_cert) return false;
+    if (isResponsibleSurgeon) return true;
+    if (certStatus.delegation_mode === 'never') return false;
+    if (certStatus.delegation_mode === 'per_document') return !!d.signature_authorized_by;
+    return true;
   };
 
   const formatDate = (s: string) => {
@@ -101,16 +114,29 @@ export function PatientDocuments({ patient }: Props) {
                 )}
               </p>
             </div>
-            {d.pdf_path && !d.signed_pdf_path && certStatus?.has_cert && (
+            {d.pdf_path && !d.signed_pdf_path && certStatus?.has_cert && canDelegateSign(d) && (
               <Button
                 variant="ghost"
                 size="icon"
                 className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
-                onClick={() => handleSign(d.id)}
-                disabled={signingId === d.id}
+                onClick={() => setConfirmDoc({ id: d.id, title: d.title })}
                 title={`Assinar com A1 de ${certStatus.surgeon_name}`}
               >
-                {signingId === d.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <PenLine className="h-3.5 w-3.5" />}
+                <PenLine className="h-3.5 w-3.5" />
+              </Button>
+            )}
+            {d.pdf_path && !d.signed_pdf_path && certStatus?.has_cert
+              && certStatus.delegation_mode === 'per_document'
+              && !d.signature_authorized_by
+              && isResponsibleSurgeon && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={() => authorizeDoc.mutate(d.id)}
+                title="Liberar para a concierge assinar"
+              >
+                <CheckCircle2 className="h-3.5 w-3.5 text-pipeline-amber" />
               </Button>
             )}
             {d.signed_pdf_path && (
@@ -149,6 +175,14 @@ export function PatientDocuments({ patient }: Props) {
       </div>
 
       <GenerateDocumentDialog open={genOpen} onClose={() => setGenOpen(false)} patient={patient} />
+      <SignatureConfirmDialog
+        open={!!confirmDoc}
+        onClose={() => setConfirmDoc(null)}
+        onConfirm={handleConfirmSign}
+        loading={signDoc.isPending}
+        signerName={certStatus?.surgeon_name}
+        documentTitle={confirmDoc?.title}
+      />
     </div>
   );
 }

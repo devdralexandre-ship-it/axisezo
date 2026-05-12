@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, Save, Trash2, Upload, ShieldCheck, AlertCircle, History } from 'lucide-react';
+import { ArrowLeft, Save, Trash2, Upload, ShieldCheck, AlertCircle, History, ShieldAlert } from 'lucide-react';
+import { Link as RouterLink } from 'react-router-dom';
 import { useProfessionalProfile, useSaveProfessionalProfile } from '@/hooks/useProfessionalProfile';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useMyDefaults, useDeleteDefault } from '@/hooks/useDefaultProcedureCodes';
@@ -11,9 +12,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import {
   useMySigningCertificate,
   useUploadSigningCertificate,
-  useDeleteSigningCertificate,
+  useRevokeSigningCertificate,
+  useSetDelegationMode,
   useSignatureAuditAsSigner,
   useSignatureAuditAsActor,
+  useMfaStatus,
 } from '@/hooks/useSigning';
 
 const KIND_LABEL: Record<string, string> = {
@@ -30,7 +33,9 @@ export default function Profile() {
   const { user } = useAuth();
   const { data: myCert } = useMySigningCertificate(user?.id);
   const uploadCert = useUploadSigningCertificate();
-  const deleteCert = useDeleteSigningCertificate();
+  const revokeCert = useRevokeSigningCertificate();
+  const setMode = useSetDelegationMode();
+  const { data: mfa } = useMfaStatus();
   const { data: signerAudit = [] } = useSignatureAuditAsSigner(isSurgeon ? user?.id : undefined);
   const { data: actorAudit = [] } = useSignatureAuditAsActor(isConcierge ? user?.id : undefined);
 
@@ -218,6 +223,16 @@ export default function Profile() {
             </p>
           </div>
 
+          {!mfa?.hasMfa && (
+            <div className="border border-pipeline-amber/40 bg-pipeline-amber/5 rounded-lg p-3 flex items-start gap-2">
+              <ShieldAlert className="h-4 w-4 text-pipeline-amber mt-0.5" />
+              <div className="flex-1 text-xs">
+                <p className="font-medium">MFA é obrigatório para usar a assinatura digital.</p>
+                <RouterLink to="/perfil/mfa" className="text-primary hover:underline">Ativar MFA agora →</RouterLink>
+              </div>
+            </div>
+          )}
+
           {myCert ? (
             <div className="border border-border rounded-lg p-4 space-y-3 bg-muted/30">
               <div className="flex items-start gap-3">
@@ -237,12 +252,36 @@ export default function Profile() {
                   variant="ghost"
                   size="sm"
                   className="text-destructive"
-                  onClick={() => user && deleteCert.mutate(user.id)}
-                  disabled={deleteCert.isPending}
+                  onClick={() => {
+                    if (confirm('Revogar seu certificado A1? Você precisará cadastrá-lo novamente para voltar a assinar.')) {
+                      revokeCert.mutate();
+                    }
+                  }}
+                  disabled={revokeCert.isPending}
                 >
-                  <Trash2 className="h-4 w-4" /> Remover
+                  <Trash2 className="h-4 w-4" /> Revogar agora
                 </Button>
               </div>
+
+              {isSurgeon && (
+                <div className="border-t pt-3">
+                  <Label className="text-xs uppercase font-bold tracking-wide text-muted-foreground">Modo de delegação</Label>
+                  <p className="text-[11px] text-muted-foreground mb-2">Quem pode assinar usando seu certificado.</p>
+                  <div className="flex gap-2">
+                    {(['always', 'per_document', 'never'] as const).map((m) => (
+                      <Button
+                        key={m}
+                        size="sm"
+                        variant={myCert.delegation_mode === m ? 'default' : 'outline'}
+                        onClick={() => setMode.mutate(m)}
+                        disabled={setMode.isPending}
+                      >
+                        {m === 'always' ? 'Sempre' : m === 'per_document' ? 'Por documento' : 'Nunca'}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <div className="border border-dashed border-border rounded-lg p-4 space-y-3">
