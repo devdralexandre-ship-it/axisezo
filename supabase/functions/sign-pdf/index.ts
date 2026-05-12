@@ -231,6 +231,7 @@ Deno.serve(async (req) => {
     pdflibAddPlaceholder({
       pdfDoc, reason: "Assinatura digital ICP-Brasil",
       contactInfo: signer.name, name: signer.name, location: "Brasil",
+      signatureLength: 32768,
     });
     const placeheld = await pdfDoc.save();
     const p12 = new P12Signer(pfxBuf as any, { passphrase: secret.password });
