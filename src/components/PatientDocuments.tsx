@@ -25,18 +25,22 @@ export function PatientDocuments({ patient }: Props) {
 
   const isResponsibleSurgeon = isSurgeon && surgeonName === patient?.surgeon;
 
-  const handleDownload = async (pdfPath: string, _title: string) => {
+  const handleDownload = async (pdfPath: string, title: string) => {
     try {
-      const url = await getDocumentSignedUrl(pdfPath);
+      const filename = `${title}.pdf`.replace(/[\\/:*?"<>|]+/g, '_');
+      const url = await getDocumentSignedUrl(pdfPath, filename);
       if (!url) {
         console.error('[download] signed URL nula para', pdfPath);
         toast.error('Não foi possível gerar o link');
         return;
       }
-      const w = window.open(url, '_blank', 'noopener,noreferrer');
-      if (!w) {
-        window.location.href = url;
-      }
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.rel = 'noopener';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
     } catch (e) {
       console.error('[download] falha', e);
       toast.error('Falha ao baixar o documento');
