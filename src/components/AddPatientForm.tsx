@@ -216,6 +216,66 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
               )}
             </div>
 
+            {/* CBHPM Codes (optional) */}
+            {effectiveProcedure && (
+              <div className="space-y-2 p-3 rounded-lg bg-muted/30 border border-border">
+                <Label className="text-xs">Códigos CBHPM (opcional)</Label>
+                <p className="text-[11px] text-muted-foreground">
+                  Sugestões aparecem com base em pacientes anteriores do mesmo procedimento. Esses códigos serão pré-preenchidos ao gerar a solicitação cirúrgica.
+                </p>
+                <div className="space-y-1">
+                  <Label className="text-[11px] text-muted-foreground">Principal</Label>
+                  <CodeAutocomplete
+                    procedure={effectiveProcedure}
+                    kind="cbhpm"
+                    value={mainCbhpm.code}
+                    label={mainCbhpm.label}
+                    onChange={(code, label) => setMainCbhpm({ code, label })}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-[11px] text-muted-foreground">Complementares</Label>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 text-xs"
+                      onClick={() => setExtraCbhpm([...extraCbhpm, { code: '', label: '' }])}
+                    >
+                      <Plus className="h-3 w-3" />Adicionar
+                    </Button>
+                  </div>
+                  {extraCbhpm.map((item, idx) => (
+                    <div key={idx} className="flex items-center gap-1">
+                      <div className="flex-1">
+                        <CodeAutocomplete
+                          procedure={effectiveProcedure}
+                          kind="cbhpm"
+                          value={item.code}
+                          label={item.label}
+                          onChange={(code, label) => {
+                            const next = [...extraCbhpm];
+                            next[idx] = { code, label };
+                            setExtraCbhpm(next);
+                          }}
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-destructive"
+                        onClick={() => setExtraCbhpm(extraCbhpm.filter((_, i) => i !== idx))}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Surgical Approach */}
             {showApproach && (
               <div className="space-y-2">
