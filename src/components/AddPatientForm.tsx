@@ -439,6 +439,20 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
               <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Observações gerais sobre o paciente..." rows={3} className="focus-visible:ring-offset-0" />
             </div>
 
+            {/* Indication date — base of SLA */}
+            <div className="space-y-2">
+              <Label>Data da indicação cirúrgica *</Label>
+              <Input
+                type="date"
+                value={indicationDate}
+                onChange={(e) => setIndicationDate(e.target.value)}
+                className="focus-visible:ring-offset-0"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                O SLA do paciente é contado a partir desta data, não da data de inclusão no CRM.
+              </p>
+            </div>
+
             {/* Stage */}
             <div className="space-y-2">
               <Label>Etapa Inicial</Label>
@@ -455,25 +469,17 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
               <Label>Ações Iniciais *</Label>
               <p className="text-[11px] text-muted-foreground">Mínimo 1 ação obrigatória</p>
               <div className="space-y-2 p-3 rounded-lg bg-muted/30 border border-border">
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="col-span-2">
-                    <Input value={newTaskTitle} onChange={(e) => setNewTaskTitle(e.target.value)} placeholder="Título da ação *"
-                      onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addInitialTask())} className="focus-visible:ring-offset-0 text-sm" />
-                  </div>
-                  <Input type="date" value={newTaskDate} onChange={(e) => setNewTaskDate(e.target.value)} className="focus-visible:ring-offset-0 text-sm" />
-                  <Input type="time" value={newTaskTime} onChange={(e) => setNewTaskTime(e.target.value)} className="focus-visible:ring-offset-0 text-sm" />
-                </div>
-                <div className="flex gap-2">
-                  <Select value={newTaskResponsible} onValueChange={setNewTaskResponsible}>
-                    <SelectTrigger className="focus:ring-offset-0 text-sm flex-1"><SelectValue placeholder={concierge || 'Responsável'} /></SelectTrigger>
-                    <SelectContent>
-                      {OWNERS.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                  <Button type="button" variant="outline" size="icon" onClick={addInitialTask} className="shrink-0" disabled={!newTaskTitle.trim() || !newTaskDate}>
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
+                <TaskFormFields value={draft} onChange={setDraft} compact />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={addInitialTask}
+                  className="w-full"
+                  disabled={!draft.title.trim() || !draft.dueDate}
+                >
+                  <Plus className="h-4 w-4 mr-1" />Adicionar ação
+                </Button>
               </div>
               {initialTasks.length > 0 && (
                 <div className="space-y-1 mt-2">
