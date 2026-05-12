@@ -140,7 +140,7 @@ export function PatientDocuments({ patient }: Props) {
                 variant="ghost"
                 size="icon"
                 className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
-                onClick={() => handleDownload(d.signed_pdf_path, `${d.title} (assinado)`)}
+                onClick={(e) => { e.stopPropagation(); handleDownload(d.signed_pdf_path, `${d.title} (assinado)`); }}
                 title="Baixar PDF assinado"
               >
                 <ShieldCheck className="h-3.5 w-3.5 text-pipeline-green" />
@@ -151,7 +151,7 @@ export function PatientDocuments({ patient }: Props) {
                 variant="ghost"
                 size="icon"
                 className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
-                onClick={() => handleDownload(d.pdf_path!, d.title)}
+                onClick={(e) => { e.stopPropagation(); handleDownload(d.pdf_path!, d.title); }}
                 title="Baixar"
               >
                 <Download className="h-3.5 w-3.5" />
