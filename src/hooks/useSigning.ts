@@ -151,7 +151,11 @@ export function useSignDocument() {
       const { data, error } = await supabase.functions.invoke('sign-pdf', {
         body: { document_id: documentId, step_up_password: password },
       });
-      if (error) throw error;
+      if (error) {
+        const response = (error as any)?.context;
+        const body = response?.json ? await response.clone().json().catch(() => null) : null;
+        throw new Error(body?.error ?? error.message);
+      }
       if ((data as any)?.error) throw new Error((data as any).error);
       return data;
     },
@@ -206,10 +210,53 @@ export function useMfaStatus() {
   return useQuery({
     queryKey: ['mfa_status'],
     queryFn: async () => {
-      const { data, error } = await supabase.auth.mfa.listFactors();
-      if (error) throw error;
-      const totp = (data?.totp ?? []).find((f) => f.status === 'verified');
-      return { hasMfa: !!totp, factor: totp ?? null };
+      const [{ data: factors, error: factorsError }, { data: aal, error: aalError }] = await Promise.all([
+        supabase.auth.mfa.listFactors(),
+        supabase.auth.mfa.getAuthenticatorAssuranceLevel(),
+      ]);
+      if (factorsError) throw factorsError;
+      if (aalError) throw aalError;
+      const totp = (factors?.totp ?? []).find((f) => f.status === 'verified');
+      const currentLevel = aal?.currentLevel ?? 'aal1';
+      const nextLevel = aal?.nextLevel ?? null;
+      return {
+        hasMfa: !!totp,
+        factor: totp ?? null,
+        currentLevel,
+        nextLevel,
+        needsVerification: !!totp && currentLevel !== 'aal2',
+      };
     },
+  });
+}
+
+export function useVerifyMfaFactor() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (code: string) => {
+      const { data: factors, error: factorsError } = await supabase.auth.mfa.listFactors();
+      if (factorsError) throw factorsError;
+      const factor = (factors?.totp ?? []).find((f) => f.status === 'verified');
+      if (!factor) throw new Error('Ative MFA antes de assinar.');
+
+      const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({ factorId: factor.id });
+      if (challengeError) throw challengeError;
+
+      const { error: verifyError } = await supabase.auth.mfa.verify({
+        factorId: factor.id,
+        challengeId: challenge.id,
+        code,
+      });
+      if (verifyError) throw verifyError;
+
+      const { data: aal, error: aalError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (aalError) throw aalError;
+      if (aal?.currentLevel !== 'aal2') throw new Error('Não foi possível verificar MFA para esta sessão.');
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['mfa_status'] });
+      toast.success('MFA verificado para esta sessão');
+    },
+    onError: (e: any) => toast.error(`Erro no MFA: ${e.message}`),
   });
 }
