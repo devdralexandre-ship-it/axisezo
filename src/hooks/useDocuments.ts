@@ -358,8 +358,13 @@ export function useDeleteDocument() {
   });
 }
 
-export async function getDocumentSignedUrl(pdfPath: string): Promise<string | null> {
-  const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(pdfPath, 60 * 10);
+export async function getDocumentSignedUrl(
+  pdfPath: string,
+  downloadAs?: string,
+): Promise<string | null> {
+  const { data, error } = await supabase.storage
+    .from(BUCKET)
+    .createSignedUrl(pdfPath, 60 * 10, downloadAs ? { download: downloadAs } : undefined);
   if (error) return null;
   return data?.signedUrl ?? null;
 }
