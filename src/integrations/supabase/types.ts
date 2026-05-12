@@ -134,6 +134,8 @@ export type Database = {
           patient_id: string
           pdf_path: string | null
           sent_via_whatsapp_at: string | null
+          signature_authorized_at: string | null
+          signature_authorized_by: string | null
           signed_at: string | null
           signed_by: string | null
           signed_pdf_path: string | null
@@ -153,6 +155,8 @@ export type Database = {
           patient_id: string
           pdf_path?: string | null
           sent_via_whatsapp_at?: string | null
+          signature_authorized_at?: string | null
+          signature_authorized_by?: string | null
           signed_at?: string | null
           signed_by?: string | null
           signed_pdf_path?: string | null
@@ -172,6 +176,8 @@ export type Database = {
           patient_id?: string
           pdf_path?: string | null
           sent_via_whatsapp_at?: string | null
+          signature_authorized_at?: string | null
+          signature_authorized_by?: string | null
           signed_at?: string | null
           signed_by?: string | null
           signed_pdf_path?: string | null
@@ -567,7 +573,9 @@ export type Database = {
           ip_address: string | null
           patient_id: string | null
           patient_name_snapshot: string | null
+          prev_hash: string | null
           result: string
+          row_hash: string | null
           signed_at: string
           signer_name: string | null
           signer_user_id: string
@@ -584,7 +592,9 @@ export type Database = {
           ip_address?: string | null
           patient_id?: string | null
           patient_name_snapshot?: string | null
+          prev_hash?: string | null
           result?: string
+          row_hash?: string | null
           signed_at?: string
           signer_name?: string | null
           signer_user_id: string
@@ -601,7 +611,9 @@ export type Database = {
           ip_address?: string | null
           patient_id?: string | null
           patient_name_snapshot?: string | null
+          prev_hash?: string | null
           result?: string
+          row_hash?: string | null
           signed_at?: string
           signer_name?: string | null
           signer_user_id?: string
@@ -612,8 +624,10 @@ export type Database = {
       signing_certificates: {
         Row: {
           created_at: string
+          delegation_mode: string
           password_encrypted: string
           pfx_path: string
+          pfx_sha256: string | null
           subject_cn: string | null
           updated_at: string
           user_id: string
@@ -622,8 +636,10 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          delegation_mode?: string
           password_encrypted: string
           pfx_path: string
+          pfx_sha256?: string | null
           subject_cn?: string | null
           updated_at?: string
           user_id: string
@@ -632,8 +648,10 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          delegation_mode?: string
           password_encrypted?: string
           pfx_path?: string
+          pfx_sha256?: string | null
           subject_cn?: string | null
           updated_at?: string
           user_id?: string
@@ -842,9 +860,27 @@ export type Database = {
       }
     }
     Functions: {
+      authorize_document_signature: {
+        Args: { _document_id: string }
+        Returns: undefined
+      }
       can_access_patient: { Args: { _patient_id: string }; Returns: boolean }
+      count_recent_signatures: {
+        Args: { _signer_user_id: string }
+        Returns: number
+      }
       current_concierge_name: { Args: never; Returns: string }
       current_surgeon_name: { Args: never; Returns: string }
+      get_signing_certificate_meta: {
+        Args: { _signer_user_id: string }
+        Returns: {
+          delegation_mode: string
+          pfx_path: string
+          pfx_sha256: string
+          subject_cn: string
+          valid_to: string
+        }[]
+      }
       get_signing_certificate_secret: {
         Args: { _master_key: string; _signer_user_id: string }
         Returns: {
@@ -855,6 +891,7 @@ export type Database = {
       get_surgeon_cert_status: {
         Args: { _patient_id: string }
         Returns: {
+          delegation_mode: string
           has_cert: boolean
           signer_user_id: string
           subject_cn: string
@@ -887,18 +924,33 @@ export type Database = {
         }
         Returns: string
       }
-      set_signing_certificate: {
-        Args: {
-          _master_key: string
-          _password: string
-          _pfx_path: string
-          _subject_cn: string
-          _user_id: string
-          _valid_from: string
-          _valid_to: string
-        }
-        Returns: undefined
-      }
+      set_delegation_mode: { Args: { _mode: string }; Returns: undefined }
+      set_signing_certificate:
+        | {
+            Args: {
+              _master_key: string
+              _password: string
+              _pfx_path: string
+              _subject_cn: string
+              _user_id: string
+              _valid_from: string
+              _valid_to: string
+            }
+            Returns: undefined
+          }
+        | {
+            Args: {
+              _master_key: string
+              _password: string
+              _pfx_path: string
+              _pfx_sha256?: string
+              _subject_cn: string
+              _user_id: string
+              _valid_from: string
+              _valid_to: string
+            }
+            Returns: undefined
+          }
     }
     Enums: {
       app_role: "admin" | "surgeon" | "concierge" | "call_center"
