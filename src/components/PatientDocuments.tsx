@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { usePatientDocuments, useDeleteDocument, getDocumentSignedUrl } from '@/hooks/useDocuments';
-import { useSurgeonCertStatus, useSignDocument } from '@/hooks/useSigning';
+import { useSurgeonCertStatus, useSignDocument, useAuthorizeDocumentSignature } from '@/hooks/useSigning';
+import { useUserRole } from '@/hooks/useUserRole';
 import { DOCUMENT_TYPE_LABELS } from '@/data/documents';
 import { GenerateDocumentDialog } from './GenerateDocumentDialog';
-import { FileText, Plus, Download, Trash2, Loader2, ShieldCheck, PenLine } from 'lucide-react';
+import { SignatureConfirmDialog } from './SignatureConfirmDialog';
+import { FileText, Plus, Download, Trash2, Loader2, ShieldCheck, PenLine, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Props {
@@ -16,8 +18,12 @@ export function PatientDocuments({ patient }: Props) {
   const deleteDoc = useDeleteDocument();
   const { data: certStatus } = useSurgeonCertStatus(patient?.id);
   const signDoc = useSignDocument();
+  const authorizeDoc = useAuthorizeDocumentSignature();
+  const { isSurgeon, surgeonName } = useUserRole();
   const [genOpen, setGenOpen] = useState(false);
-  const [signingId, setSigningId] = useState<string | null>(null);
+  const [confirmDoc, setConfirmDoc] = useState<{ id: string; title: string } | null>(null);
+
+  const isResponsibleSurgeon = isSurgeon && surgeonName === patient?.surgeon;
 
   const handleDownload = async (pdfPath: string, title: string) => {
     const url = await getDocumentSignedUrl(pdfPath);
@@ -41,13 +47,20 @@ export function PatientDocuments({ patient }: Props) {
     }
   };
 
-  const handleSign = (docId: string) => {
-    if (!certStatus?.has_cert) {
-      toast.error(`Dr(a). ${certStatus?.surgeon_name ?? patient?.surgeon} ainda não cadastrou o certificado A1`);
-      return;
-    }
-    setSigningId(docId);
-    signDoc.mutate(docId, { onSettled: () => setSigningId(null) });
+  const handleConfirmSign = (password: string) => {
+    if (!confirmDoc) return;
+    signDoc.mutate(
+      { documentId: confirmDoc.id, password },
+      { onSuccess: () => setConfirmDoc(null) },
+    );
+  };
+
+  const canDelegateSign = (d: any) => {
+    if (!certStatus?.has_cert) return false;
+    if (isResponsibleSurgeon) return true;
+    if (certStatus.delegation_mode === 'never') return false;
+    if (certStatus.delegation_mode === 'per_document') return !!d.signature_authorized_by;
+    return true;
   };
 
   const formatDate = (s: string) => {
