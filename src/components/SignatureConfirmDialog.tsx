@@ -23,7 +23,7 @@ export function SignatureConfirmDialog({ open, onClose, onConfirm, loading, sign
 
   const needsMfaVerification = !!mfa?.needsVerification;
   const handleClose = () => { setPassword(''); setMfaCode(''); onClose(); };
-  const handleConfirm = () => { if (password) onConfirm(password); };
+  const handleConfirm = () => { const p = password.trim(); if (p) onConfirm(p); };
   const handleVerifyMfa = async () => {
     if (mfaCode.length !== 6) return;
     try {

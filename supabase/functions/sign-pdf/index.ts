@@ -139,7 +139,7 @@ Deno.serve(async (req) => {
     }
     const stepUpClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!);
     const { error: stepUpErr } = await stepUpClient.auth.signInWithPassword({
-      email: user.email, password: step_up_password,
+      email: user.email, password: step_up_password.trim(),
     });
     if (stepUpErr) {
       await writeAudit("failed", "Senha de confirmação incorreta");
