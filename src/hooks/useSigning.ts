@@ -9,6 +9,8 @@ export interface SigningCertificate {
   valid_from: string | null;
   valid_to: string | null;
   updated_at: string;
+  delegation_mode?: 'always' | 'per_document' | 'never';
+  pfx_sha256?: string | null;
 }
 
 export interface SurgeonCertStatus {
@@ -17,6 +19,7 @@ export interface SurgeonCertStatus {
   signer_user_id: string | null;
   subject_cn: string | null;
   valid_to: string | null;
+  delegation_mode: 'always' | 'per_document' | 'never';
 }
 
 export interface SignatureAuditEntry {
@@ -30,9 +33,10 @@ export interface SignatureAuditEntry {
   document_id: string | null;
   document_title: string | null;
   document_type: string | null;
-  result: 'success' | 'failed' | string;
+  result: 'success' | 'failed' | 'revoked' | string;
   error_message: string | null;
   signed_at: string;
+  ip_address?: string | null;
 }
 
 /* ---------------- My certificate ---------------- */
@@ -44,7 +48,7 @@ export function useMySigningCertificate(userId: string | undefined) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('signing_certificates' as any)
-        .select('user_id, pfx_path, subject_cn, valid_from, valid_to, updated_at')
+        .select('user_id, pfx_path, subject_cn, valid_from, valid_to, updated_at, delegation_mode, pfx_sha256')
         .eq('user_id', userId!)
         .maybeSingle();
       if (error) throw error;
@@ -73,20 +77,49 @@ export function useUploadSigningCertificate() {
   });
 }
 
-export function useDeleteSigningCertificate() {
+export function useRevokeSigningCertificate() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (userId: string) => {
-      await supabase.storage.from('signing-certificates').remove([`${userId}/cert.pfx`]);
-      const { error } = await supabase
-        .from('signing_certificates' as any)
-        .delete()
-        .eq('user_id', userId);
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke('revoke-signing-cert', { body: {} });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['signing_certificate'] });
+      qc.invalidateQueries({ queryKey: ['signature_audit'] });
+      toast.success('Certificado revogado');
+    },
+    onError: (e: any) => toast.error(`Erro: ${e.message}`),
+  });
+}
+
+export function useSetDelegationMode() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (mode: 'always' | 'per_document' | 'never') => {
+      const { error } = await supabase.rpc('set_delegation_mode', { _mode: mode });
       if (error) throw error;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['signing_certificate'] });
-      toast.success('Certificado removido');
+      qc.invalidateQueries({ queryKey: ['surgeon_cert_status'] });
+      toast.success('Modo de delegação atualizado');
+    },
+    onError: (e: any) => toast.error(`Erro: ${e.message}`),
+  });
+}
+
+export function useAuthorizeDocumentSignature() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (documentId: string) => {
+      const { error } = await supabase.rpc('authorize_document_signature', { _document_id: documentId });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['patient_documents'] });
+      toast.success('Documento liberado para assinatura');
     },
     onError: (e: any) => toast.error(`Erro: ${e.message}`),
   });
@@ -114,15 +147,15 @@ export function useSurgeonCertStatus(patientId: string | undefined) {
 export function useSignDocument() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (documentId: string) => {
+    mutationFn: async ({ documentId, password }: { documentId: string; password: string }) => {
       const { data, error } = await supabase.functions.invoke('sign-pdf', {
-        body: { document_id: documentId },
+        body: { document_id: documentId, step_up_password: password },
       });
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
       return data;
     },
-    onSuccess: (_, documentId) => {
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['patient_documents'] });
       qc.invalidateQueries({ queryKey: ['signature_audit'] });
       toast.success('Documento assinado com A1');
@@ -163,6 +196,20 @@ export function useSignatureAuditAsActor(userId: string | undefined) {
         .limit(200);
       if (error) throw error;
       return (data || []) as unknown as SignatureAuditEntry[];
+    },
+  });
+}
+
+/* ---------------- MFA helpers ---------------- */
+
+export function useMfaStatus() {
+  return useQuery({
+    queryKey: ['mfa_status'],
+    queryFn: async () => {
+      const { data, error } = await supabase.auth.mfa.listFactors();
+      if (error) throw error;
+      const totp = (data?.totp ?? []).find((f) => f.status === 'verified');
+      return { hasMfa: !!totp, factor: totp ?? null };
     },
   });
 }
