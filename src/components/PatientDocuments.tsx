@@ -25,24 +25,20 @@ export function PatientDocuments({ patient }: Props) {
 
   const isResponsibleSurgeon = isSurgeon && surgeonName === patient?.surgeon;
 
-  const handleDownload = async (pdfPath: string, title: string) => {
-    const url = await getDocumentSignedUrl(pdfPath);
-    if (!url) {
-      toast.error('Não foi possível gerar o link');
-      return;
-    }
+  const handleDownload = async (pdfPath: string, _title: string) => {
     try {
-      const res = await fetch(url);
-      const blob = await res.blob();
-      const blobUrl = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = blobUrl;
-      a.download = `${title}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(blobUrl);
-    } catch {
+      const url = await getDocumentSignedUrl(pdfPath);
+      if (!url) {
+        console.error('[download] signed URL nula para', pdfPath);
+        toast.error('Não foi possível gerar o link');
+        return;
+      }
+      const w = window.open(url, '_blank', 'noopener,noreferrer');
+      if (!w) {
+        window.location.href = url;
+      }
+    } catch (e) {
+      console.error('[download] falha', e);
       toast.error('Falha ao baixar o documento');
     }
   };
