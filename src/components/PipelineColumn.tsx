@@ -17,7 +17,7 @@ export function PipelineColumn({ stage, patients, onPatientClick, onCompleteTask
 
   return (
     <div className={`flex flex-col min-w-[240px] max-w-[280px] shrink-0 ${isLost ? 'opacity-70' : ''}`}>
-      <div className="flex items-center justify-between mb-2 px-1">
+      <div className="flex items-center justify-between mb-2 px-1 sticky top-0 z-10 bg-background py-2 -mt-2">
         <h3 className={`text-xs font-semibold uppercase tracking-wide leading-tight ${isLost ? 'text-destructive' : 'text-foreground'}`}>
           {STAGE_LABELS[stage]}
         </h3>
