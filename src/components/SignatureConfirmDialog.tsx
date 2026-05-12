@@ -9,21 +9,21 @@ import { useMfaStatus, useVerifyMfaFactor } from '@/hooks/useSigning';
 interface Props {
   open: boolean;
   onClose: () => void;
-  onConfirm: (password: string) => void;
+  onConfirm: () => void;
   loading?: boolean;
   signerName?: string | null;
   documentTitle?: string | null;
 }
 
 export function SignatureConfirmDialog({ open, onClose, onConfirm, loading, signerName, documentTitle }: Props) {
-  const [password, setPassword] = useState('');
   const [mfaCode, setMfaCode] = useState('');
   const { data: mfa, isLoading: mfaLoading } = useMfaStatus();
   const verifyMfa = useVerifyMfaFactor();
 
   const needsMfaVerification = !!mfa?.needsVerification;
-  const handleClose = () => { setPassword(''); setMfaCode(''); onClose(); };
-  const handleConfirm = () => { const p = password.trim(); if (p) onConfirm(p); };
+  const missingMfa = !!mfa && !mfa.hasMfa;
+  const handleClose = () => { setMfaCode(''); onClose(); };
+  const handleConfirm = () => { if (!missingMfa && !needsMfaVerification) onConfirm(); };
   const handleVerifyMfa = async () => {
     if (mfaCode.length !== 6) return;
     try {
@@ -44,10 +44,15 @@ export function SignatureConfirmDialog({ open, onClose, onConfirm, loading, sign
           <DialogDescription>
             Você está prestes a assinar <span className="font-semibold">{documentTitle ?? 'este documento'}</span>
             {signerName && <> usando o certificado A1 de <span className="font-semibold">{signerName}</span></>}.
-            Digite sua senha para confirmar.
+            Confirme a operação com MFA verificado nesta sessão.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-2">
+          {missingMfa && (
+            <div className="rounded-md border border-border bg-muted/30 p-3 text-sm text-muted-foreground">
+              Ative MFA no perfil antes de assinar documentos.
+            </div>
+          )}
           {needsMfaVerification && (
             <div className="space-y-2 rounded-md border border-border bg-muted/30 p-3">
               <Label className="text-xs">Código MFA desta sessão</Label>
@@ -72,22 +77,13 @@ export function SignatureConfirmDialog({ open, onClose, onConfirm, loading, sign
               </Button>
             </div>
           )}
-          <Label className="text-xs">Sua senha de acesso</Label>
-          <Input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') handleConfirm(); }}
-            autoFocus
-            disabled={loading}
-          />
           <p className="text-[11px] text-muted-foreground">
-            A senha é usada apenas para confirmar a operação e não é armazenada.
+            A assinatura só é enviada após a verificação MFA exigida para esta sessão.
           </p>
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={handleClose} disabled={loading}>Cancelar</Button>
-          <Button onClick={handleConfirm} disabled={!password || loading || mfaLoading || needsMfaVerification}>
+          <Button onClick={handleConfirm} disabled={loading || mfaLoading || needsMfaVerification || missingMfa}>
             {loading ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Assinando…</> : 'Assinar'}
           </Button>
         </DialogFooter>
