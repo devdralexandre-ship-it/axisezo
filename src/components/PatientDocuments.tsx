@@ -114,16 +114,29 @@ export function PatientDocuments({ patient }: Props) {
                 )}
               </p>
             </div>
-            {d.pdf_path && !d.signed_pdf_path && certStatus?.has_cert && (
+            {d.pdf_path && !d.signed_pdf_path && certStatus?.has_cert && canDelegateSign(d) && (
               <Button
                 variant="ghost"
                 size="icon"
                 className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
-                onClick={() => handleSign(d.id)}
-                disabled={signingId === d.id}
+                onClick={() => setConfirmDoc({ id: d.id, title: d.title })}
                 title={`Assinar com A1 de ${certStatus.surgeon_name}`}
               >
-                {signingId === d.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <PenLine className="h-3.5 w-3.5" />}
+                <PenLine className="h-3.5 w-3.5" />
+              </Button>
+            )}
+            {d.pdf_path && !d.signed_pdf_path && certStatus?.has_cert
+              && certStatus.delegation_mode === 'per_document'
+              && !d.signature_authorized_by
+              && isResponsibleSurgeon && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={() => authorizeDoc.mutate(d.id)}
+                title="Liberar para a concierge assinar"
+              >
+                <CheckCircle2 className="h-3.5 w-3.5 text-pipeline-amber" />
               </Button>
             )}
             {d.signed_pdf_path && (
