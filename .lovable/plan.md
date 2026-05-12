@@ -1,124 +1,95 @@
-## Escopo desta rodada
+## Delegação de assinatura A1 + log de auditoria
 
-### 1. Paridade do bloco "Nova ação" no cadastro de paciente
-Hoje o `AddPatientForm` tem um mini-formulário próprio (título livre + data + hora + responsável). O `AddTaskDialog` já evoluiu com:
-- Dropdown **Tipo de ação** (presets de `TASK_PRESETS` + "Outro")
-- Campo "Título" sincronizado ao preset
-- Label **"Prazo máximo"** em vez de "Data"
+A concierge precisa poder assinar documentos usando o certificado A1 do cirurgião responsável pelo paciente, e cada uso precisa ficar registrado num log que o próprio cirurgião consulta.
 
-**Ação:** extrair o conteúdo de `AddTaskDialog` para um componente reutilizável `TaskFormFields` (sem o `<Dialog>` ao redor) e usá-lo dentro de `AddPatientForm` na seção de ações iniciais. O cadastro continuará exigindo ao menos uma ação válida.
+### 1. Modelo de delegação (quem pode usar o certificado de quem)
 
-### 2. Renomear coluna "Cirurgia Autorizada" → "Apto para agendar"
-Editar `STAGE_LABELS.preop_preparation` em `src/data/types.ts`. A chave interna `preop_preparation` permanece (sem migration). Atualizar quaisquer textos hard-coded que mencionem o rótulo antigo (busca por "Cirurgia Autorizada").
+Hoje o RLS de `signing_certificates` só permite o próprio dono (ou admin) ler/usar o certificado. Vou ampliar para que a concierge possa **usar (assinar)** o certificado dos cirurgiões dos seus pacientes, mas **não** baixar, alterar ou ver a senha.
 
-### 3. Headers fixos do Kanban no scroll vertical
-Em `PipelineColumn.tsx`, transformar o cabeçalho da coluna (`h3` + Badge) em `sticky top-0 z-10 bg-background pb-2` para que ao rolar a coluna verticalmente o título permaneça visível. O scroll horizontal do board já é independente.
+Regras:
+- O cirurgião continua sendo o único que faz upload, troca senha ou remove o próprio certificado.
+- A concierge só pode acionar "Assinar com A1 do Dr. X" para um paciente cujo `surgeon` corresponde ao cirurgião dela (já controlado por `can_access_patient`).
+- O admin pode assinar em nome de qualquer cirurgião (uso administrativo).
+- O acesso ao `.pfx` e à senha descriptografada **só acontece dentro da edge function** `sign-pdf`, nunca exposto ao cliente.
 
-### 4. Data de indicação como base do SLA
-- No `AddPatientForm`, adicionar campo **"Data da indicação"** (date picker), pré-preenchido com hoje. O campo `createdAt` continua sendo a data de inclusão no CRM (auto, somente leitura no painel).
-- Trocar a referência de SLA: `getDaysInStage` continua medindo dias na etapa atual, mas o card e dashboard passarão a exibir também **"dias desde a indicação"** baseado em `indicationDate` (fallback `createdAt` quando ausente).
-- Ordenação no Kanban (`PipelineDashboard` linha 393) já usa `indicationDate || createdAt` — manter, mas garantir que novos pacientes salvem `indicationDate` informado pelo usuário, não `today` automático.
+A leitura direta da tabela continua restrita ao dono — a concierge só vê metadados mínimos (CN + validade do cirurgião responsável) via uma RPC `get_surgeon_cert_status(patient_id)` que retorna apenas se existe certificado ativo, sem expor caminhos nem senha.
 
-### 5. Procedimentos principal + complementares no cadastro com persistência e sugestões
-Hoje o `AddPatientForm` só captura `procedure` (texto único). A solicitação cirúrgica (`SurgicalRequestForm`) já tem `mainCbhpm`, `extraCbhpm[]`, `cid[]`, `opme[]` com `CodeAutocomplete` que sugere a partir de `procedure_code_suggestions` e `procedure_default_codes`.
+### 2. Edge function `sign-pdf` — quem assina vs. quem é assinado
 
-**Plano:**
-- No `AddPatientForm`, após o campo Procedimento, adicionar bloco **"Códigos CBHPM (opcional)"** com:
-  - Campo CBHPM principal (`CodeAutocomplete` kind=cbhpm)
-  - Lista de complementares (add/remove, `CodeAutocomplete`)
-- Persistir esses códigos no novo campo JSONB `patients.procedure_codes` (ver migration abaixo).
-- Quando uma solicitação cirúrgica for gerada, o `GenerateDocumentDialog` (que já consome defaults via `useDefaultProcedureCodes`) passa também a usar os códigos salvos no paciente como sementes prioritárias.
-- O `CodeAutocomplete` já registra cada uso em `procedure_code_suggestions`, então as sugestões aparecerão automaticamente em pacientes futuros do mesmo procedimento.
+A função passa a aceitar dois conceitos separados:
+- **`signer_user_id`** = dono do certificado (o cirurgião)
+- **`acting_user_id`** = quem clicou no botão (`auth.uid()`, pode ser a própria concierge)
+
+Fluxo:
+1. Recebe `document_id`.
+2. Resolve o `patient` → identifica o `surgeon` (pelo nome) → resolve para `signer_user_id` via `profiles.surgeon_name`.
+3. Valida autorização: o `acting_user_id` é admin, é o próprio cirurgião, **ou** é a concierge daquele paciente (via `can_access_patient` + role `concierge`).
+4. Carrega o `.pfx` e descriptografa a senha do cirurgião.
+5. Assina o PDF, salva como `*_signed.pdf`.
+6. Grava no log de auditoria (ver seção 3).
+7. Atualiza `patient_documents` (`signed_pdf_path`, `signed_at`, `signed_by` = `signer_user_id`).
+
+Se não houver certificado do cirurgião responsável, retorna erro claro: "O Dr. X ainda não cadastrou o certificado A1 dele. Peça para ele configurar em Perfil."
+
+### 3. Log de auditoria
+
+Nova tabela `signature_audit_log`:
+- `signer_user_id` — dono do certificado (cirurgião)
+- `acted_by_user_id` — quem clicou (pode ser a concierge)
+- `acted_by_name` — snapshot do nome de quem assinou (para histórico legível)
+- `patient_id`, `patient_name_snapshot`
+- `document_id`, `document_title`, `document_type`
+- `signed_at`, `ip_address`, `user_agent`
+- `result` (`success` | `failed`), `error_message`
+
+RLS:
+- Cirurgião (`signer_user_id = auth.uid()`) vê **todos os usos do seu certificado** — inclusive falhas.
+- Concierge vê apenas as próprias ações (`acted_by_user_id = auth.uid()`).
+- Admin vê tudo.
+- Insert: somente service role (a edge function), nunca client-side.
+
+### 4. UI
+
+**Em `PatientDocuments.tsx`:**
+- Botão "Assinar com A1" aparece se houver certificado ativo do cirurgião do paciente (consulta via RPC).
+- Tooltip mostra: "Assinará usando o certificado de Dr. X (válido até DD/MM/AAAA)".
+- Após assinatura, mostra "Assinado em DD/MM HH:MM por {acted_by} — certificado de Dr. X" + botão para baixar o PDF assinado.
+
+**Em `Profile.tsx` (visão do cirurgião):**
+- Nova seção **"Histórico de uso do meu certificado"** abaixo do bloco A1.
+- Lista cronológica reversa: data/hora, paciente, documento, **quem assinou** (próprio nome ou nome da concierge), resultado.
+- Filtro por período e por usuário.
+- Aviso de destaque se houver assinatura feita por terceiros nas últimas 24h ("Sua assinatura foi usada por {concierge} em {N} documentos hoje").
+
+**Em `Profile.tsx` (visão da concierge):**
+- Seção **"Assinaturas que realizei"** — lista das assinaturas que ela fez em nome de cada cirurgião, para sua própria referência.
+
+### 5. Notificação ao cirurgião
+
+Quando a concierge assina em nome do cirurgião, criar uma notificação no sino (`NotificationBell`) para o cirurgião:
+> "Maria assinou a Solicitação Cirúrgica do paciente João Silva usando seu certificado A1."
+
+Link clicável vai para o histórico no perfil.
+
+### 6. Resumo das alterações
 
 **Migration:**
-- `ALTER TABLE patients ADD COLUMN procedure_codes JSONB NOT NULL DEFAULT '{"main": null, "extras": []}'::jsonb;`
+- Tabela `signature_audit_log` + RLS conforme acima.
+- RPC `get_surgeon_cert_status(patient_id)` retornando `{ has_cert, subject_cn, valid_to }` — security definer, valida acesso ao paciente.
 
-### 6. Assinatura eletrônica A1 (ICP-Brasil) — fundação
-Abordagem escolhida: **upload do .pfx no perfil + assinatura no servidor**.
+**Edge function `sign-pdf`:** lógica de delegação, gravação no log (sucesso e falha), trigger de notificação.
 
-**Banco:**
-- Novo bucket privado de Storage: `signing-certificates` (RLS: usuário só lê/escreve `{auth.uid()}/cert.pfx`).
-- Nova tabela `signing_certificates`:
-  - `user_id uuid` (PK, FK auth)
-  - `pfx_path text` (caminho no bucket)
-  - `password_encrypted text` (senha do .pfx criptografada com `pgcrypto` usando uma master key em secret)
-  - `subject_cn text`, `valid_from date`, `valid_to date` (extraídos no upload para exibir validade no perfil)
-  - RLS: usuário só vê/edita o próprio; admin lê tudo.
-- Nova coluna `patient_documents.signed_pdf_path text` e `signed_at timestamptz`, `signed_by uuid`.
+**Front-end:**
+- `PatientDocuments.tsx` — botão e estado pós-assinatura.
+- `Profile.tsx` — duas novas seções (histórico do cirurgião / assinaturas da concierge).
+- `NotificationBell` — consumir o novo tipo de notificação.
 
-**Edge functions:**
-- `upload-signing-cert`: recebe .pfx + senha, valida com node-forge (npm:node-forge), extrai metadados, criptografa a senha (`pgp_sym_encrypt`), salva no Storage e na tabela.
-- `sign-pdf`: recebe `document_id`, busca o PDF gerado, recupera .pfx + senha do usuário, assina com `npm:@signpdf/signpdf` + `npm:@signpdf/signer-p12` + `npm:@signpdf/placeholder-plain`, salva como `*_signed.pdf` no bucket de documentos e atualiza `patient_documents`.
+**Segurança:**
+- A senha do `.pfx` nunca sai do servidor.
+- Concierge nunca recebe o `.pfx` nem a senha — só dispara a assinatura.
+- Cada uso é rastreável e visível ao dono do certificado.
 
-**Secrets necessários:**
-- `PFX_MASTER_KEY` (chave para `pgp_sym_encrypt`/`decrypt`).
+### Pendência conhecida
+Continua faltando o secret `PFX_MASTER_KEY` para ativar o fluxo completo. O plano fica pronto para entrar em produção assim que você adicionar a chave.
 
-**UI:**
-- Em `/perfil`, nova seção **"Assinatura digital (A1)"**: upload do .pfx, campo senha, exibição do CN/validade, botão remover. Aviso de segurança claro ("Sua chave privada fica criptografada e só é usada para assinar PDFs deste sistema").
-- Em `PatientDocuments` / `GenerateDocumentDialog`, novo botão **"Assinar com A1"** ao lado do botão de download, visível apenas se o usuário tem certificado ativo. Mostra status "Assinado em DD/MM HH:MM" após sucesso e disponibiliza link para o PDF assinado.
-
-### Componentes alterados
-- `src/data/types.ts` — rótulo da coluna
-- `src/components/PipelineColumn.tsx` — header sticky
-- `src/components/AddPatientForm.tsx` — campo data de indicação, bloco CBHPM, uso de `TaskFormFields`
-- `src/components/AddTaskDialog.tsx` — extrai conteúdo para `TaskFormFields`
-- `src/components/PatientCard.tsx` — exibir "X dias desde indicação"
-- `src/components/PipelineDashboard.tsx` — ajustes de cópia
-- `src/components/GenerateDocumentDialog.tsx` + `SurgicalRequestForm.tsx` — pré-preencher com `patient.procedure_codes`
-- `src/pages/Profile.tsx` — seção A1
-- `src/components/PatientDocuments.tsx` — botão "Assinar com A1"
-
-### Componentes/áreas que NÃO mudam
-- Templates de PDF (continuam neutros)
-- Sino de notificações, presets de tarefa (já entregues)
-- Auth, RLS de pacientes/tarefas
-- Importação CSV
-- Rótulos das demais 10 colunas
-
-### Migration única
-```sql
--- Renomeação só em label (sem alterar enum)
-ALTER TABLE patients ADD COLUMN procedure_codes JSONB NOT NULL DEFAULT '{"main": null, "extras": []}'::jsonb;
-
-ALTER TABLE patient_documents
-  ADD COLUMN signed_pdf_path text,
-  ADD COLUMN signed_at timestamptz,
-  ADD COLUMN signed_by uuid;
-
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
-
-CREATE TABLE public.signing_certificates (
-  user_id uuid PRIMARY KEY,
-  pfx_path text NOT NULL,
-  password_encrypted text NOT NULL,
-  subject_cn text,
-  valid_from date,
-  valid_to date,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
-);
-ALTER TABLE public.signing_certificates ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users manage own cert" ON public.signing_certificates
-  FOR ALL USING (auth.uid() = user_id OR has_role(auth.uid(),'admin'))
-  WITH CHECK (auth.uid() = user_id OR has_role(auth.uid(),'admin'));
-
-INSERT INTO storage.buckets (id, name, public) VALUES ('signing-certificates','signing-certificates', false);
-CREATE POLICY "Own cert read" ON storage.objects FOR SELECT
-  USING (bucket_id='signing-certificates' AND auth.uid()::text = (storage.foldername(name))[1]);
-CREATE POLICY "Own cert write" ON storage.objects FOR INSERT
-  WITH CHECK (bucket_id='signing-certificates' AND auth.uid()::text = (storage.foldername(name))[1]);
-CREATE POLICY "Own cert delete" ON storage.objects FOR DELETE
-  USING (bucket_id='signing-certificates' AND auth.uid()::text = (storage.foldername(name))[1]);
-```
-
-### Secret a solicitar
-`PFX_MASTER_KEY` (32+ chars aleatórios — usado para criptografar a senha do .pfx no banco).
-
-### Ordem de execução
-1. Migration + secret
-2. Refator `TaskFormFields` e paridade no cadastro
-3. Rótulo + headers sticky + data de indicação
-4. Bloco CBHPM no cadastro + persistência
-5. Fluxo A1: edge functions → UI no perfil → botão nos documentos
-
-Aprovando, executo todas as etapas em sequência.
+Aprovando, sigo com a migration + edge function + UI.

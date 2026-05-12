@@ -555,6 +555,60 @@ export type Database = {
         }
         Relationships: []
       }
+      signature_audit_log: {
+        Row: {
+          acted_by_name: string | null
+          acted_by_user_id: string
+          document_id: string | null
+          document_title: string | null
+          document_type: string | null
+          error_message: string | null
+          id: string
+          ip_address: string | null
+          patient_id: string | null
+          patient_name_snapshot: string | null
+          result: string
+          signed_at: string
+          signer_name: string | null
+          signer_user_id: string
+          user_agent: string | null
+        }
+        Insert: {
+          acted_by_name?: string | null
+          acted_by_user_id: string
+          document_id?: string | null
+          document_title?: string | null
+          document_type?: string | null
+          error_message?: string | null
+          id?: string
+          ip_address?: string | null
+          patient_id?: string | null
+          patient_name_snapshot?: string | null
+          result?: string
+          signed_at?: string
+          signer_name?: string | null
+          signer_user_id: string
+          user_agent?: string | null
+        }
+        Update: {
+          acted_by_name?: string | null
+          acted_by_user_id?: string
+          document_id?: string | null
+          document_title?: string | null
+          document_type?: string | null
+          error_message?: string | null
+          id?: string
+          ip_address?: string | null
+          patient_id?: string | null
+          patient_name_snapshot?: string | null
+          result?: string
+          signed_at?: string
+          signer_name?: string | null
+          signer_user_id?: string
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
       signing_certificates: {
         Row: {
           created_at: string
@@ -791,12 +845,59 @@ export type Database = {
       can_access_patient: { Args: { _patient_id: string }; Returns: boolean }
       current_concierge_name: { Args: never; Returns: string }
       current_surgeon_name: { Args: never; Returns: string }
+      get_signing_certificate_secret: {
+        Args: { _master_key: string; _signer_user_id: string }
+        Returns: {
+          password: string
+          pfx_path: string
+        }[]
+      }
+      get_surgeon_cert_status: {
+        Args: { _patient_id: string }
+        Returns: {
+          has_cert: boolean
+          signer_user_id: string
+          subject_cn: string
+          surgeon_name: string
+          valid_to: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
         Returns: boolean
+      }
+      insert_signature_audit: {
+        Args: {
+          _acted_by_name: string
+          _acted_by_user_id: string
+          _document_id: string
+          _document_title: string
+          _document_type: string
+          _error: string
+          _ip: string
+          _patient_id: string
+          _patient_name: string
+          _result: string
+          _signer_name: string
+          _signer_user_id: string
+          _ua: string
+        }
+        Returns: string
+      }
+      set_signing_certificate: {
+        Args: {
+          _master_key: string
+          _password: string
+          _pfx_path: string
+          _subject_cn: string
+          _user_id: string
+          _valid_from: string
+          _valid_to: string
+        }
+        Returns: undefined
       }
     }
     Enums: {
