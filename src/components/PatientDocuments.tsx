@@ -47,10 +47,10 @@ export function PatientDocuments({ patient }: Props) {
     }
   };
 
-  const handleConfirmSign = (password: string) => {
+  const handleConfirmSign = () => {
     if (!confirmDoc) return;
     signDoc.mutate(
-      { documentId: confirmDoc.id, password },
+      { documentId: confirmDoc.id },
       { onSuccess: () => setConfirmDoc(null) },
     );
   };
