@@ -26,8 +26,12 @@ export function SignatureConfirmDialog({ open, onClose, onConfirm, loading, sign
   const handleConfirm = () => { if (password) onConfirm(password); };
   const handleVerifyMfa = async () => {
     if (mfaCode.length !== 6) return;
-    await verifyMfa.mutateAsync(mfaCode);
-    setMfaCode('');
+    try {
+      await verifyMfa.mutateAsync(mfaCode);
+      setMfaCode('');
+    } catch {
+      // Toast is handled by the mutation.
+    }
   };
 
   return (
