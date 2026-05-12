@@ -94,6 +94,9 @@ function mapDbToPatient(db: DbPatient): Patient {
     hospitalBudget: (db as any).hospital_budget != null ? Number((db as any).hospital_budget) : null,
     materialsCost: (db as any).materials_cost != null ? Number((db as any).materials_cost) : null,
     preOpChecklist,
+    procedureCodes: ((db as any).procedure_codes && typeof (db as any).procedure_codes === 'object')
+      ? { main: (db as any).procedure_codes.main ?? null, extras: Array.isArray((db as any).procedure_codes.extras) ? (db as any).procedure_codes.extras : [] }
+      : { main: null, extras: [] },
   };
 }
 
@@ -142,6 +145,7 @@ export function useAddPatient() {
         alerts: p.alerts,
         surgical_approach: p.surgicalApproach,
         laterality: (p as any).laterality || null,
+        procedure_codes: p.procedureCodes ?? { main: null, extras: [] },
       } as any).select().single();
       if (error) throw error;
 
