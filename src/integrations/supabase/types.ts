@@ -621,6 +621,68 @@ export type Database = {
         }
         Relationships: []
       }
+      signature_verifications: {
+        Row: {
+          created_at: string
+          document_id: string
+          document_title: string
+          document_type: string | null
+          id: string
+          patient_name_snapshot: string | null
+          pdf_sha256: string | null
+          revoked_at: string | null
+          signed_at: string
+          signer_crm: string | null
+          signer_name: string
+          signer_specialty: string | null
+          signer_user_id: string
+          subject_cn: string | null
+          valid_to: string | null
+        }
+        Insert: {
+          created_at?: string
+          document_id: string
+          document_title: string
+          document_type?: string | null
+          id?: string
+          patient_name_snapshot?: string | null
+          pdf_sha256?: string | null
+          revoked_at?: string | null
+          signed_at?: string
+          signer_crm?: string | null
+          signer_name: string
+          signer_specialty?: string | null
+          signer_user_id: string
+          subject_cn?: string | null
+          valid_to?: string | null
+        }
+        Update: {
+          created_at?: string
+          document_id?: string
+          document_title?: string
+          document_type?: string | null
+          id?: string
+          patient_name_snapshot?: string | null
+          pdf_sha256?: string | null
+          revoked_at?: string | null
+          signed_at?: string
+          signer_crm?: string | null
+          signer_name?: string
+          signer_specialty?: string | null
+          signer_user_id?: string
+          subject_cn?: string | null
+          valid_to?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signature_verifications_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "patient_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       signing_certificates: {
         Row: {
           created_at: string
