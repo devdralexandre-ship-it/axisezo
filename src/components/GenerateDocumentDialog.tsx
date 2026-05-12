@@ -92,6 +92,15 @@ export function GenerateDocumentDialog({ open, onClose, patient }: Props) {
     switch (type) {
       case 'surgical_request': {
         const base = defaultSurgicalRequestData(patient, selectedTemplate);
+        // 1) Seed from patient-level codes captured at registration (highest priority)
+        const pc = patient?.procedureCodes;
+        if (pc?.main && !base.mainCbhpm.code && !base.mainCbhpm.label) {
+          base.mainCbhpm = { code: pc.main.code || '', label: pc.main.label || '' };
+        }
+        if (pc?.extras?.length && base.extraCbhpm.length === 0) {
+          base.extraCbhpm = pc.extras.map((e: any) => ({ code: e.code || '', label: e.label || '' }));
+        }
+        // 2) Fall back to user/role saved defaults
         if (defaultsBundle) {
           if (defaultsBundle.mainCbhpm && !base.mainCbhpm.code && !base.mainCbhpm.label) base.mainCbhpm = defaultsBundle.mainCbhpm;
           if (defaultsBundle.extraCbhpm.length && base.extraCbhpm.length === 0) base.extraCbhpm = [...defaultsBundle.extraCbhpm];
