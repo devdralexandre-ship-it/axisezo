@@ -189,6 +189,15 @@ export interface Patient {
   hospitalBudget: number | null;
   materialsCost: number | null;
   preOpChecklist: PreOpChecklist;
+  procedureCodes: { main: { code: string; label: string } | null; extras: { code: string; label: string }[] };
+}
+
+export function getDaysSinceIndication(p: Patient): number {
+  const ref = p.indicationDate || p.createdAt;
+  if (!ref) return 0;
+  const entered = new Date(ref + 'T00:00:00');
+  const now = new Date();
+  return Math.max(0, Math.floor((now.getTime() - entered.getTime()) / (1000 * 60 * 60 * 24)));
 }
 
 export function getNextPendingTask(patient: Patient): PatientTask | undefined {
