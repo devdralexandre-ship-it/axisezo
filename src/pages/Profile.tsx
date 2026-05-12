@@ -3,10 +3,18 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, Save, Trash2 } from 'lucide-react';
+import { ArrowLeft, Save, Trash2, Upload, ShieldCheck, AlertCircle, History } from 'lucide-react';
 import { useProfessionalProfile, useSaveProfessionalProfile } from '@/hooks/useProfessionalProfile';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useMyDefaults, useDeleteDefault } from '@/hooks/useDefaultProcedureCodes';
+import { useAuth } from '@/contexts/AuthContext';
+import {
+  useMySigningCertificate,
+  useUploadSigningCertificate,
+  useDeleteSigningCertificate,
+  useSignatureAuditAsSigner,
+  useSignatureAuditAsActor,
+} from '@/hooks/useSigning';
 
 const KIND_LABEL: Record<string, string> = {
   cbhpm_main: 'CBHPM principal',
