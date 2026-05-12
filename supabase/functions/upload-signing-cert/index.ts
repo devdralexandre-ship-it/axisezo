@@ -86,14 +86,8 @@ Deno.serve(async (req) => {
       .upload(path, pfxBytes, { contentType: "application/x-pkcs12", upsert: true });
     if (upErr) throw upErr;
 
-    // Encrypt password using pgp_sym_encrypt via SQL
-    const { data: encRes, error: encErr } = await admin.rpc as any;
-    // Use raw SQL via PostgREST: call a small inline function through .rpc not available.
-    // Instead, encrypt by inserting/updating with a SQL expression via the REST endpoint.
-    // We do it through a direct SQL call using admin client's `from('rpc')` is not flexible,
-    // so we use a one-off RPC defined in the migration. Fallback: execute via fetch to PostgREST.
+    // Encrypt password and persist via SECURITY DEFINER RPC
 
-    // Use pg-meta-style: invoke a tiny SQL via rpc 'set_signing_certificate'
     const { error: rpcErr } = await admin.rpc("set_signing_certificate", {
       _user_id: user.id,
       _pfx_path: path,
