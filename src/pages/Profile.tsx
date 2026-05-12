@@ -209,17 +209,152 @@ export default function Profile() {
 
         <section className="space-y-3">
           <div>
-            <h2 className="text-sm font-bold uppercase tracking-wide text-muted-foreground">Assinatura digital A1 (ICP-Brasil)</h2>
+            <h2 className="text-sm font-bold uppercase tracking-wide text-muted-foreground">
+              Assinatura digital A1 (ICP-Brasil)
+            </h2>
             <p className="text-xs text-muted-foreground mt-1">
-              Em breve você poderá enviar o seu certificado A1 (.pfx) para que o sistema assine automaticamente os PDFs gerados.
-              A chave privada ficará criptografada e usada apenas para assinar documentos emitidos por você.
+              Envie o seu certificado A1 (.pfx). A chave privada fica criptografada no servidor e
+              só é usada para assinar PDFs deste sistema. {isSurgeon && 'A concierge atribuída ao paciente pode acionar a assinatura em seu nome — todo uso fica registrado abaixo.'}
             </p>
           </div>
-          <div className="border border-dashed border-border rounded-lg p-4 text-sm text-muted-foreground">
-            Aguardando configuração da chave-mestra de criptografia (<code className="font-mono text-xs">PFX_MASTER_KEY</code>) para ativar este recurso.
-            Adicione-a nas configurações de Lovable Cloud quando estiver pronto e o upload do certificado será liberado.
-          </div>
+
+          {myCert ? (
+            <div className="border border-border rounded-lg p-4 space-y-3 bg-muted/30">
+              <div className="flex items-start gap-3">
+                <ShieldCheck className="h-5 w-5 text-pipeline-green shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium">{myCert.subject_cn ?? 'Certificado A1 cadastrado'}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Validade: {myCert.valid_from ?? '?'} → {myCert.valid_to ?? '?'}
+                  </p>
+                  {myCert.valid_to && new Date(myCert.valid_to) < new Date() && (
+                    <p className="text-xs text-destructive flex items-center gap-1 mt-1">
+                      <AlertCircle className="h-3 w-3" /> Certificado expirado
+                    </p>
+                  )}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-destructive"
+                  onClick={() => user && deleteCert.mutate(user.id)}
+                  disabled={deleteCert.isPending}
+                >
+                  <Trash2 className="h-4 w-4" /> Remover
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="border border-dashed border-border rounded-lg p-4 space-y-3">
+              <div className="space-y-2">
+                <Label className="text-xs">Arquivo .pfx</Label>
+                <Input
+                  type="file"
+                  accept=".pfx,.p12,application/x-pkcs12"
+                  onChange={(e) => setPfxFile(e.target.files?.[0] ?? null)}
+                  className="h-9 text-sm"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs">Senha do certificado</Label>
+                <Input
+                  type="password"
+                  value={pfxPassword}
+                  onChange={(e) => setPfxPassword(e.target.value)}
+                  placeholder="Senha utilizada na emissão"
+                  className="h-9 text-sm"
+                />
+              </div>
+              <Button
+                onClick={handleUploadCert}
+                disabled={!pfxFile || !pfxPassword || uploadCert.isPending}
+                size="sm"
+              >
+                <Upload className="h-4 w-4" />
+                {uploadCert.isPending ? 'Enviando…' : 'Enviar certificado'}
+              </Button>
+              <p className="text-[11px] text-muted-foreground">
+                A senha será criptografada antes de ser armazenada e nunca poderá ser lida por outro usuário.
+              </p>
+            </div>
+          )}
         </section>
+
+        {isSurgeon && (
+          <section className="space-y-3">
+            <div>
+              <h2 className="text-sm font-bold uppercase tracking-wide text-muted-foreground flex items-center gap-2">
+                <History className="h-4 w-4" /> Histórico de uso do meu certificado
+              </h2>
+              <p className="text-xs text-muted-foreground mt-1">
+                Toda vez que seu certificado A1 é usado — por você ou por uma concierge agindo em seu nome — fica registrado aqui.
+              </p>
+            </div>
+            {signerAudit.length === 0 ? (
+              <p className="text-sm text-muted-foreground italic">Nenhuma assinatura registrada ainda.</p>
+            ) : (
+              <div className="border border-border rounded-lg divide-y">
+                {signerAudit.map((row) => (
+                  <div key={row.id} className="p-3 text-sm flex items-start gap-3">
+                    <div className={`mt-1.5 h-2 w-2 rounded-full shrink-0 ${row.result === 'success' ? 'bg-pipeline-green' : 'bg-destructive'}`} />
+                    <div className="flex-1 min-w-0">
+                      <p className="truncate">
+                        <span className="font-medium">{row.document_title ?? 'Documento'}</span>
+                        {row.patient_name_snapshot && <> — {row.patient_name_snapshot}</>}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatDateTime(row.signed_at)} · assinado por{' '}
+                        <span className={row.acted_by_user_id === user?.id ? '' : 'font-semibold text-foreground'}>
+                          {row.acted_by_user_id === user?.id ? 'você' : (row.acted_by_name ?? 'outro usuário')}
+                        </span>
+                        {row.result !== 'success' && row.error_message && (
+                          <span className="text-destructive"> · {row.error_message}</span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {isConcierge && (
+          <section className="space-y-3">
+            <div>
+              <h2 className="text-sm font-bold uppercase tracking-wide text-muted-foreground flex items-center gap-2">
+                <History className="h-4 w-4" /> Assinaturas que realizei
+              </h2>
+              <p className="text-xs text-muted-foreground mt-1">
+                Documentos que você assinou usando o certificado dos cirurgiões.
+              </p>
+            </div>
+            {actorAudit.length === 0 ? (
+              <p className="text-sm text-muted-foreground italic">Nenhuma assinatura registrada ainda.</p>
+            ) : (
+              <div className="border border-border rounded-lg divide-y">
+                {actorAudit.map((row) => (
+                  <div key={row.id} className="p-3 text-sm flex items-start gap-3">
+                    <div className={`mt-1.5 h-2 w-2 rounded-full shrink-0 ${row.result === 'success' ? 'bg-pipeline-green' : 'bg-destructive'}`} />
+                    <div className="flex-1 min-w-0">
+                      <p className="truncate">
+                        <span className="font-medium">{row.document_title ?? 'Documento'}</span>
+                        {row.patient_name_snapshot && <> — {row.patient_name_snapshot}</>}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatDateTime(row.signed_at)} · certificado de{' '}
+                        <span className="font-semibold text-foreground">{row.signer_name ?? 'cirurgião'}</span>
+                        {row.result !== 'success' && row.error_message && (
+                          <span className="text-destructive"> · {row.error_message}</span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
 
         <section className="space-y-2">
           <h2 className="text-sm font-bold uppercase tracking-wide text-muted-foreground">Em breve</h2>
@@ -227,6 +362,7 @@ export default function Profile() {
             Seus templates pessoais de documentos aparecerão aqui para edição direta.
           </p>
         </section>
+
       </main>
     </div>
   );
