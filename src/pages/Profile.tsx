@@ -176,6 +176,20 @@ export default function Profile() {
           </section>
         )}
 
+        <section className="space-y-3">
+          <div>
+            <h2 className="text-sm font-bold uppercase tracking-wide text-muted-foreground">Assinatura digital A1 (ICP-Brasil)</h2>
+            <p className="text-xs text-muted-foreground mt-1">
+              Em breve você poderá enviar o seu certificado A1 (.pfx) para que o sistema assine automaticamente os PDFs gerados.
+              A chave privada ficará criptografada e usada apenas para assinar documentos emitidos por você.
+            </p>
+          </div>
+          <div className="border border-dashed border-border rounded-lg p-4 text-sm text-muted-foreground">
+            Aguardando configuração da chave-mestra de criptografia (<code className="font-mono text-xs">PFX_MASTER_KEY</code>) para ativar este recurso.
+            Adicione-a nas configurações de Lovable Cloud quando estiver pronto e o upload do certificado será liberado.
+          </div>
+        </section>
+
         <section className="space-y-2">
           <h2 className="text-sm font-bold uppercase tracking-wide text-muted-foreground">Em breve</h2>
           <p className="text-sm text-muted-foreground">

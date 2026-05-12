@@ -1,4 +1,4 @@
-import { Patient, DECISION_LABELS, OWNER_INITIALS, OWNER_COLORS, getNextPendingTask, getTaskUrgency, getDaysInStage } from '@/data/types';
+import { Patient, DECISION_LABELS, OWNER_INITIALS, OWNER_COLORS, getNextPendingTask, getTaskUrgency, getDaysInStage, getDaysSinceIndication } from '@/data/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Calendar, UserRound, Clock, CheckCircle2, MoreVertical, Trash2 } from 'lucide-react';
@@ -29,6 +29,7 @@ export function PatientCard({ patient, onClick, onCompleteTask, onDelete }: Pati
   const nextTask = getNextPendingTask(patient);
   const urgency = getTaskUrgency(nextTask);
   const daysInStage = getDaysInStage(patient.stageEnteredAt);
+  const daysSinceIndication = getDaysSinceIndication(patient);
 
   const formatCurrency = (value: number | null) => {
     if (value === null) return '—';
@@ -95,11 +96,11 @@ export function PatientCard({ patient, onClick, onCompleteTask, onDelete }: Pati
         </div>
 
         <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-          <span className="flex items-center gap-1">
+          <span className="flex items-center gap-1" title="Dias desde a indicação cirúrgica">
             <Calendar className="h-3 w-3" />
-            {formatDate(patient.lastInteractionDate)}
+            {daysSinceIndication}d desde indicação
           </span>
-          <span className="flex items-center gap-1">
+          <span className="flex items-center gap-1" title="Dias na etapa atual">
             <Clock className="h-3 w-3" />
             {daysInStage}d na etapa
           </span>

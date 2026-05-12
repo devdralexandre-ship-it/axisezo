@@ -8,6 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Patient, PIPELINE_STAGES, STAGE_LABELS, OWNERS, Owner } from '@/data/types';
 import { PROCEDURES, SURGEONS, CONCIERGES, PAYERS, BILLING_TYPES, PATIENT_TYPE_LABELS, SURGICAL_APPROACHES, procedureNeedsApproach, LATERALITY_OPTIONS, procedureNeedsLaterality, HOSPITALS, INDICATION_SOURCES } from '@/data/constants';
 import { Plus, X } from 'lucide-react';
+import { TaskFormFields, TaskDraft, emptyTaskDraft } from './TaskFormFields';
+import { CodeAutocomplete } from './CodeAutocomplete';
 
 interface InitialTask {
   id: string;
@@ -52,13 +54,15 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
   const [customIndication, setCustomIndication] = useState('');
   const [alerts, setAlerts] = useState('');
   const [notes, setNotes] = useState('');
+  const [indicationDate, setIndicationDate] = useState(new Date().toISOString().split('T')[0]);
+
+  // CBHPM codes (optional at registration)
+  const [mainCbhpm, setMainCbhpm] = useState<{ code: string; label: string }>({ code: '', label: '' });
+  const [extraCbhpm, setExtraCbhpm] = useState<{ code: string; label: string }[]>([]);
 
   // Inline task creation
   const [initialTasks, setInitialTasks] = useState<InitialTask[]>([]);
-  const [newTaskTitle, setNewTaskTitle] = useState('');
-  const [newTaskDate, setNewTaskDate] = useState(new Date().toISOString().split('T')[0]);
-  const [newTaskTime, setNewTaskTime] = useState('10:00');
-  const [newTaskResponsible, setNewTaskResponsible] = useState('');
+  const [draft, setDraft] = useState<TaskDraft>(emptyTaskDraft());
 
   const isCustomProcedure = procedure === OTHER_PROCEDURE;
   const effectiveProcedure = isCustomProcedure ? customProcedure : procedure;
@@ -78,18 +82,15 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
   const hasValidTask = initialTasks.length > 0 && initialTasks.every(t => t.title.trim() && t.dueDate);
 
   const addInitialTask = () => {
-    if (!newTaskTitle.trim() || !newTaskDate) return;
+    if (!draft.title.trim() || !draft.dueDate) return;
     setInitialTasks([...initialTasks, {
       id: crypto.randomUUID(),
-      title: newTaskTitle.trim(),
-      dueDate: newTaskDate,
-      dueTime: newTaskTime || '10:00',
-      responsible: newTaskResponsible || concierge || 'Margô',
+      title: draft.title.trim(),
+      dueDate: draft.dueDate,
+      dueTime: draft.dueTime || '10:00',
+      responsible: draft.responsible || concierge || 'Margô',
     }]);
-    setNewTaskTitle('');
-    setNewTaskDate(new Date().toISOString().split('T')[0]);
-    setNewTaskTime('10:00');
-    setNewTaskResponsible('');
+    setDraft(emptyTaskDraft());
   };
 
   const removeInitialTask = (id: string) => {
@@ -103,9 +104,11 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
     setBillingType(''); setMedicalFees(''); setAnesthesiaFees(''); setHospitalBudget('');
     setMaterialsCost(''); setDesiredHospital(''); setCustomHospital('');
     setIndicationLocation(''); setCustomIndication('');
-    setAlerts(''); setNotes(''); setInitialTasks([]); setNewTaskTitle('');
-    setNewTaskDate(new Date().toISOString().split('T')[0]); setNewTaskTime('10:00');
-    setNewTaskResponsible('');
+    setAlerts(''); setNotes(''); setInitialTasks([]);
+    setDraft(emptyTaskDraft());
+    setIndicationDate(new Date().toISOString().split('T')[0]);
+    setMainCbhpm({ code: '', label: '' });
+    setExtraCbhpm([]);
   };
 
   const handleSubmit = () => {
@@ -140,7 +143,7 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
       email,
       initialTasks: initialTasks.map(t => ({ title: t.title, dueDate: t.dueDate, dueTime: t.dueTime, responsible: t.responsible })),
       createdAt: today,
-      indicationDate: today,
+      indicationDate: indicationDate || today,
       indicationLocation: finalIndication || null,
       payer: finalPayer || null,
       billingType: billingType || null,
@@ -154,6 +157,10 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
       alerts: alerts || null,
       lossReason: null,
       lossReasonDetail: null,
+      procedureCodes: {
+        main: (mainCbhpm.code || mainCbhpm.label) ? mainCbhpm : null,
+        extras: extraCbhpm.filter((e) => e.code || e.label),
+      },
     });
     resetForm();
     onClose();
@@ -208,6 +215,66 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
                 <Input value={customProcedure} onChange={(e) => setCustomProcedure(e.target.value)} placeholder="Informe o procedimento" className="mt-2 focus-visible:ring-offset-0" />
               )}
             </div>
+
+            {/* CBHPM Codes (optional) */}
+            {effectiveProcedure && (
+              <div className="space-y-2 p-3 rounded-lg bg-muted/30 border border-border">
+                <Label className="text-xs">Códigos CBHPM (opcional)</Label>
+                <p className="text-[11px] text-muted-foreground">
+                  Sugestões aparecem com base em pacientes anteriores do mesmo procedimento. Esses códigos serão pré-preenchidos ao gerar a solicitação cirúrgica.
+                </p>
+                <div className="space-y-1">
+                  <Label className="text-[11px] text-muted-foreground">Principal</Label>
+                  <CodeAutocomplete
+                    procedure={effectiveProcedure}
+                    kind="cbhpm"
+                    value={mainCbhpm.code}
+                    label={mainCbhpm.label}
+                    onChange={(code, label) => setMainCbhpm({ code, label })}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-[11px] text-muted-foreground">Complementares</Label>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 text-xs"
+                      onClick={() => setExtraCbhpm([...extraCbhpm, { code: '', label: '' }])}
+                    >
+                      <Plus className="h-3 w-3" />Adicionar
+                    </Button>
+                  </div>
+                  {extraCbhpm.map((item, idx) => (
+                    <div key={idx} className="flex items-center gap-1">
+                      <div className="flex-1">
+                        <CodeAutocomplete
+                          procedure={effectiveProcedure}
+                          kind="cbhpm"
+                          value={item.code}
+                          label={item.label}
+                          onChange={(code, label) => {
+                            const next = [...extraCbhpm];
+                            next[idx] = { code, label };
+                            setExtraCbhpm(next);
+                          }}
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-destructive"
+                        onClick={() => setExtraCbhpm(extraCbhpm.filter((_, i) => i !== idx))}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Surgical Approach */}
             {showApproach && (
@@ -372,6 +439,20 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
               <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Observações gerais sobre o paciente..." rows={3} className="focus-visible:ring-offset-0" />
             </div>
 
+            {/* Indication date — base of SLA */}
+            <div className="space-y-2">
+              <Label>Data da indicação cirúrgica *</Label>
+              <Input
+                type="date"
+                value={indicationDate}
+                onChange={(e) => setIndicationDate(e.target.value)}
+                className="focus-visible:ring-offset-0"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                O SLA do paciente é contado a partir desta data, não da data de inclusão no CRM.
+              </p>
+            </div>
+
             {/* Stage */}
             <div className="space-y-2">
               <Label>Etapa Inicial</Label>
@@ -388,25 +469,17 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
               <Label>Ações Iniciais *</Label>
               <p className="text-[11px] text-muted-foreground">Mínimo 1 ação obrigatória</p>
               <div className="space-y-2 p-3 rounded-lg bg-muted/30 border border-border">
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="col-span-2">
-                    <Input value={newTaskTitle} onChange={(e) => setNewTaskTitle(e.target.value)} placeholder="Título da ação *"
-                      onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addInitialTask())} className="focus-visible:ring-offset-0 text-sm" />
-                  </div>
-                  <Input type="date" value={newTaskDate} onChange={(e) => setNewTaskDate(e.target.value)} className="focus-visible:ring-offset-0 text-sm" />
-                  <Input type="time" value={newTaskTime} onChange={(e) => setNewTaskTime(e.target.value)} className="focus-visible:ring-offset-0 text-sm" />
-                </div>
-                <div className="flex gap-2">
-                  <Select value={newTaskResponsible} onValueChange={setNewTaskResponsible}>
-                    <SelectTrigger className="focus:ring-offset-0 text-sm flex-1"><SelectValue placeholder={concierge || 'Responsável'} /></SelectTrigger>
-                    <SelectContent>
-                      {OWNERS.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                  <Button type="button" variant="outline" size="icon" onClick={addInitialTask} className="shrink-0" disabled={!newTaskTitle.trim() || !newTaskDate}>
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
+                <TaskFormFields value={draft} onChange={setDraft} compact />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={addInitialTask}
+                  className="w-full"
+                  disabled={!draft.title.trim() || !draft.dueDate}
+                >
+                  <Plus className="h-4 w-4 mr-1" />Adicionar ação
+                </Button>
               </div>
               {initialTasks.length > 0 && (
                 <div className="space-y-1 mt-2">
