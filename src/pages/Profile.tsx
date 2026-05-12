@@ -27,6 +27,29 @@ export default function Profile() {
   const { data: profile, isLoading } = useProfessionalProfile();
   const save = useSaveProfessionalProfile();
   const { surgeonName, conciergeName, displayName, isSurgeon, isConcierge } = useUserRole();
+  const { user } = useAuth();
+  const { data: myCert } = useMySigningCertificate(user?.id);
+  const uploadCert = useUploadSigningCertificate();
+  const deleteCert = useDeleteSigningCertificate();
+  const { data: signerAudit = [] } = useSignatureAuditAsSigner(isSurgeon ? user?.id : undefined);
+  const { data: actorAudit = [] } = useSignatureAuditAsActor(isConcierge ? user?.id : undefined);
+
+  const [pfxFile, setPfxFile] = useState<File | null>(null);
+  const [pfxPassword, setPfxPassword] = useState('');
+
+  const handleUploadCert = () => {
+    if (!pfxFile || !pfxPassword) return;
+    uploadCert.mutate(
+      { file: pfxFile, password: pfxPassword },
+      { onSuccess: () => { setPfxFile(null); setPfxPassword(''); } },
+    );
+  };
+
+  const formatDateTime = (s: string) => {
+    const d = new Date(s);
+    return `${d.toLocaleDateString('pt-BR')} ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+  };
+
 
   const [crm, setCrm] = useState('');
   const [crmUf, setCrmUf] = useState('');
