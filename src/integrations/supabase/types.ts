@@ -134,6 +134,9 @@ export type Database = {
           patient_id: string
           pdf_path: string | null
           sent_via_whatsapp_at: string | null
+          signed_at: string | null
+          signed_by: string | null
+          signed_pdf_path: string | null
           template_id: string | null
           title: string
           type: Database["public"]["Enums"]["document_type"]
@@ -150,6 +153,9 @@ export type Database = {
           patient_id: string
           pdf_path?: string | null
           sent_via_whatsapp_at?: string | null
+          signed_at?: string | null
+          signed_by?: string | null
+          signed_pdf_path?: string | null
           template_id?: string | null
           title: string
           type: Database["public"]["Enums"]["document_type"]
@@ -166,6 +172,9 @@ export type Database = {
           patient_id?: string
           pdf_path?: string | null
           sent_via_whatsapp_at?: string | null
+          signed_at?: string | null
+          signed_by?: string | null
+          signed_pdf_path?: string | null
           template_id?: string | null
           title?: string
           type?: Database["public"]["Enums"]["document_type"]
@@ -225,6 +234,7 @@ export type Database = {
           payer: string | null
           phone: string | null
           procedure_category: string | null
+          procedure_codes: Json
           procedure_name: string
           responsible_contact: string | null
           stage: Database["public"]["Enums"]["pipeline_stage"]
@@ -262,6 +272,7 @@ export type Database = {
           payer?: string | null
           phone?: string | null
           procedure_category?: string | null
+          procedure_codes?: Json
           procedure_name: string
           responsible_contact?: string | null
           stage?: Database["public"]["Enums"]["pipeline_stage"]
@@ -299,6 +310,7 @@ export type Database = {
           payer?: string | null
           phone?: string | null
           procedure_category?: string | null
+          procedure_codes?: Json
           procedure_name?: string
           responsible_contact?: string | null
           stage?: Database["public"]["Enums"]["pipeline_stage"]
@@ -540,6 +552,39 @@ export type Database = {
           surgeon_name?: string | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      signing_certificates: {
+        Row: {
+          created_at: string
+          password_encrypted: string
+          pfx_path: string
+          subject_cn: string | null
+          updated_at: string
+          user_id: string
+          valid_from: string | null
+          valid_to: string | null
+        }
+        Insert: {
+          created_at?: string
+          password_encrypted: string
+          pfx_path: string
+          subject_cn?: string | null
+          updated_at?: string
+          user_id: string
+          valid_from?: string | null
+          valid_to?: string | null
+        }
+        Update: {
+          created_at?: string
+          password_encrypted?: string
+          pfx_path?: string
+          subject_cn?: string | null
+          updated_at?: string
+          user_id?: string
+          valid_from?: string | null
+          valid_to?: string | null
         }
         Relationships: []
       }

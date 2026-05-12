@@ -1,188 +1,124 @@
-## Escopo deste ciclo
+## Escopo desta rodada
 
-**Itens executados agora:** 1, 1.1, 2, 3, 6, 7, 8 (revisado — aprendizado incremental).
-**Itens preparados/respondidos:** 4 (integração futura) e 5 (consentimentos automáticos).
+### 1. Paridade do bloco "Nova ação" no cadastro de paciente
+Hoje o `AddPatientForm` tem um mini-formulário próprio (título livre + data + hora + responsável). O `AddTaskDialog` já evoluiu com:
+- Dropdown **Tipo de ação** (presets de `TASK_PRESETS` + "Outro")
+- Campo "Título" sincronizado ao preset
+- Label **"Prazo máximo"** em vez de "Data"
 
----
+**Ação:** extrair o conteúdo de `AddTaskDialog` para um componente reutilizável `TaskFormFields` (sem o `<Dialog>` ao redor) e usá-lo dentro de `AddPatientForm` na seção de ações iniciais. O cadastro continuará exigindo ao menos uma ação válida.
 
-### 1 + 1.1 — Notificações como pilar operacional
+### 2. Renomear coluna "Cirurgia Autorizada" → "Apto para agendar"
+Editar `STAGE_LABELS.preop_preparation` em `src/data/types.ts`. A chave interna `preop_preparation` permanece (sem migration). Atualizar quaisquer textos hard-coded que mencionem o rótulo antigo (busca por "Cirurgia Autorizada").
 
-**Mudanças no `NotificationBell`:**
-- Cabeçalho com data do dia + contador "X demandas para hoje".
-- Lista agrupada e ordenada por prioridade fixa:
-  1. **Atrasadas** (vermelho, com nº de dias de atraso)
-  2. **Vencem hoje** (âmbar, ordenadas por horário)
-  3. **Sem próxima ação definida** (cinza-vermelho — paciente parado)
-  4. **Próximas 48h** (verde, colapsável)
-- Cada item mostra: paciente, etapa, ação, responsável, prazo.
-- Filtro "minhas / todas" por responsável.
-- Auto-abertura do sino no primeiro login do dia (flag em `localStorage` por usuário+data).
+### 3. Headers fixos do Kanban no scroll vertical
+Em `PipelineColumn.tsx`, transformar o cabeçalho da coluna (`h3` + Badge) em `sticky top-0 z-10 bg-background pb-2` para que ao rolar a coluna verticalmente o título permaneça visível. O scroll horizontal do board já é independente.
 
-**1.1** No `AddTaskDialog` o rótulo do campo de data passa a ser **"Prazo máximo"**.
+### 4. Data de indicação como base do SLA
+- No `AddPatientForm`, adicionar campo **"Data da indicação"** (date picker), pré-preenchido com hoje. O campo `createdAt` continua sendo a data de inclusão no CRM (auto, somente leitura no painel).
+- Trocar a referência de SLA: `getDaysInStage` continua medindo dias na etapa atual, mas o card e dashboard passarão a exibir também **"dias desde a indicação"** baseado em `indicationDate` (fallback `createdAt` quando ausente).
+- Ordenação no Kanban (`PipelineDashboard` linha 393) já usa `indicationDate || createdAt` — manter, mas garantir que novos pacientes salvem `indicationDate` informado pelo usuário, não `today` automático.
 
----
+### 5. Procedimentos principal + complementares no cadastro com persistência e sugestões
+Hoje o `AddPatientForm` só captura `procedure` (texto único). A solicitação cirúrgica (`SurgicalRequestForm`) já tem `mainCbhpm`, `extraCbhpm[]`, `cid[]`, `opme[]` com `CodeAutocomplete` que sugere a partir de `procedure_code_suggestions` e `procedure_default_codes`.
 
-### 2 — Ações com presets em dropdown
+**Plano:**
+- No `AddPatientForm`, após o campo Procedimento, adicionar bloco **"Códigos CBHPM (opcional)"** com:
+  - Campo CBHPM principal (`CodeAutocomplete` kind=cbhpm)
+  - Lista de complementares (add/remove, `CodeAutocomplete`)
+- Persistir esses códigos no novo campo JSONB `patients.procedure_codes` (ver migration abaixo).
+- Quando uma solicitação cirúrgica for gerada, o `GenerateDocumentDialog` (que já consome defaults via `useDefaultProcedureCodes`) passa também a usar os códigos salvos no paciente como sementes prioritárias.
+- O `CodeAutocomplete` já registra cada uso em `procedure_code_suggestions`, então as sugestões aparecerão automaticamente em pacientes futuros do mesmo procedimento.
 
-No `AddTaskDialog`, novo campo "Tipo de ação" (Select) com presets:
-- Atualizar etapa no follow-up
-- Checar documentos
-- Emitir documentos
-- Consultar convênio
-- Consultar hospital
-- Ligar para o paciente
-- Confirmar agendamento
-- Solicitar exames/laudos
-- Outro (libera campo livre)
+**Migration:**
+- `ALTER TABLE patients ADD COLUMN procedure_codes JSONB NOT NULL DEFAULT '{"main": null, "extras": []}'::jsonb;`
 
-Ao escolher um preset, o "Título" é pré-preenchido e ainda editável. Presets vivem em `src/data/constants.ts` (`TASK_PRESETS`).
+### 6. Assinatura eletrônica A1 (ICP-Brasil) — fundação
+Abordagem escolhida: **upload do .pfx no perfil + assinatura no servidor**.
 
----
+**Banco:**
+- Novo bucket privado de Storage: `signing-certificates` (RLS: usuário só lê/escreve `{auth.uid()}/cert.pfx`).
+- Nova tabela `signing_certificates`:
+  - `user_id uuid` (PK, FK auth)
+  - `pfx_path text` (caminho no bucket)
+  - `password_encrypted text` (senha do .pfx criptografada com `pgcrypto` usando uma master key em secret)
+  - `subject_cn text`, `valid_from date`, `valid_to date` (extraídos no upload para exibir validade no perfil)
+  - RLS: usuário só vê/edita o próprio; admin lê tudo.
+- Nova coluna `patient_documents.signed_pdf_path text` e `signed_at timestamptz`, `signed_by uuid`.
 
-### 3 — Reordenar `PatientPanel`
+**Edge functions:**
+- `upload-signing-cert`: recebe .pfx + senha, valida com node-forge (npm:node-forge), extrai metadados, criptografa a senha (`pgp_sym_encrypt`), salva no Storage e na tabela.
+- `sign-pdf`: recebe `document_id`, busca o PDF gerado, recupera .pfx + senha do usuário, assina com `npm:@signpdf/signpdf` + `npm:@signpdf/signer-p12` + `npm:@signpdf/placeholder-plain`, salva como `*_signed.pdf` no bucket de documentos e atualiza `patient_documents`.
 
-Nova ordem:
-1. Cabeçalho (já existe)
-2. Alertas (já existe)
-3. **Ações** (movido para cima)
-4. Identificação / dados clínicos / financeiro
-5. Pré-op checklist (quando aplicável)
-6. Documentos
-7. Observações
+**Secrets necessários:**
+- `PFX_MASTER_KEY` (chave para `pgp_sym_encrypt`/`decrypt`).
 
----
+**UI:**
+- Em `/perfil`, nova seção **"Assinatura digital (A1)"**: upload do .pfx, campo senha, exibição do CN/validade, botão remover. Aviso de segurança claro ("Sua chave privada fica criptografada e só é usada para assinar PDFs deste sistema").
+- Em `PatientDocuments` / `GenerateDocumentDialog`, novo botão **"Assinar com A1"** ao lado do botão de download, visível apenas se o usuário tem certificado ativo. Mostra status "Assinado em DD/MM HH:MM" após sucesso e disponibiliza link para o PDF assinado.
 
-### 6 — Receita médica: assinatura + CRM/RQE
+### Componentes alterados
+- `src/data/types.ts` — rótulo da coluna
+- `src/components/PipelineColumn.tsx` — header sticky
+- `src/components/AddPatientForm.tsx` — campo data de indicação, bloco CBHPM, uso de `TaskFormFields`
+- `src/components/AddTaskDialog.tsx` — extrai conteúdo para `TaskFormFields`
+- `src/components/PatientCard.tsx` — exibir "X dias desde indicação"
+- `src/components/PipelineDashboard.tsx` — ajustes de cópia
+- `src/components/GenerateDocumentDialog.tsx` + `SurgicalRequestForm.tsx` — pré-preencher com `patient.procedure_codes`
+- `src/pages/Profile.tsx` — seção A1
+- `src/components/PatientDocuments.tsx` — botão "Assinar com A1"
 
-Em `PrescriptionForm` e `buildPrescriptionHtml`:
-- Espaço maior entre data e assinatura (`margin-top: 56px`).
-- Bloco de assinatura com 3 linhas: nome, **CRM**, **RQE** — puxados do perfil profissional.
-- Mesmo tratamento aplicado a `buildSurgicalRequestHtml`, `buildMedicalCertificateHtml`, `buildReportHtml`, `buildBudgetHtml`.
-- `signatureBlock` passa a aceitar `{ name, crm, crmUf, rqe }`.
+### Componentes/áreas que NÃO mudam
+- Templates de PDF (continuam neutros)
+- Sino de notificações, presets de tarefa (já entregues)
+- Auth, RLS de pacientes/tarefas
+- Importação CSV
+- Rótulos das demais 10 colunas
 
----
+### Migration única
+```sql
+-- Renomeação só em label (sem alterar enum)
+ALTER TABLE patients ADD COLUMN procedure_codes JSONB NOT NULL DEFAULT '{"main": null, "extras": []}'::jsonb;
 
-### 7 — Perfil profissional do cirurgião / concierge
+ALTER TABLE patient_documents
+  ADD COLUMN signed_pdf_path text,
+  ADD COLUMN signed_at timestamptz,
+  ADD COLUMN signed_by uuid;
 
-**Nova tabela `professional_profiles`:**
-- `user_id` (FK auth.users, unique)
-- `crm` (text), `crm_uf` (text)
-- `rqe` (text)
-- `signature_title` (text — ex.: "Urologista")
-- `phone_professional`, `email_professional`
-- RLS: usuário lê/edita o próprio; admin lê/edita todos.
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
-**Nova rota `/perfil`** (item de menu visível para todos os papéis):
-- Formulário com nome, CRM/UF, RQE, especialidade, telefone, e-mail profissional.
-- Aviso: "Em breve: seus templates pessoais aparecerão aqui."
+CREATE TABLE public.signing_certificates (
+  user_id uuid PRIMARY KEY,
+  pfx_path text NOT NULL,
+  password_encrypted text NOT NULL,
+  subject_cn text,
+  valid_from date,
+  valid_to date,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE public.signing_certificates ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users manage own cert" ON public.signing_certificates
+  FOR ALL USING (auth.uid() = user_id OR has_role(auth.uid(),'admin'))
+  WITH CHECK (auth.uid() = user_id OR has_role(auth.uid(),'admin'));
 
-**Hook `useProfessionalProfile(userIdOrSurgeonName)`** consumido pelos formulários de documento.
+INSERT INTO storage.buckets (id, name, public) VALUES ('signing-certificates','signing-certificates', false);
+CREATE POLICY "Own cert read" ON storage.objects FOR SELECT
+  USING (bucket_id='signing-certificates' AND auth.uid()::text = (storage.foldername(name))[1]);
+CREATE POLICY "Own cert write" ON storage.objects FOR INSERT
+  WITH CHECK (bucket_id='signing-certificates' AND auth.uid()::text = (storage.foldername(name))[1]);
+CREATE POLICY "Own cert delete" ON storage.objects FOR DELETE
+  USING (bucket_id='signing-certificates' AND auth.uid()::text = (storage.foldername(name))[1]);
+```
 
----
+### Secret a solicitar
+`PFX_MASTER_KEY` (32+ chars aleatórios — usado para criptografar a senha do .pfx no banco).
 
-### 8 (REVISADO) — Aprendizado incremental de CBHPM/OPME
+### Ordem de execução
+1. Migration + secret
+2. Refator `TaskFormFields` e paridade no cadastro
+3. Rótulo + headers sticky + data de indicação
+4. Bloco CBHPM no cadastro + persistência
+5. Fluxo A1: edge functions → UI no perfil → botão nos documentos
 
-**Sem seed manual.** A base de defaults é construída no uso real.
-
-**Nova tabela `procedure_default_codes`:**
-- `id` uuid pk
-- `procedure` (text, nome canônico)
-- `scope` ('surgeon' | 'concierge') — padronização por papel
-- `scope_owner` (text — `surgeon_name` ou `concierge_name`)
-- `kind` ('cbhpm_main' | 'cbhpm_extra' | 'cid' | 'opme')
-- `code` (text, nullable para OPME)
-- `label` (text)
-- `quantity` (int, default 1 — usado por OPME)
-- `position` (int)
-- `created_by` (uuid)
-- `updated_at` timestamp
-- Único: `(procedure, scope, scope_owner, kind, code, label)` — evita duplicatas.
-
-RLS: SELECT autenticado; INSERT/UPDATE/DELETE para admin/surgeon/concierge.
-
-**Fluxo no `GenerateDocumentDialog` (apenas tipo `surgical_request`):**
-
-1. Ao abrir o diálogo, chamar `useDefaultProcedureCodes(procedure, surgeon, concierge)` que busca defaults nesta ordem de precedência:
-   - **Cirurgião** primeiro (mais específico clinicamente)
-   - **Concierge** como fallback complementar
-   - Se houver itens em ambos, fazer merge sem duplicar `(kind, code)`.
-2. Pré-preencher `mainCbhpm`, `extraCbhpm`, `cid`, `opme` em `defaultSurgicalRequestData`.
-3. Usuário edita normalmente (incluir/remover/alterar).
-4. **Ao clicar em "Gerar PDF"**, abrir um pequeno diálogo de confirmação **somente se houver pelo menos um código preenchido**:
-
-   ```
-   ┌─────────────────────────────────────────────┐
-   │ Salvar como padrão para próximas solicitações?│
-   │                                              │
-   │ Procedimento: Prostatectomia Radical         │
-   │                                              │
-   │ ☑ Salvar para o cirurgião (Dr Alexandre…)   │
-   │ ☐ Salvar para a concierge (Margô)            │
-   │                                              │
-   │ Itens que serão salvos:                      │
-   │  • CBHPM principal: 31309127 — Prost. radical│
-   │  • CBHPM extra: …                            │
-   │  • CID: N40                                  │
-   │  • OPME: 2× Pinça…                           │
-   │                                              │
-   │      [Não salvar]    [Gerar e salvar]        │
-   └─────────────────────────────────────────────┘
-   ```
-
-   - Cada checkbox é opcional; se nenhuma marcada → apenas gera o PDF.
-   - "Não salvar" e "Gerar e salvar" sempre geram o PDF — só a persistência dos defaults muda.
-   - Marcar uma escolha faz **upsert idempotente** em `procedure_default_codes` para todos os itens preenchidos do formulário (o upsert garante que repetir o mesmo código não cria duplicata; só atualiza `position` e `updated_at`).
-5. Toggle "Não perguntar novamente para este procedimento + papel" (preferência salva em `localStorage`) para o usuário maduro que já validou seus padrões.
-
-**Gerenciamento dos defaults:**
-- Pequena seção na rota `/perfil` ("Meus códigos padrão") listando, por procedimento, os defaults salvos com botão de remover individual. Isso permite limpar erros sem precisar de admin.
-
-**Resultado prático:** você não preenche nada manualmente agora; conforme cada cirurgião emite a primeira solicitação de cada procedimento, a base se popula sozinha e os próximos pacientes já vêm pré-preenchidos.
-
----
-
-### Itens não-execução
-
-**Item 4 — Integração futura com banco de leads:** **Sim, viável.** Caminho:
-- Adicionar `patients.external_lead_id` (text, unique nullable) + `source` ('manual' | 'call_center' | 'crm_externo') quando você sinalizar.
-- Edge function `ingest-lead` (POST com API key) faz upsert por `external_lead_id`, cria paciente em `indication`.
-- Edge function `export-patient-update` notifica webhook externo nas mudanças de etapa.
-- Não criado neste ciclo.
-
-**Item 5 — Consentimentos automáticos:** Próximo ciclo dedicado. Esboço:
-- Tipo `'consent'` em `DOCUMENT_TYPES`.
-- `PdfTemplateEditor` ganha N caixas customizadas com `{ key, label, source }` (`paciente.nome | procedimento | cirurgiao | data | livre`).
-- Trigger `auto_generate_consent: true` por procedimento → cria `patient_documents` automaticamente ao cadastrar o paciente.
-- **Vou precisar do PDF do termo de Postectomia atual + lista de procedimentos com termo padronizado** para abrir esse ciclo.
-
----
-
-### Resumo técnico
-
-**Migrations:**
-- `professional_profiles` + RLS
-- `procedure_default_codes` + RLS + índice único
-- `tasks.preset` (text nullable, opcional, para analytics futura)
-
-**Front-end novo:**
-- `src/data/constants.ts` — `TASK_PRESETS`
-- `src/hooks/useProfessionalProfile.ts`
-- `src/hooks/useDefaultProcedureCodes.ts`
-- `src/pages/Profile.tsx` (rota `/perfil`)
-- `src/components/SaveDefaultsDialog.tsx` — diálogo de confirmação do item 8
-
-**Front-end alterado:**
-- `AddTaskDialog.tsx` — preset dropdown + label "Prazo máximo"
-- `NotificationBell.tsx` — agrupamento por prioridade, contador, filtro
-- `PipelineDashboard.tsx` — auto-abrir sino + nova lógica de notificações (sem-ação, próximas 48h)
-- `PatientPanel.tsx` — reordenar seções
-- `PrescriptionForm.tsx` + `documents.ts` — `signatureBlock` com CRM/RQE; espaçamento
-- `SurgicalRequestForm.tsx` — consumir defaults do hook
-- `GenerateDocumentDialog.tsx` — disparar `SaveDefaultsDialog` no submit de `surgical_request`
-- `App.tsx` — registrar rota `/perfil`
-
-**Não muda:** PDFs (estilo neutro), RLS de pacientes, fluxo de auth, edge functions.
-
----
-
-Confirma? Se sim, implemento na próxima passada.
+Aprovando, executo todas as etapas em sequência.
