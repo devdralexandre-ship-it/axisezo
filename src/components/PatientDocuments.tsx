@@ -25,24 +25,20 @@ export function PatientDocuments({ patient }: Props) {
 
   const isResponsibleSurgeon = isSurgeon && surgeonName === patient?.surgeon;
 
-  const handleDownload = async (pdfPath: string, title: string) => {
-    const url = await getDocumentSignedUrl(pdfPath);
-    if (!url) {
-      toast.error('Não foi possível gerar o link');
-      return;
-    }
+  const handleDownload = async (pdfPath: string, _title: string) => {
     try {
-      const res = await fetch(url);
-      const blob = await res.blob();
-      const blobUrl = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = blobUrl;
-      a.download = `${title}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(blobUrl);
-    } catch {
+      const url = await getDocumentSignedUrl(pdfPath);
+      if (!url) {
+        console.error('[download] signed URL nula para', pdfPath);
+        toast.error('Não foi possível gerar o link');
+        return;
+      }
+      const w = window.open(url, '_blank', 'noopener,noreferrer');
+      if (!w) {
+        window.location.href = url;
+      }
+    } catch (e) {
+      console.error('[download] falha', e);
       toast.error('Falha ao baixar o documento');
     }
   };
@@ -144,7 +140,7 @@ export function PatientDocuments({ patient }: Props) {
                 variant="ghost"
                 size="icon"
                 className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
-                onClick={() => handleDownload(d.signed_pdf_path, `${d.title} (assinado)`)}
+                onClick={(e) => { e.stopPropagation(); handleDownload(d.signed_pdf_path, `${d.title} (assinado)`); }}
                 title="Baixar PDF assinado"
               >
                 <ShieldCheck className="h-3.5 w-3.5 text-pipeline-green" />
@@ -155,7 +151,7 @@ export function PatientDocuments({ patient }: Props) {
                 variant="ghost"
                 size="icon"
                 className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
-                onClick={() => handleDownload(d.pdf_path!, d.title)}
+                onClick={(e) => { e.stopPropagation(); handleDownload(d.pdf_path!, d.title); }}
                 title="Baixar"
               >
                 <Download className="h-3.5 w-3.5" />
