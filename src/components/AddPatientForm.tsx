@@ -143,7 +143,7 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
       email,
       initialTasks: initialTasks.map(t => ({ title: t.title, dueDate: t.dueDate, dueTime: t.dueTime, responsible: t.responsible })),
       createdAt: today,
-      indicationDate: today,
+      indicationDate: indicationDate || today,
       indicationLocation: finalIndication || null,
       payer: finalPayer || null,
       billingType: billingType || null,
@@ -157,6 +157,10 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
       alerts: alerts || null,
       lossReason: null,
       lossReasonDetail: null,
+      procedureCodes: {
+        main: (mainCbhpm.code || mainCbhpm.label) ? mainCbhpm : null,
+        extras: extraCbhpm.filter((e) => e.code || e.label),
+      },
     });
     resetForm();
     onClose();
