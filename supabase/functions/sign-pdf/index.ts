@@ -2,6 +2,7 @@
 // Concierges may trigger this for patients assigned to them; the surgeon owns the cert.
 // Every attempt (success or failure) is recorded in signature_audit_log.
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { Buffer } from "node:buffer";
 // @ts-ignore deno npm types
 import { SignPdf } from "npm:@signpdf/signpdf@3.2.4";
 // @ts-ignore deno npm types
