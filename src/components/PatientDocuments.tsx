@@ -175,6 +175,14 @@ export function PatientDocuments({ patient }: Props) {
       </div>
 
       <GenerateDocumentDialog open={genOpen} onClose={() => setGenOpen(false)} patient={patient} />
+      <SignatureConfirmDialog
+        open={!!confirmDoc}
+        onClose={() => setConfirmDoc(null)}
+        onConfirm={handleConfirmSign}
+        loading={signDoc.isPending}
+        signerName={certStatus?.surgeon_name}
+        documentTitle={confirmDoc?.title}
+      />
     </div>
   );
 }

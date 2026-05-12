@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, Save, Trash2, Upload, ShieldCheck, AlertCircle, History } from 'lucide-react';
+import { ArrowLeft, Save, Trash2, Upload, ShieldCheck, AlertCircle, History, ShieldAlert } from 'lucide-react';
+import { Link as RouterLink } from 'react-router-dom';
 import { useProfessionalProfile, useSaveProfessionalProfile } from '@/hooks/useProfessionalProfile';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useMyDefaults, useDeleteDefault } from '@/hooks/useDefaultProcedureCodes';
@@ -11,9 +12,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import {
   useMySigningCertificate,
   useUploadSigningCertificate,
-  useDeleteSigningCertificate,
+  useRevokeSigningCertificate,
+  useSetDelegationMode,
   useSignatureAuditAsSigner,
   useSignatureAuditAsActor,
+  useMfaStatus,
 } from '@/hooks/useSigning';
 
 const KIND_LABEL: Record<string, string> = {
@@ -30,7 +33,9 @@ export default function Profile() {
   const { user } = useAuth();
   const { data: myCert } = useMySigningCertificate(user?.id);
   const uploadCert = useUploadSigningCertificate();
-  const deleteCert = useDeleteSigningCertificate();
+  const revokeCert = useRevokeSigningCertificate();
+  const setMode = useSetDelegationMode();
+  const { data: mfa } = useMfaStatus();
   const { data: signerAudit = [] } = useSignatureAuditAsSigner(isSurgeon ? user?.id : undefined);
   const { data: actorAudit = [] } = useSignatureAuditAsActor(isConcierge ? user?.id : undefined);
 
