@@ -1,5 +1,5 @@
 // Sign a patient document PDF with the surgeon's A1 certificate.
-// Hardening: Zod input, MFA AAL2 gate, step-up password, delegation mode,
+// Hardening: Zod input, MFA AAL2 gate, delegation mode,
 // pfx hash check, rate limit, audit (success+failure), notification email.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { Buffer } from "node:buffer";
@@ -38,7 +38,6 @@ const RATE_LIMIT_PER_24H = 20;
 
 const BodySchema = z.object({
   document_id: z.string().uuid(),
-  step_up_password: z.string().min(1).max(200),
 });
 
 async function sha256Hex(bytes: Uint8Array) {
@@ -102,7 +101,7 @@ Deno.serve(async (req) => {
     const raw = await req.json().catch(() => ({}));
     const parsed = BodySchema.safeParse(raw);
     if (!parsed.success) return json(400, { error: "Parâmetros inválidos" });
-    const { document_id, step_up_password } = parsed.data;
+    const { document_id } = parsed.data;
 
     // MFA gate (AAL2 required)
     const token = authHeader.replace("Bearer ", "");
@@ -131,20 +130,6 @@ Deno.serve(async (req) => {
       name: actorProfile?.display_name ?? actorProfile?.surgeon_name ?? actorProfile?.concierge_name ?? user.email ?? "Usuário",
       email: user.email ?? null,
     };
-
-    // Step-up password re-verification
-    if (!user.email) {
-      await writeAudit("failed", "Conta sem e-mail para step-up");
-      return json(400, { error: "Sua conta não tem e-mail cadastrado" });
-    }
-    const stepUpClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!);
-    const { error: stepUpErr } = await stepUpClient.auth.signInWithPassword({
-      email: user.email, password: step_up_password.trim(),
-    });
-    if (stepUpErr) {
-      await writeAudit("failed", "Senha de confirmação incorreta");
-      return json(401, { error: "Senha de confirmação incorreta" });
-    }
 
     // Load document
     const { data: docRow, error: docErr } = await userClient

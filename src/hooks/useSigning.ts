@@ -147,9 +147,9 @@ export function useSurgeonCertStatus(patientId: string | undefined) {
 export function useSignDocument() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ documentId, password }: { documentId: string; password: string }) => {
+    mutationFn: async ({ documentId }: { documentId: string }) => {
       const { data, error } = await supabase.functions.invoke('sign-pdf', {
-        body: { document_id: documentId, step_up_password: password },
+        body: { document_id: documentId },
       });
       if (error) {
         const response = (error as any)?.context;
