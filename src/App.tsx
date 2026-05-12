@@ -12,6 +12,7 @@ import ResetPassword from "./pages/ResetPassword.tsx";
 import AdminUsers from "./pages/AdminUsers.tsx";
 import Profile from "./pages/Profile.tsx";
 import MfaEnroll from "./pages/MfaEnroll.tsx";
+import VerifyDocument from "./pages/VerifyDocument.tsx";
 
 const queryClient = new QueryClient();
 
@@ -39,6 +40,7 @@ const App = () => (
           <Routes>
             <Route path="/auth" element={<AuthRoute><Auth /></AuthRoute>} />
             <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/verify-document/:id" element={<VerifyDocument />} />
             <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
             <Route path="/templates" element={<ProtectedRoute><Templates /></ProtectedRoute>} />
             <Route path="/admin/users" element={<ProtectedRoute><AdminUsers /></ProtectedRoute>} />
