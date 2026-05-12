@@ -8,6 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Patient, PIPELINE_STAGES, STAGE_LABELS, OWNERS, Owner } from '@/data/types';
 import { PROCEDURES, SURGEONS, CONCIERGES, PAYERS, BILLING_TYPES, PATIENT_TYPE_LABELS, SURGICAL_APPROACHES, procedureNeedsApproach, LATERALITY_OPTIONS, procedureNeedsLaterality, HOSPITALS, INDICATION_SOURCES } from '@/data/constants';
 import { Plus, X } from 'lucide-react';
+import { TaskFormFields, TaskDraft, emptyTaskDraft } from './TaskFormFields';
+import { CodeAutocomplete } from './CodeAutocomplete';
 
 interface InitialTask {
   id: string;
@@ -52,13 +54,15 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
   const [customIndication, setCustomIndication] = useState('');
   const [alerts, setAlerts] = useState('');
   const [notes, setNotes] = useState('');
+  const [indicationDate, setIndicationDate] = useState(new Date().toISOString().split('T')[0]);
+
+  // CBHPM codes (optional at registration)
+  const [mainCbhpm, setMainCbhpm] = useState<{ code: string; label: string }>({ code: '', label: '' });
+  const [extraCbhpm, setExtraCbhpm] = useState<{ code: string; label: string }[]>([]);
 
   // Inline task creation
   const [initialTasks, setInitialTasks] = useState<InitialTask[]>([]);
-  const [newTaskTitle, setNewTaskTitle] = useState('');
-  const [newTaskDate, setNewTaskDate] = useState(new Date().toISOString().split('T')[0]);
-  const [newTaskTime, setNewTaskTime] = useState('10:00');
-  const [newTaskResponsible, setNewTaskResponsible] = useState('');
+  const [draft, setDraft] = useState<TaskDraft>(emptyTaskDraft());
 
   const isCustomProcedure = procedure === OTHER_PROCEDURE;
   const effectiveProcedure = isCustomProcedure ? customProcedure : procedure;
@@ -78,18 +82,15 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
   const hasValidTask = initialTasks.length > 0 && initialTasks.every(t => t.title.trim() && t.dueDate);
 
   const addInitialTask = () => {
-    if (!newTaskTitle.trim() || !newTaskDate) return;
+    if (!draft.title.trim() || !draft.dueDate) return;
     setInitialTasks([...initialTasks, {
       id: crypto.randomUUID(),
-      title: newTaskTitle.trim(),
-      dueDate: newTaskDate,
-      dueTime: newTaskTime || '10:00',
-      responsible: newTaskResponsible || concierge || 'Margô',
+      title: draft.title.trim(),
+      dueDate: draft.dueDate,
+      dueTime: draft.dueTime || '10:00',
+      responsible: draft.responsible || concierge || 'Margô',
     }]);
-    setNewTaskTitle('');
-    setNewTaskDate(new Date().toISOString().split('T')[0]);
-    setNewTaskTime('10:00');
-    setNewTaskResponsible('');
+    setDraft(emptyTaskDraft());
   };
 
   const removeInitialTask = (id: string) => {
@@ -103,9 +104,11 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
     setBillingType(''); setMedicalFees(''); setAnesthesiaFees(''); setHospitalBudget('');
     setMaterialsCost(''); setDesiredHospital(''); setCustomHospital('');
     setIndicationLocation(''); setCustomIndication('');
-    setAlerts(''); setNotes(''); setInitialTasks([]); setNewTaskTitle('');
-    setNewTaskDate(new Date().toISOString().split('T')[0]); setNewTaskTime('10:00');
-    setNewTaskResponsible('');
+    setAlerts(''); setNotes(''); setInitialTasks([]);
+    setDraft(emptyTaskDraft());
+    setIndicationDate(new Date().toISOString().split('T')[0]);
+    setMainCbhpm({ code: '', label: '' });
+    setExtraCbhpm([]);
   };
 
   const handleSubmit = () => {
