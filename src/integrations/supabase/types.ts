@@ -845,6 +845,13 @@ export type Database = {
       can_access_patient: { Args: { _patient_id: string }; Returns: boolean }
       current_concierge_name: { Args: never; Returns: string }
       current_surgeon_name: { Args: never; Returns: string }
+      get_signing_certificate_secret: {
+        Args: { _master_key: string; _signer_user_id: string }
+        Returns: {
+          password: string
+          pfx_path: string
+        }[]
+      }
       get_surgeon_cert_status: {
         Args: { _patient_id: string }
         Returns: {
@@ -861,6 +868,36 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      insert_signature_audit: {
+        Args: {
+          _acted_by_name: string
+          _acted_by_user_id: string
+          _document_id: string
+          _document_title: string
+          _document_type: string
+          _error: string
+          _ip: string
+          _patient_id: string
+          _patient_name: string
+          _result: string
+          _signer_name: string
+          _signer_user_id: string
+          _ua: string
+        }
+        Returns: string
+      }
+      set_signing_certificate: {
+        Args: {
+          _master_key: string
+          _password: string
+          _pfx_path: string
+          _subject_cn: string
+          _user_id: string
+          _valid_from: string
+          _valid_to: string
+        }
+        Returns: undefined
       }
     }
     Enums: {
