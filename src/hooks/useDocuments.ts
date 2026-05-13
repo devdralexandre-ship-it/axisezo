@@ -360,17 +360,18 @@ export function useDeleteDocument() {
 
 export async function getDocumentSignedUrl(
   pdfPath: string,
-  options?: string | { downloadAs?: string; asAttachment?: boolean },
+  options?: string | { downloadAs?: string; asAttachment?: boolean; expiresIn?: number },
 ): Promise<string | null> {
   const downloadAs = typeof options === 'string'
     ? options
     : options?.asAttachment
       ? options.downloadAs
       : undefined;
+  const expiresIn = typeof options === 'object' ? options.expiresIn ?? 60 * 10 : 60 * 10;
 
   const { data, error } = await supabase.storage
     .from(BUCKET)
-    .createSignedUrl(pdfPath, 60 * 10, downloadAs ? { download: downloadAs } : undefined);
+    .createSignedUrl(pdfPath, expiresIn, downloadAs ? { download: downloadAs } : undefined);
   if (error) {
     console.error('[download] erro ao criar URL assinada', {
       path: pdfPath,
@@ -380,4 +381,23 @@ export async function getDocumentSignedUrl(
     return null;
   }
   return data?.signedUrl ?? null;
+}
+
+export function useDocumentDownloadUrl(pdfPath: string | null | undefined, downloadAs: string) {
+  return useQuery({
+    queryKey: ['document_download_url', pdfPath, downloadAs],
+    enabled: !!pdfPath && !!downloadAs,
+    staleTime: 50 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+    retry: 1,
+    queryFn: async () => {
+      const url = await getDocumentSignedUrl(pdfPath!, {
+        downloadAs,
+        asAttachment: true,
+        expiresIn: 60 * 60,
+      });
+      if (!url) throw new Error('Não foi possível gerar o link do documento');
+      return url;
+    },
+  });
 }
