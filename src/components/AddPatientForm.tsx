@@ -7,9 +7,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Patient, PIPELINE_STAGES, STAGE_LABELS, OWNERS, Owner } from '@/data/types';
 import { PROCEDURES, SURGEONS, CONCIERGES, PAYERS, BILLING_TYPES, PATIENT_TYPE_LABELS, SURGICAL_APPROACHES, procedureNeedsApproach, LATERALITY_OPTIONS, procedureNeedsLaterality, HOSPITALS, INDICATION_SOURCES } from '@/data/constants';
-import { Plus, X } from 'lucide-react';
+import { Plus, X, Upload, Camera, FileText, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { TaskFormFields, TaskDraft, emptyTaskDraft } from './TaskFormFields';
 import { CodeAutocomplete } from './CodeAutocomplete';
+import { useRef } from 'react';
+import { uploadPatientFile, UPLOAD_CATEGORIES, UploadCategory } from '@/hooks/usePatientUploads';
+import { toast } from 'sonner';
 
 interface InitialTask {
   id: string;
@@ -22,7 +25,13 @@ interface InitialTask {
 interface AddPatientFormProps {
   open: boolean;
   onClose: () => void;
-  onAdd: (patient: Partial<Patient> & { name: string; procedure: string; surgeon: string; initialTasks?: { title: string; dueDate: string; dueTime: string; responsible: string }[] }) => void;
+  onAdd: (patient: Partial<Patient> & { name: string; procedure: string; surgeon: string; initialTasks?: { title: string; dueDate: string; dueTime: string; responsible: string }[] }) => Promise<{ id: string } | void> | void;
+}
+
+interface PendingUpload {
+  id: string;
+  file: File;
+  category: string;
 }
 
 const OTHER_PROCEDURE = '__outro__';
