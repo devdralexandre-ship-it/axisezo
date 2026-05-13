@@ -338,6 +338,9 @@ export function PipelineDashboard() {
             <Button asChild variant="outline" size="sm">
               <Link to="/templates"><FileText className="h-4 w-4" />Templates</Link>
             </Button>
+            <Button asChild variant="outline" size="sm">
+              <Link to="/library"><BookOpen className="h-4 w-4" />Biblioteca</Link>
+            </Button>
             {isAdmin && (
               <Button asChild variant="outline" size="sm">
                 <Link to="/admin/users"><Shield className="h-4 w-4" />Usuários</Link>
