@@ -138,10 +138,11 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
     setIndicationDate(new Date().toISOString().split('T')[0]);
     setMainCbhpm({ code: '', label: '' });
     setExtraCbhpm([]);
+    setPendingUploads([]); setUploadCategory('exame');
   };
 
-  const handleSubmit = () => {
-    if (!name || !effectiveProcedure || !surgeon || !hasValidTask) return;
+  const handleSubmit = async () => {
+    if (!name || !effectiveProcedure || !surgeon || !hasValidTask || submitting) return;
     const today = new Date().toISOString().split('T')[0];
     const finalPayer = payer === 'Outros' ? payerOther : payer;
     const finalHospital = isCustomHospital ? customHospital : desiredHospital;
@@ -151,48 +152,72 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
       : showMedicalFees && medicalFees ? parseFloat(medicalFees)
       : null;
 
-    onAdd({
-      name,
-      age: age ? parseInt(age) : null,
-      patientType,
-      procedure: effectiveProcedure,
-      procedureCategory: '',
-      surgicalApproach: showApproach ? surgicalApproach || null : null,
-      laterality: showLaterality ? laterality || null : null,
-      surgeon,
-      concierge,
-      owner: surgeon as any,
-      stage,
-      stageEnteredAt: today,
-      decisionStatus: 'waiting',
-      estimatedValue: computedEstimatedValue,
-      lastInteractionDate: today,
-      nextFollowUpDate: null,
-      phone,
-      email,
-      initialTasks: initialTasks.map(t => ({ title: t.title, dueDate: t.dueDate, dueTime: t.dueTime, responsible: t.responsible })),
-      createdAt: today,
-      indicationDate: indicationDate || today,
-      indicationLocation: finalIndication || null,
-      payer: finalPayer || null,
-      billingType: billingType || null,
-      medicalFees: showMedicalFees && medicalFees ? parseFloat(medicalFees) : null,
-      anesthesiaFees: showFullFinancial && anesthesiaFees ? parseFloat(anesthesiaFees) : null,
-      hospitalBudget: showFullFinancial && hospitalBudget ? parseFloat(hospitalBudget) : null,
-      materialsCost: showFullFinancial && materialsCost ? parseFloat(materialsCost) : null,
-      responsibleContact: responsibleContact || null,
-      desiredHospital: finalHospital || null,
-      notes: notes || null,
-      alerts: alerts || null,
-      lossReason: null,
-      lossReasonDetail: null,
-      procedureCodes: {
-        main: (mainCbhpm.code || mainCbhpm.label) ? mainCbhpm : null,
-        extras: extraCbhpm.filter((e) => e.code || e.label),
-      },
-    });
-    resetForm();
-    onClose();
+    setSubmitting(true);
+    try {
+      const created = await onAdd({
+        name,
+        age: age ? parseInt(age) : null,
+        patientType,
+        procedure: effectiveProcedure,
+        procedureCategory: '',
+        surgicalApproach: showApproach ? surgicalApproach || null : null,
+        laterality: showLaterality ? laterality || null : null,
+        surgeon,
+        concierge,
+        owner: surgeon as any,
+        stage,
+        stageEnteredAt: today,
+        decisionStatus: 'waiting',
+        estimatedValue: computedEstimatedValue,
+        lastInteractionDate: today,
+        nextFollowUpDate: null,
+        phone,
+        email,
+        initialTasks: initialTasks.map(t => ({ title: t.title, dueDate: t.dueDate, dueTime: t.dueTime, responsible: t.responsible })),
+        createdAt: today,
+        indicationDate: indicationDate || today,
+        indicationLocation: finalIndication || null,
+        payer: finalPayer || null,
+        billingType: billingType || null,
+        medicalFees: showMedicalFees && medicalFees ? parseFloat(medicalFees) : null,
+        anesthesiaFees: showFullFinancial && anesthesiaFees ? parseFloat(anesthesiaFees) : null,
+        hospitalBudget: showFullFinancial && hospitalBudget ? parseFloat(hospitalBudget) : null,
+        materialsCost: showFullFinancial && materialsCost ? parseFloat(materialsCost) : null,
+        responsibleContact: responsibleContact || null,
+        desiredHospital: finalHospital || null,
+        notes: notes || null,
+        alerts: alerts || null,
+        lossReason: null,
+        lossReasonDetail: null,
+        procedureCodes: {
+          main: (mainCbhpm.code || mainCbhpm.label) ? mainCbhpm : null,
+          extras: extraCbhpm.filter((e) => e.code || e.label),
+        },
+      } as any);
+
+      // Upload pending files now that we have the patient id
+      const newId = (created && typeof created === 'object' && 'id' in created) ? (created as any).id as string : null;
+      if (newId && pendingUploads.length) {
+        let ok = 0;
+        for (const p of pendingUploads) {
+          try {
+            await uploadPatientFile({ patientId: newId, file: p.file, category: p.category as UploadCategory });
+            ok++;
+          } catch (e: any) {
+            toast.error(`Falha em "${p.file.name}": ${e?.message ?? 'erro'}`);
+          }
+        }
+        if (ok) toast.success(`${ok} anexo(s) enviado(s)`);
+      }
+
+      resetForm();
+      onClose();
+    } catch (e: any) {
+      // mutation toast already fires
+    } finally {
+      setSubmitting(false);
+    }
+  };
   };
 
   const formatCurrency = (v: number) =>
