@@ -72,6 +72,27 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
   const [initialTasks, setInitialTasks] = useState<InitialTask[]>([]);
   const [draft, setDraft] = useState<TaskDraft>(emptyTaskDraft());
 
+  // Pending uploads (sent after the patient is created)
+  const [pendingUploads, setPendingUploads] = useState<PendingUpload[]>([]);
+  const [uploadCategory, setUploadCategory] = useState<UploadCategory>('exame');
+  const [submitting, setSubmitting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+
+  const queueFiles = (files: FileList | null) => {
+    if (!files?.length) return;
+    const items: PendingUpload[] = Array.from(files)
+      .filter((f) => {
+        if (f.size > 20 * 1024 * 1024) {
+          toast.error(`"${f.name}" excede 20 MB`);
+          return false;
+        }
+        return true;
+      })
+      .map((file) => ({ id: crypto.randomUUID(), file, category: uploadCategory }));
+    if (items.length) setPendingUploads((prev) => [...prev, ...items]);
+  };
+
   const isCustomProcedure = procedure === OTHER_PROCEDURE;
   const effectiveProcedure = isCustomProcedure ? customProcedure : procedure;
   const showApproach = procedureNeedsApproach(effectiveProcedure);
