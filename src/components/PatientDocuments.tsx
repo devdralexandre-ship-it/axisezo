@@ -13,6 +13,56 @@ interface Props {
   patient: any;
 }
 
+function toPdfFilename(title: string) {
+  return `${title || 'documento'}.pdf`.replace(/[\\/:*?"<>|]+/g, '_');
+}
+
+function DownloadDocumentButton({ pdfPath, title, signed = false }: { pdfPath: string; title: string; signed?: boolean }) {
+  const filename = toPdfFilename(signed ? `${title} (assinado)` : title);
+  const { data: url, isLoading, isFetching, isError, refetch } = useDocumentDownloadUrl(pdfPath, filename);
+  const label = signed ? 'Baixar PDF assinado' : 'Baixar';
+  const loading = isLoading || isFetching;
+
+  if (!url) {
+    return (
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+        disabled={loading}
+        onClick={(e) => {
+          e.stopPropagation();
+          refetch();
+          if (isError) toast.error('Não foi possível preparar o link. Tente novamente.');
+        }}
+        title={loading ? 'Preparando download' : label}
+      >
+        {loading
+          ? <Loader2 className={`h-3.5 w-3.5 animate-spin ${signed ? 'text-pipeline-green' : ''}`} />
+          : signed
+            ? <ShieldCheck className="h-3.5 w-3.5 text-pipeline-green" />
+            : <Download className="h-3.5 w-3.5" />}
+      </Button>
+    );
+  }
+
+  return (
+    <Button
+      asChild
+      variant="ghost"
+      size="icon"
+      className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+      title={label}
+    >
+      <a href={url} download={filename} onClick={(e) => e.stopPropagation()} aria-label={label}>
+        {signed
+          ? <ShieldCheck className="h-3.5 w-3.5 text-pipeline-green" />
+          : <Download className="h-3.5 w-3.5" />}
+      </a>
+    </Button>
+  );
+}
+
 export function PatientDocuments({ patient }: Props) {
   const { data: docs = [], isLoading } = usePatientDocuments(patient?.id);
   const deleteDoc = useDeleteDocument();
