@@ -104,7 +104,7 @@ export function PipelineDashboard() {
       }
       return true;
     });
-  }, [patients, search, surgeonFilter, conciergeFilter, procedureFilter, patientTypeFilter, surgicalApproachFilter]);
+  }, [patients, search, surgeonFilter, conciergeFilter, procedureFilter, patientTypeFilter, surgicalApproachFilter, slaFilter]);
 
   const activeFiltered = filtered.filter((p) => p.stage !== 'lost');
   // BUG 1 FIX: Use estimatedValue OR medicalFees as fallback for pipeline total
