@@ -30,34 +30,58 @@ export function PatientDocuments({ patient }: Props) {
     if (downloading) return;
     setDownloading(pdfPath);
     const filename = `${title}.pdf`.replace(/[\\/:*?"<>|]+/g, '_');
-    let url: string | null = null;
+    let cleanUrl: string | null = null;
+    let attachmentUrl: string | null = null;
     try {
-      url = await getDocumentSignedUrl(pdfPath, filename);
+      [cleanUrl, attachmentUrl] = await Promise.all([
+        getDocumentSignedUrl(pdfPath),
+        getDocumentSignedUrl(pdfPath, { downloadAs: filename, asAttachment: true }),
+      ]);
     } catch (e) {
       console.error('[download] erro ao gerar link', e);
     }
-    if (!url) {
+    if (!cleanUrl && !attachmentUrl) {
       console.error('[download] signed URL nula para', pdfPath);
       toast.error('Não foi possível gerar o link. Tente novamente.');
       setDownloading(null);
       return;
     }
+
     try {
-      const resp = await fetch(url);
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      const blob = await resp.blob();
-      const objUrl = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = objUrl;
-      a.download = filename;
-      a.rel = 'noopener';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(objUrl), 1000);
+      if (cleanUrl) {
+        console.info('[download] tentativa A: blob download', { pdfPath, filename });
+        const resp = await fetch(cleanUrl);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const blob = await resp.blob();
+        console.info('[download] blob recebido', { size: blob.size, type: blob.type });
+        if (blob.size === 0) throw new Error('Arquivo vazio');
+        const objUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = objUrl;
+        a.download = filename;
+        a.rel = 'noopener';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(objUrl), 1000);
+        return;
+      }
+
+      throw new Error('URL limpa indisponível');
     } catch (e) {
-      console.error('[download] falha ao baixar arquivo', e);
-      toast.error('Falha ao baixar o documento');
+      console.warn('[download] tentativa A falhou, usando fallback', e);
+
+      if (!attachmentUrl) {
+        toast.error('Falha ao baixar o documento');
+        return;
+      }
+
+      console.info('[download] tentativa B: nova aba com attachment', { pdfPath, filename });
+      const popup = window.open(attachmentUrl, '_blank', 'noopener');
+      if (popup) return;
+
+      console.info('[download] tentativa C: navegação na aba atual com attachment', { pdfPath, filename });
+      window.location.assign(attachmentUrl);
     } finally {
       setDownloading(null);
     }

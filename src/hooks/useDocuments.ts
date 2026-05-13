@@ -360,11 +360,24 @@ export function useDeleteDocument() {
 
 export async function getDocumentSignedUrl(
   pdfPath: string,
-  downloadAs?: string,
+  options?: string | { downloadAs?: string; asAttachment?: boolean },
 ): Promise<string | null> {
+  const downloadAs = typeof options === 'string'
+    ? options
+    : options?.asAttachment
+      ? options.downloadAs
+      : undefined;
+
   const { data, error } = await supabase.storage
     .from(BUCKET)
     .createSignedUrl(pdfPath, 60 * 10, downloadAs ? { download: downloadAs } : undefined);
-  if (error) return null;
+  if (error) {
+    console.error('[download] erro ao criar URL assinada', {
+      path: pdfPath,
+      asAttachment: !!downloadAs,
+      message: error.message,
+    });
+    return null;
+  }
   return data?.signedUrl ?? null;
 }
