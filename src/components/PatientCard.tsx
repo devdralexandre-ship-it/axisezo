@@ -107,23 +107,40 @@ export function PatientCard({ patient, onClick, onCompleteTask, onDelete }: Pati
         </div>
 
         {nextTask ? (
-          <div
-            className={`flex items-center gap-1.5 text-[11px] p-1.5 rounded ${
-              urgency === 'red' ? 'bg-destructive/10 text-destructive' :
-              urgency === 'yellow' ? 'bg-pipeline-amber/10 text-pipeline-amber' :
-              'bg-pipeline-green/10 text-pipeline-green'
-            }`}
-          >
-            <button
-              onClick={(e) => { e.stopPropagation(); onCompleteTask(patient.id, nextTask.id); }}
-              className="shrink-0 hover:scale-110 transition-transform"
-              title="Marcar como concluída"
+          <>
+            <div
+              className={`flex items-center gap-1.5 text-[11px] p-1.5 rounded ${
+                urgency === 'red' ? 'bg-destructive/10 text-destructive' :
+                urgency === 'yellow' ? 'bg-pipeline-amber/10 text-pipeline-amber' :
+                'bg-pipeline-green/10 text-pipeline-green'
+              }`}
             >
-              <CheckCircle2 className="h-3.5 w-3.5" />
-            </button>
-            <span className="truncate">{nextTask.title}</span>
-            <span className="shrink-0 ml-auto">{formatDate(nextTask.dueDate)}</span>
-          </div>
+              <button
+                onClick={(e) => { e.stopPropagation(); onCompleteTask(patient.id, nextTask.id); }}
+                className="shrink-0 hover:scale-110 transition-transform"
+                title="Marcar como concluída"
+              >
+                <CheckCircle2 className="h-3.5 w-3.5" />
+              </button>
+              <span className="truncate">{nextTask.title}</span>
+              <span className="shrink-0 ml-auto">{formatDate(nextTask.dueDate)}</span>
+            </div>
+            {(() => {
+              const state = getTaskSlaState(nextTask);
+              if (state === 'ok') return null;
+              const chip = formatSlaChip(nextTask);
+              const tone =
+                chip.tone === 'escalated' ? 'bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/30' :
+                chip.tone === 'breached' ? 'bg-destructive/15 text-destructive border-destructive/30' :
+                'bg-pipeline-amber/15 text-pipeline-amber border-pipeline-amber/30';
+              return (
+                <Badge variant="outline" className={`text-[10px] ${tone}`}>
+                  {chip.tone === 'escalated' ? '🚨 ' : chip.tone === 'breached' ? '⏰ ' : '⚠ '}
+                  {chip.label}
+                </Badge>
+              );
+            })()}
+          </>
         ) : (
           <div className="flex items-center gap-1.5 text-[11px] p-1.5 rounded bg-destructive/10 text-destructive">
             <span>⚠ Sem próxima ação definida</span>
