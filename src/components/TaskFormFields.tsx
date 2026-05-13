@@ -11,6 +11,8 @@ export interface TaskDraft {
   dueDate: string;
   dueTime: string;
   responsible: Owner;
+  slaHours: number;
+  escalateAfterHours: number;
 }
 
 export const emptyTaskDraft = (defaultResponsible?: Owner): TaskDraft => ({
@@ -19,6 +21,8 @@ export const emptyTaskDraft = (defaultResponsible?: Owner): TaskDraft => ({
   dueDate: '',
   dueTime: '10:00',
   responsible: defaultResponsible || OWNERS[0],
+  slaHours: 24,
+  escalateAfterHours: 24,
 });
 
 interface Props {
