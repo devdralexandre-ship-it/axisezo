@@ -239,7 +239,9 @@ export function useAddTask() {
         due_date: task.dueDate,
         due_time: task.dueTime + ':00',
         responsible: task.responsible,
-      });
+        sla_hours: task.slaHours ?? 24,
+        escalate_after_hours: task.escalateAfterHours ?? 24,
+      } as any);
       if (error) throw error;
     },
     onSuccess: () => {
