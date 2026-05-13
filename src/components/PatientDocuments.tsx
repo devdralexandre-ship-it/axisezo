@@ -160,10 +160,13 @@ export function PatientDocuments({ patient }: Props) {
                 variant="ghost"
                 size="icon"
                 className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                disabled={downloading === d.signed_pdf_path}
                 onClick={(e) => { e.stopPropagation(); handleDownload(d.signed_pdf_path, `${d.title} (assinado)`); }}
                 title="Baixar PDF assinado"
               >
-                <ShieldCheck className="h-3.5 w-3.5 text-pipeline-green" />
+                {downloading === d.signed_pdf_path
+                  ? <Loader2 className="h-3.5 w-3.5 animate-spin text-pipeline-green" />
+                  : <ShieldCheck className="h-3.5 w-3.5 text-pipeline-green" />}
               </Button>
             )}
             {d.pdf_path && (
@@ -171,10 +174,13 @@ export function PatientDocuments({ patient }: Props) {
                 variant="ghost"
                 size="icon"
                 className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                disabled={downloading === d.pdf_path}
                 onClick={(e) => { e.stopPropagation(); handleDownload(d.pdf_path!, d.title); }}
                 title="Baixar"
               >
-                <Download className="h-3.5 w-3.5" />
+                {downloading === d.pdf_path
+                  ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  : <Download className="h-3.5 w-3.5" />}
               </Button>
             )}
             <Button
