@@ -97,6 +97,11 @@ export function PipelineDashboard() {
       if (procedureFilter !== 'all' && p.procedure !== procedureFilter) return false;
       if (patientTypeFilter !== 'all' && p.patientType !== patientTypeFilter) return false;
       if (surgicalApproachFilter !== 'all' && p.surgicalApproach !== surgicalApproachFilter) return false;
+      if (slaFilter !== 'all') {
+        const states = p.tasks.filter(t => !t.completed).map(getTaskSlaState);
+        if (slaFilter === 'breached' && !states.some(s => s === 'breached' || s === 'escalated')) return false;
+        if (slaFilter === 'escalated' && !states.includes('escalated')) return false;
+      }
       return true;
     });
   }, [patients, search, surgeonFilter, conciergeFilter, procedureFilter, patientTypeFilter, surgicalApproachFilter]);
