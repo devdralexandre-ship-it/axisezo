@@ -93,6 +93,29 @@ export function TaskFormFields({ value, onChange, compact = false }: Props) {
           </SelectContent>
         </Select>
       </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-2">
+          <Label className={labelCls}>SLA (horas)</Label>
+          <Input
+            type="number"
+            min={1}
+            value={value.slaHours}
+            onChange={(e) => set('slaHours', Math.max(1, parseInt(e.target.value) || 24))}
+            className={inputCls}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label className={labelCls}>Escalar após (h)</Label>
+          <Input
+            type="number"
+            min={1}
+            value={value.escalateAfterHours}
+            onChange={(e) => set('escalateAfterHours', Math.max(1, parseInt(e.target.value) || 24))}
+            className={inputCls}
+          />
+        </div>
+      </div>
     </div>
   );
 }
