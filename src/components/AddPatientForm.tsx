@@ -552,11 +552,62 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
                 </div>
               )}
             </div>
+
+            {/* Anexos (uploads) */}
+            <div className="space-y-2 pt-2 border-t border-border">
+              <Label className="text-sm">Anexos do paciente (opcional)</Label>
+              <div className="flex items-center gap-2">
+                <Select value={uploadCategory} onValueChange={(v) => setUploadCategory(v as UploadCategory)}>
+                  <SelectTrigger className="h-8 text-xs flex-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {UPLOAD_CATEGORIES.map((c) => (
+                      <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button type="button" variant="outline" size="sm" className="h-8 text-xs" onClick={() => fileInputRef.current?.click()}>
+                  <Upload className="h-3 w-3 mr-1" /> Arquivo
+                </Button>
+                <Button type="button" variant="outline" size="sm" className="h-8 text-xs" onClick={() => cameraInputRef.current?.click()}>
+                  <Camera className="h-3 w-3 mr-1" /> Foto
+                </Button>
+                <input
+                  ref={fileInputRef} type="file" accept="application/pdf,image/*" multiple className="hidden"
+                  onChange={(e) => { queueFiles(e.target.files); e.target.value = ''; }}
+                />
+                <input
+                  ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden"
+                  onChange={(e) => { queueFiles(e.target.files); e.target.value = ''; }}
+                />
+              </div>
+              {pendingUploads.length > 0 && (
+                <div className="space-y-1">
+                  {pendingUploads.map((p) => (
+                    <div key={p.id} className="flex items-center gap-2 p-2 rounded bg-muted/50">
+                      {p.file.type.startsWith('image/') ? <ImageIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" /> : <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
+                      <div className="flex-1 min-w-0">
+                        <span className="text-xs font-medium truncate block">{p.file.name}</span>
+                        <span className="text-[11px] text-muted-foreground">
+                          {(p.file.size / 1024 / 1024).toFixed(2)} MB • {UPLOAD_CATEGORIES.find((c) => c.value === p.category)?.label}
+                        </span>
+                      </div>
+                      <button type="button" onClick={() => setPendingUploads((prev) => prev.filter((x) => x.id !== p.id))} className="text-muted-foreground hover:text-destructive shrink-0">
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                  <p className="text-[11px] text-muted-foreground">Os arquivos serão enviados após criar o paciente.</p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
         <DialogFooter className="px-6 py-4 border-t border-border shrink-0">
-          <Button variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button onClick={handleSubmit} disabled={!name || !effectiveProcedure || !surgeon || !hasValidTask}>Criar paciente</Button>
+          <Button variant="outline" onClick={onClose} disabled={submitting}>Cancelar</Button>
+          <Button onClick={handleSubmit} disabled={!name || !effectiveProcedure || !surgeon || !hasValidTask || submitting}>
+            {submitting && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+            Criar paciente
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
