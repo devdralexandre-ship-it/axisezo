@@ -212,15 +212,37 @@ export function PatientPanel({ patient, open, onClose, onCompleteTask, onAddTask
                 )}
                 {pendingTasks.map((task) => {
                   const urgency = getTaskUrgency(task);
+                  const slaState = getTaskSlaState(task);
+                  const slaChip = slaState !== 'ok' ? formatSlaChip(task) : null;
+                  const rowBg =
+                    slaState === 'escalated' ? 'bg-purple-500/10 border border-purple-500/30' :
+                    slaState === 'breached' ? 'bg-destructive/10 border border-destructive/30' :
+                    slaState === 'warning' ? 'bg-pipeline-amber/10 border border-pipeline-amber/30' :
+                    'bg-muted/50';
                   return (
-                    <div key={task.id} className="flex items-center gap-2 p-2 rounded-lg bg-muted/50 group">
+                    <div key={task.id} className={`flex items-center gap-2 p-2 rounded-lg group ${rowBg}`}>
                       <button onClick={() => onCompleteTask(patient.id, task.id)} className="shrink-0 hover:scale-110 transition-transform">
                         <Circle className={`h-4 w-4 ${urgencyColors[urgency]}`} />
                       </button>
                       <div className="min-w-0 flex-1">
                         <p className="text-sm text-foreground truncate">{task.title}</p>
                         <p className="text-[11px] text-muted-foreground">{formatDate(task.dueDate)} {task.dueTime} • {task.responsible}</p>
+                        {task.escalationReason && (
+                          <p className="text-[10px] text-purple-700 dark:text-purple-300 mt-0.5">{task.escalationReason}</p>
+                        )}
                       </div>
+                      {slaChip && (
+                        <Badge
+                          variant="outline"
+                          className={`text-[10px] shrink-0 ${
+                            slaChip.tone === 'escalated' ? 'border-purple-500/40 text-purple-700 dark:text-purple-300' :
+                            slaChip.tone === 'breached' ? 'border-destructive/40 text-destructive' :
+                            'border-pipeline-amber/40 text-pipeline-amber'
+                          }`}
+                        >
+                          {slaChip.label}
+                        </Badge>
+                      )}
                     </div>
                   );
                 })}
