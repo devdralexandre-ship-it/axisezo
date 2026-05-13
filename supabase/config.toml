@@ -1,1 +1,7 @@
 project_id = "etcjaieaydpynxvvctqk"
+
+[functions.sign-pdf]
+verify_jwt = true
+
+[functions.sla-watcher]
+verify_jwt = false
