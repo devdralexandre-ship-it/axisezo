@@ -116,6 +116,38 @@ export interface PatientTask {
   completed: boolean;
   completedAt: string | null;
   createdAt: string;
+  slaHours?: number;
+  slaDueAt?: string | null;
+  slaBreachedAt?: string | null;
+  escalateAfterHours?: number;
+  escalatedAt?: string | null;
+  escalatedTo?: string | null;
+  escalationReason?: string | null;
+}
+
+export type SlaState = 'ok' | 'warning' | 'breached' | 'escalated';
+
+export function getTaskSlaState(task: PatientTask): SlaState {
+  if (task.completed) return 'ok';
+  if (task.escalatedAt) return 'escalated';
+  if (task.slaBreachedAt) return 'breached';
+  if (task.slaDueAt) {
+    const due = new Date(task.slaDueAt).getTime();
+    const remaining = due - Date.now();
+    if (remaining < 0) return 'breached';
+    if (remaining < 2 * 3600 * 1000) return 'warning';
+  }
+  return 'ok';
+}
+
+export function formatSlaChip(task: PatientTask): { label: string; tone: SlaState } {
+  const state = getTaskSlaState(task);
+  if (state === 'escalated') return { label: `Escalada${task.escalatedTo ? ` → ${task.escalatedTo}` : ''}`, tone: 'escalated' };
+  if (!task.slaDueAt) return { label: 'SLA —', tone: state };
+  const diffMs = new Date(task.slaDueAt).getTime() - Date.now();
+  const hours = Math.round(Math.abs(diffMs) / 3600000);
+  if (diffMs < 0) return { label: `Vencida ${hours}h`, tone: 'breached' };
+  return { label: `SLA ${hours}h`, tone: state };
 }
 
 export type UrgencyLevel = 'green' | 'yellow' | 'red';
