@@ -527,6 +527,7 @@ Deno.serve(async (req) => {
       specialty: specialtyDisplay,
       signedAt: signedAtDate,
       verificationId,
+      signatureBox,
     });
 
     pdflibAddPlaceholder({
