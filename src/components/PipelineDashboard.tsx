@@ -47,6 +47,7 @@ export function PipelineDashboard() {
   const [procedureFilter, setProcedureFilter] = useState('all');
   const [patientTypeFilter, setPatientTypeFilter] = useState('all');
   const [surgicalApproachFilter, setSurgicalApproachFilter] = useState('all');
+  const [slaFilter, setSlaFilter] = useState<'all' | 'breached' | 'escalated'>('all');
   const [readNotifications, setReadNotifications] = useState<Set<string>>(new Set());
 
   const [lossDialogOpen, setLossDialogOpen] = useState(false);
