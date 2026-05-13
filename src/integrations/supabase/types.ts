@@ -122,6 +122,126 @@ export type Database = {
         }
         Relationships: []
       }
+      material_packages: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string
+          id: string
+          name: string
+          phase: string
+          procedure: string | null
+          surgeon: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          id?: string
+          name: string
+          phase?: string
+          procedure?: string | null
+          surgeon?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          id?: string
+          name?: string
+          phase?: string
+          procedure?: string | null
+          surgeon?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      materials: {
+        Row: {
+          body_html: string
+          content_url: string | null
+          created_at: string
+          created_by: string | null
+          description: string
+          file_path: string | null
+          id: string
+          kind: string
+          phase: string
+          procedure: string | null
+          surgeon: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          body_html?: string
+          content_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          file_path?: string | null
+          id?: string
+          kind: string
+          phase?: string
+          procedure?: string | null
+          surgeon?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          body_html?: string
+          content_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          file_path?: string | null
+          id?: string
+          kind?: string
+          phase?: string
+          procedure?: string | null
+          surgeon?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      package_materials: {
+        Row: {
+          id: string
+          material_id: string
+          order_index: number
+          package_id: string
+        }
+        Insert: {
+          id?: string
+          material_id: string
+          order_index?: number
+          package_id: string
+        }
+        Update: {
+          id?: string
+          material_id?: string
+          order_index?: number
+          package_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "package_materials_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "package_materials_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "material_packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patient_documents: {
         Row: {
           body_html: string
@@ -206,6 +326,54 @@ export type Database = {
             columns: ["template_id"]
             isOneToOne: false
             referencedRelation: "document_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      patient_sent_materials: {
+        Row: {
+          channel: string
+          id: string
+          material_id: string | null
+          notes: string | null
+          package_id: string | null
+          patient_id: string
+          sent_at: string
+          sent_by: string | null
+        }
+        Insert: {
+          channel?: string
+          id?: string
+          material_id?: string | null
+          notes?: string | null
+          package_id?: string | null
+          patient_id: string
+          sent_at?: string
+          sent_by?: string | null
+        }
+        Update: {
+          channel?: string
+          id?: string
+          material_id?: string | null
+          notes?: string | null
+          package_id?: string | null
+          patient_id?: string
+          sent_at?: string
+          sent_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_sent_materials_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_sent_materials_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "material_packages"
             referencedColumns: ["id"]
           },
         ]
