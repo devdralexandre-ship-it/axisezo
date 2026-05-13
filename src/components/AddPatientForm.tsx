@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,9 +7,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Patient, PIPELINE_STAGES, STAGE_LABELS, OWNERS, Owner } from '@/data/types';
 import { PROCEDURES, SURGEONS, CONCIERGES, PAYERS, BILLING_TYPES, PATIENT_TYPE_LABELS, SURGICAL_APPROACHES, procedureNeedsApproach, LATERALITY_OPTIONS, procedureNeedsLaterality, HOSPITALS, INDICATION_SOURCES } from '@/data/constants';
-import { Plus, X } from 'lucide-react';
+import { Plus, X, Upload, Camera, FileText, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { TaskFormFields, TaskDraft, emptyTaskDraft } from './TaskFormFields';
 import { CodeAutocomplete } from './CodeAutocomplete';
+import { uploadPatientFile, UPLOAD_CATEGORIES, UploadCategory } from '@/hooks/usePatientUploads';
+import { toast } from 'sonner';
 
 interface InitialTask {
   id: string;
@@ -22,7 +24,13 @@ interface InitialTask {
 interface AddPatientFormProps {
   open: boolean;
   onClose: () => void;
-  onAdd: (patient: Partial<Patient> & { name: string; procedure: string; surgeon: string; initialTasks?: { title: string; dueDate: string; dueTime: string; responsible: string }[] }) => void;
+  onAdd: (patient: Partial<Patient> & { name: string; procedure: string; surgeon: string; initialTasks?: { title: string; dueDate: string; dueTime: string; responsible: string }[] }) => Promise<{ id: string } | void> | void;
+}
+
+interface PendingUpload {
+  id: string;
+  file: File;
+  category: string;
 }
 
 const OTHER_PROCEDURE = '__outro__';
@@ -63,6 +71,27 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
   // Inline task creation
   const [initialTasks, setInitialTasks] = useState<InitialTask[]>([]);
   const [draft, setDraft] = useState<TaskDraft>(emptyTaskDraft());
+
+  // Pending uploads (sent after the patient is created)
+  const [pendingUploads, setPendingUploads] = useState<PendingUpload[]>([]);
+  const [uploadCategory, setUploadCategory] = useState<UploadCategory>('exame');
+  const [submitting, setSubmitting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+
+  const queueFiles = (files: FileList | null) => {
+    if (!files?.length) return;
+    const items: PendingUpload[] = Array.from(files)
+      .filter((f) => {
+        if (f.size > 20 * 1024 * 1024) {
+          toast.error(`"${f.name}" excede 20 MB`);
+          return false;
+        }
+        return true;
+      })
+      .map((file) => ({ id: crypto.randomUUID(), file, category: uploadCategory }));
+    if (items.length) setPendingUploads((prev) => [...prev, ...items]);
+  };
 
   const isCustomProcedure = procedure === OTHER_PROCEDURE;
   const effectiveProcedure = isCustomProcedure ? customProcedure : procedure;
@@ -109,10 +138,11 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
     setIndicationDate(new Date().toISOString().split('T')[0]);
     setMainCbhpm({ code: '', label: '' });
     setExtraCbhpm([]);
+    setPendingUploads([]); setUploadCategory('exame');
   };
 
-  const handleSubmit = () => {
-    if (!name || !effectiveProcedure || !surgeon || !hasValidTask) return;
+  const handleSubmit = async () => {
+    if (!name || !effectiveProcedure || !surgeon || !hasValidTask || submitting) return;
     const today = new Date().toISOString().split('T')[0];
     const finalPayer = payer === 'Outros' ? payerOther : payer;
     const finalHospital = isCustomHospital ? customHospital : desiredHospital;
@@ -122,48 +152,71 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
       : showMedicalFees && medicalFees ? parseFloat(medicalFees)
       : null;
 
-    onAdd({
-      name,
-      age: age ? parseInt(age) : null,
-      patientType,
-      procedure: effectiveProcedure,
-      procedureCategory: '',
-      surgicalApproach: showApproach ? surgicalApproach || null : null,
-      laterality: showLaterality ? laterality || null : null,
-      surgeon,
-      concierge,
-      owner: surgeon as any,
-      stage,
-      stageEnteredAt: today,
-      decisionStatus: 'waiting',
-      estimatedValue: computedEstimatedValue,
-      lastInteractionDate: today,
-      nextFollowUpDate: null,
-      phone,
-      email,
-      initialTasks: initialTasks.map(t => ({ title: t.title, dueDate: t.dueDate, dueTime: t.dueTime, responsible: t.responsible })),
-      createdAt: today,
-      indicationDate: indicationDate || today,
-      indicationLocation: finalIndication || null,
-      payer: finalPayer || null,
-      billingType: billingType || null,
-      medicalFees: showMedicalFees && medicalFees ? parseFloat(medicalFees) : null,
-      anesthesiaFees: showFullFinancial && anesthesiaFees ? parseFloat(anesthesiaFees) : null,
-      hospitalBudget: showFullFinancial && hospitalBudget ? parseFloat(hospitalBudget) : null,
-      materialsCost: showFullFinancial && materialsCost ? parseFloat(materialsCost) : null,
-      responsibleContact: responsibleContact || null,
-      desiredHospital: finalHospital || null,
-      notes: notes || null,
-      alerts: alerts || null,
-      lossReason: null,
-      lossReasonDetail: null,
-      procedureCodes: {
-        main: (mainCbhpm.code || mainCbhpm.label) ? mainCbhpm : null,
-        extras: extraCbhpm.filter((e) => e.code || e.label),
-      },
-    });
-    resetForm();
-    onClose();
+    setSubmitting(true);
+    try {
+      const created = await onAdd({
+        name,
+        age: age ? parseInt(age) : null,
+        patientType,
+        procedure: effectiveProcedure,
+        procedureCategory: '',
+        surgicalApproach: showApproach ? surgicalApproach || null : null,
+        laterality: showLaterality ? laterality || null : null,
+        surgeon,
+        concierge,
+        owner: surgeon as any,
+        stage,
+        stageEnteredAt: today,
+        decisionStatus: 'waiting',
+        estimatedValue: computedEstimatedValue,
+        lastInteractionDate: today,
+        nextFollowUpDate: null,
+        phone,
+        email,
+        initialTasks: initialTasks.map(t => ({ title: t.title, dueDate: t.dueDate, dueTime: t.dueTime, responsible: t.responsible })),
+        createdAt: today,
+        indicationDate: indicationDate || today,
+        indicationLocation: finalIndication || null,
+        payer: finalPayer || null,
+        billingType: billingType || null,
+        medicalFees: showMedicalFees && medicalFees ? parseFloat(medicalFees) : null,
+        anesthesiaFees: showFullFinancial && anesthesiaFees ? parseFloat(anesthesiaFees) : null,
+        hospitalBudget: showFullFinancial && hospitalBudget ? parseFloat(hospitalBudget) : null,
+        materialsCost: showFullFinancial && materialsCost ? parseFloat(materialsCost) : null,
+        responsibleContact: responsibleContact || null,
+        desiredHospital: finalHospital || null,
+        notes: notes || null,
+        alerts: alerts || null,
+        lossReason: null,
+        lossReasonDetail: null,
+        procedureCodes: {
+          main: (mainCbhpm.code || mainCbhpm.label) ? mainCbhpm : null,
+          extras: extraCbhpm.filter((e) => e.code || e.label),
+        },
+      } as any);
+
+      // Upload pending files now that we have the patient id
+      const newId = (created && typeof created === 'object' && 'id' in created) ? (created as any).id as string : null;
+      if (newId && pendingUploads.length) {
+        let ok = 0;
+        for (const p of pendingUploads) {
+          try {
+            await uploadPatientFile({ patientId: newId, file: p.file, category: p.category as UploadCategory });
+            ok++;
+          } catch (e: any) {
+            toast.error(`Falha em "${p.file.name}": ${e?.message ?? 'erro'}`);
+          }
+        }
+        if (ok) toast.success(`${ok} anexo(s) enviado(s)`);
+      }
+
+      resetForm();
+      onClose();
+    } catch (e: any) {
+      // mutation toast already fires
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const formatCurrency = (v: number) =>
@@ -499,11 +552,62 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
                 </div>
               )}
             </div>
+
+            {/* Anexos (uploads) */}
+            <div className="space-y-2 pt-2 border-t border-border">
+              <Label className="text-sm">Anexos do paciente (opcional)</Label>
+              <div className="flex items-center gap-2">
+                <Select value={uploadCategory} onValueChange={(v) => setUploadCategory(v as UploadCategory)}>
+                  <SelectTrigger className="h-8 text-xs flex-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {UPLOAD_CATEGORIES.map((c) => (
+                      <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button type="button" variant="outline" size="sm" className="h-8 text-xs" onClick={() => fileInputRef.current?.click()}>
+                  <Upload className="h-3 w-3 mr-1" /> Arquivo
+                </Button>
+                <Button type="button" variant="outline" size="sm" className="h-8 text-xs" onClick={() => cameraInputRef.current?.click()}>
+                  <Camera className="h-3 w-3 mr-1" /> Foto
+                </Button>
+                <input
+                  ref={fileInputRef} type="file" accept="application/pdf,image/*" multiple className="hidden"
+                  onChange={(e) => { queueFiles(e.target.files); e.target.value = ''; }}
+                />
+                <input
+                  ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden"
+                  onChange={(e) => { queueFiles(e.target.files); e.target.value = ''; }}
+                />
+              </div>
+              {pendingUploads.length > 0 && (
+                <div className="space-y-1">
+                  {pendingUploads.map((p) => (
+                    <div key={p.id} className="flex items-center gap-2 p-2 rounded bg-muted/50">
+                      {p.file.type.startsWith('image/') ? <ImageIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" /> : <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
+                      <div className="flex-1 min-w-0">
+                        <span className="text-xs font-medium truncate block">{p.file.name}</span>
+                        <span className="text-[11px] text-muted-foreground">
+                          {(p.file.size / 1024 / 1024).toFixed(2)} MB • {UPLOAD_CATEGORIES.find((c) => c.value === p.category)?.label}
+                        </span>
+                      </div>
+                      <button type="button" onClick={() => setPendingUploads((prev) => prev.filter((x) => x.id !== p.id))} className="text-muted-foreground hover:text-destructive shrink-0">
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                  <p className="text-[11px] text-muted-foreground">Os arquivos serão enviados após criar o paciente.</p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
         <DialogFooter className="px-6 py-4 border-t border-border shrink-0">
-          <Button variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button onClick={handleSubmit} disabled={!name || !effectiveProcedure || !surgeon || !hasValidTask}>Criar paciente</Button>
+          <Button variant="outline" onClick={onClose} disabled={submitting}>Cancelar</Button>
+          <Button onClick={handleSubmit} disabled={!name || !effectiveProcedure || !surgeon || !hasValidTask || submitting}>
+            {submitting && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+            Criar paciente
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

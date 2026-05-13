@@ -210,6 +210,48 @@ export type Database = {
           },
         ]
       }
+      patient_uploads: {
+        Row: {
+          category: string
+          created_at: string
+          drive_file_id: string | null
+          drive_synced_at: string | null
+          file_name: string
+          id: string
+          mime_type: string
+          patient_id: string
+          size_bytes: number
+          storage_path: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          drive_file_id?: string | null
+          drive_synced_at?: string | null
+          file_name: string
+          id?: string
+          mime_type?: string
+          patient_id: string
+          size_bytes?: number
+          storage_path: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          drive_file_id?: string | null
+          drive_synced_at?: string | null
+          file_name?: string
+          id?: string
+          mime_type?: string
+          patient_id?: string
+          size_bytes?: number
+          storage_path?: string
+          uploaded_by?: string | null
+        }
+        Relationships: []
+      }
       patients: {
         Row: {
           age: number | null

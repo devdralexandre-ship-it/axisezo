@@ -248,8 +248,9 @@ export function PipelineDashboard() {
     togglePreOp.mutate({ patientId, itemKey: item, checked: !currentValue });
   }, [patients, togglePreOp]);
 
-  const handleAddPatient = useCallback((patient: Partial<Patient> & { name: string; procedure: string; surgeon: string; initialTasks?: { title: string; dueDate: string; dueTime: string; responsible: string }[] }) => {
-    addPatientMutation.mutate(patient);
+  const handleAddPatient = useCallback(async (patient: Partial<Patient> & { name: string; procedure: string; surgeon: string; initialTasks?: { title: string; dueDate: string; dueTime: string; responsible: string }[] }) => {
+    const created = await addPatientMutation.mutateAsync(patient);
+    return created as { id: string };
   }, [addPatientMutation]);
 
   const handleDeletePatient = useCallback((patientId: string) => {
