@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { PreOpChecklist } from './PreOpChecklist';
 import { PatientDocuments } from './PatientDocuments';
 import { PatientUploads } from './PatientUploads';
+import { PatientOrientations } from './PatientOrientations';
 import { Calendar, UserRound, Stethoscope, DollarSign, Clock, Plus, CheckCircle2, Circle, Building2, CreditCard, MapPin, Pencil, Save, X, AlertTriangle, Baby, User, Phone, Mail, FileText, Contact } from 'lucide-react';
 
 const OTHER_PROCEDURE = '__outro__';
@@ -520,6 +521,9 @@ export function PatientPanel({ patient, open, onClose, onCompleteTask, onAddTask
 
           {/* Documents */}
           <PatientDocuments patient={patient} />
+
+          {/* Orientations */}
+          <PatientOrientations patient={patient} />
 
           {/* Tasks bloco antigo removido — agora aparece no topo */}
         </div>
