@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
-import { Patient, PIPELINE_STAGES, PipelineStage, DecisionStatus, Owner, Notification, PatientTask, PreOpChecklistItem, getNextPendingTask, getTaskUrgency, STAGE_LABELS, LossReason } from '@/data/types';
+import { Patient, PIPELINE_STAGES, PipelineStage, DecisionStatus, Owner, Notification, PatientTask, PreOpChecklistItem, getNextPendingTask, getTaskUrgency, STAGE_LABELS, LossReason, getTaskSlaState } from '@/data/types';
 import { usePatients, useUpdatePatientStage, useUpdatePatientFields, useCompleteTask, useAddTask, useTogglePreOpItem, useAddPatient, useDeletePatient, useImportPatients } from '@/hooks/usePatients';
 import { PipelineColumn } from './PipelineColumn';
 import { PatientPanel } from './PatientPanel';
@@ -47,6 +47,7 @@ export function PipelineDashboard() {
   const [procedureFilter, setProcedureFilter] = useState('all');
   const [patientTypeFilter, setPatientTypeFilter] = useState('all');
   const [surgicalApproachFilter, setSurgicalApproachFilter] = useState('all');
+  const [slaFilter, setSlaFilter] = useState<'all' | 'breached' | 'escalated'>('all');
   const [readNotifications, setReadNotifications] = useState<Set<string>>(new Set());
 
   const [lossDialogOpen, setLossDialogOpen] = useState(false);
@@ -96,9 +97,14 @@ export function PipelineDashboard() {
       if (procedureFilter !== 'all' && p.procedure !== procedureFilter) return false;
       if (patientTypeFilter !== 'all' && p.patientType !== patientTypeFilter) return false;
       if (surgicalApproachFilter !== 'all' && p.surgicalApproach !== surgicalApproachFilter) return false;
+      if (slaFilter !== 'all') {
+        const states = p.tasks.filter(t => !t.completed).map(getTaskSlaState);
+        if (slaFilter === 'breached' && !states.some(s => s === 'breached' || s === 'escalated')) return false;
+        if (slaFilter === 'escalated' && !states.includes('escalated')) return false;
+      }
       return true;
     });
-  }, [patients, search, surgeonFilter, conciergeFilter, procedureFilter, patientTypeFilter, surgicalApproachFilter]);
+  }, [patients, search, surgeonFilter, conciergeFilter, procedureFilter, patientTypeFilter, surgicalApproachFilter, slaFilter]);
 
   const activeFiltered = filtered.filter((p) => p.stage !== 'lost');
   // BUG 1 FIX: Use estimatedValue OR medicalFees as fallback for pipeline total
@@ -375,6 +381,32 @@ export function PipelineDashboard() {
               <span className="font-semibold text-destructive">{lostCount}</span>
             </div>
           )}
+          <div className="ml-auto flex items-center gap-1">
+            <Button
+              variant={slaFilter === 'all' ? 'secondary' : 'ghost'}
+              size="sm"
+              className="h-7 text-xs"
+              onClick={() => setSlaFilter('all')}
+            >
+              Todos
+            </Button>
+            <Button
+              variant={slaFilter === 'breached' ? 'secondary' : 'ghost'}
+              size="sm"
+              className="h-7 text-xs"
+              onClick={() => setSlaFilter('breached')}
+            >
+              ⏰ SLA estourado
+            </Button>
+            <Button
+              variant={slaFilter === 'escalated' ? 'secondary' : 'ghost'}
+              size="sm"
+              className="h-7 text-xs"
+              onClick={() => setSlaFilter('escalated')}
+            >
+              🚨 Escaladas
+            </Button>
+          </div>
         </div>
 
         <FilterBar

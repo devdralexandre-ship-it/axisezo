@@ -1,116 +1,77 @@
-# Plano: SLA, Sobrecarga da Concierge e Documentos com Sync Google Drive
+# Fase 2 — SLA por ação/tarefa pendente
 
-Quatro frentes integradas. Posso entregar em uma única iteração ou faseado — recomendo a ordem abaixo.
+## Objetivo
+Cada tarefa pendente passa a ter prazo formal (SLA). O sistema marca quando o SLA estoura, e quando passa do tempo de tolerância sem conclusão, escala automaticamente para um responsável superior (admin/cirurgião). UI deixa visível o que está vencendo, vencido e escalado.
 
----
+## 1. Banco de dados
 
-## 1. SLA por ação/tarefa com escalonamento
+### Migração na tabela `tasks`
+Adicionar colunas:
+- `sla_hours` (int, default 24) — janela do SLA em horas a partir da criação.
+- `sla_due_at` (timestamptz) — calculado `created_at + sla_hours`. Usado em vez de `due_date+due_time` para o relógio do SLA (mantém `due_date/due_time` como prazo "humano").
+- `sla_breached_at` (timestamptz, null) — quando o cron detectou o estouro.
+- `escalate_after_hours` (int, default 24) — tolerância após o estouro antes de escalar.
+- `escalated_at` (timestamptz, null).
+- `escalated_to` (text, null) — papel/nome alvo da escalação ("admin" ou nome do cirurgião responsável).
+- `escalation_reason` (text, null).
 
-**Objetivo:** garantir que nenhuma tarefa fique parada além do prazo combinado, com aviso automático quando a concierge não responde.
+### Nova tabela `sla_policies`
+Configuração por `preset` (mesmo campo já existente em `tasks.preset`) e `responsible` (papel). Colunas: `preset`, `responsible`, `sla_hours`, `escalate_after_hours`, `escalate_to_role`. RLS: leitura para qualquer autenticado, escrita só admin. Se não houver linha para o preset, usa default global (24h / 24h / admin).
 
-### Schema
-- `tasks`: adicionar `sla_hours` (int, default por preset), `sla_breached_at` (timestamptz), `escalated_at` (timestamptz), `escalated_to` (text).
-- Nova tabela `sla_policies` (admin configura): `preset` (matches taskPresets), `hours_to_due`, `hours_to_escalate`, `escalate_to_role` (admin/surgeon).
-- Seed inicial com defaults razoáveis por tipo de ação (contato inicial 4h, agendamento 24h, follow-up autorização 48h, etc.).
+### Backfill
+Popular `sla_due_at` das tarefas existentes com `created_at + 24h`.
 
-### Lógica
-- Cron edge function (a cada 15 min) varre tarefas não concluídas:
-  - `due_date+due_time` ultrapassado e `sla_breached_at` nulo → marca breach + cria notificação.
-  - Se `now() - due > escalate_hours` e sem `escalated_at` → escala (notifica admin + cirurgião responsável), grava `escalated_at`.
-- Notificações reaproveitam o sino existente (`NotificationBell`).
+## 2. Edge function `sla-watcher` (cron 15 min)
 
-### UI
-- Card no Kanban: badge "SLA -2h", "Atrasada 3h", "Escalada".
-- `PatientPanel`: tarefas atrasadas no topo em vermelho.
-- Filtro "Apenas SLA estourado" no `FilterBar`.
+Roda com service role:
+1. **Detectar breach**: `UPDATE tasks SET sla_breached_at = now() WHERE completed = false AND sla_breached_at IS NULL AND sla_due_at < now()`.
+2. **Escalar**: para tarefas com `sla_breached_at IS NOT NULL`, `escalated_at IS NULL`, `completed = false`, e `now() - sla_breached_at >= escalate_after_hours`:
+   - Resolver alvo: admin global, ou cirurgião responsável pelo paciente.
+   - Atualizar `escalated_at = now()`, `escalated_to = <nome>`.
+   - Inserir registro em `contact_records` (type=`system`, by_whom=`SLA Watcher`, note descrevendo a escalação) para deixar trilha no painel do paciente.
+3. Retornar contagem de breaches/escalações para log.
 
----
+Agendamento via `pg_cron` + `pg_net` (insert tool, não migration).
 
-## 2. Visibilidade da carga da concierge
+## 3. UI
 
-**Objetivo:** admin enxerga quem está sobrecarregado e quais pacientes estão "esquecidos".
+### Hook `usePatients.ts`
+- Mapear novos campos (`slaDueAt`, `slaBreachedAt`, `escalatedAt`, `escalatedTo`, `slaHours`).
+- Ao criar tarefa, aceitar `slaHours` opcional; default 24.
 
-### Dashboard de carga (nova rota `/admin/workload`, só admin)
-Tabela por concierge:
-- Pacientes ativos
-- Tarefas abertas / atrasadas / escaladas
-- Tempo médio de resposta (intervalo entre criação da tarefa e conclusão, últimos 30 dias)
-- Pacientes parados há >7 dias na etapa atual
+### Cards do Kanban (`PipelineDashboard`)
+- Para cada paciente, contar tarefas: `slaDanger` (faltando <2h ou já vencida), `escalated`. Mostrar badge compacto:
+  - 🟡 `SLA -1h` (próxima do vencimento)
+  - 🔴 `Atrasada Xh` (vencida)
+  - 🟣 `Escalada` (escalonada)
+- Filtro novo no topo: "Apenas SLA estourado" e "Apenas escaladas".
 
-Permite drag-and-drop de pacientes entre concierges (atualiza `patients.concierge`).
+### `PatientPanel` — bloco de tarefas
+- Cada item exibe: prazo humano + chip de SLA (`SLA 23h`, `Vencida 4h`, `Escalada para Dr. Fulano`).
+- Cor de fundo da linha muda conforme estado.
+- Ordenação: escaladas → vencidas → próximas do vencimento → demais.
+- Form de nova tarefa ganha campo opcional "SLA (h)" com sugestão do `preset`.
 
-### Alertas automáticos de inatividade
-- Mesmo cron do SLA: se `patients.last_interaction_date < now() - 7 dias` e estágio ≠ terminal, marca como "inativo".
-- Nova coluna virtual no Kanban: badge "🔔 Inativo há Xd" no card.
-- Seção "Precisa de atenção" colapsável no topo da dashboard pessoal de cada concierge.
+### Página admin `/admin/sla` (admin only)
+- Lista global de tarefas vencidas/escaladas, agrupada por responsável (concierge/owner do paciente).
+- Permite reatribuir responsável da tarefa ou marcar concluída.
+- Editor de `sla_policies` por preset.
 
----
+## 4. Testes manuais
+1. Criar tarefa com SLA 1h → após 1h cron marca `sla_breached_at`, card mostra "Atrasada".
+2. Não concluir por mais 1h (com `escalate_after_hours=1`) → cron grava `escalated_at`, badge "Escalada", entrada em contact_records.
+3. Concluir tarefa → some dos filtros de SLA, mantém histórico.
+4. Tarefa sem `preset` herda defaults.
 
-## 3. Upload de documentos pelo paciente (arquivo + câmera)
+## 5. Ordem de execução
+1. Migração de schema + backfill (precisa aprovação).
+2. Edge function `sla-watcher` + cron (insert tool após migração).
+3. Hook + tipos.
+4. Badges no Kanban + filtros.
+5. Painel do paciente.
+6. Página admin `/admin/sla`.
 
-**Objetivo:** call center anexa documentos no cadastro; concierge complementa depois pelo painel.
-
-### Schema
-Nova tabela `patient_uploads`:
-- `patient_id`, `category` (rg, exame, laudo, autorizacao, foto_clinica, outro), `file_name`, `storage_path`, `mime_type`, `size_bytes`, `uploaded_by`, `drive_file_id` (nullable), `drive_synced_at` (nullable).
-
-Bucket `patient-uploads` (privado), pasta `{patient_id}/{category}/{uuid}_{filename}`.
-
-RLS: `can_access_patient(patient_id)`.
-
-### UI
-- **Cadastro inicial (`AddPatientForm`)**: novo bloco "Anexos" — múltiplos arquivos, categoria por arquivo, drag-and-drop. Arquivos são bufferizados em memória e enviados após o paciente ser salvo (já temos id).
-- **`PatientPanel`**: nova aba/seção "Documentos do paciente" (separada da seção atual "Documentos gerados"). Lista por categoria, preview de imagem/PDF, download, exclusão.
-- **Captura de câmera**: input `<input type="file" accept="image/*" capture="environment">` em mobile abre câmera direto; em desktop, fallback para seletor de arquivo. Botão dedicado "Tirar foto".
-- Limites: 20 MB/arquivo, formatos aceitos PDF/JPG/PNG/HEIC.
-
----
-
-## 4. Sincronização opcional com Google Drive
-
-**Objetivo:** documentos vivem no storage interno (fonte da verdade); cópia espelhada no Drive da clínica para a secretária manipular/encaminhar.
-
-### Conexão
-Conector Google Drive (conta única da clínica, via OAuth do builder). Pasta raiz configurável (ex.: "AxisCRM Pacientes").
-
-### Estrutura no Drive
-```text
-AxisCRM Pacientes/
-  {Nome do Paciente} - {id curto}/
-    Documentos do Paciente/
-      RG/
-      Exames/
-      Laudos/
-      Autorizações/
-      Fotos clínicas/
-      Outros/
-    Documentos Gerados/
-      Solicitações cirúrgicas/
-      Receitas/
-      Atestados/
-      Laudos/
-      Orçamentos/
-```
-
-### Sync
-- Edge function `sync-to-drive` chamada:
-  - Após upload em `patient_uploads` (assíncrona, fire-and-forget).
-  - Após geração ou assinatura de documento em `patient_documents` (substitui versão anterior, mantém o assinado como definitivo).
-- Idempotente: cria pastas se não existirem, atualiza arquivo se `drive_file_id` já existe.
-- Configuração admin: ligar/desligar sync global, ver status (último sync, falhas), botão "Resincronizar paciente".
-- Falha de sync **não** bloqueia a operação no CRM — registra erro e mostra ícone de aviso no item.
-
-### Acesso da secretária
-- Ela acessa direto o Drive da clínica (fora do CRM) para encaminhar por email/WhatsApp.
-- Bonus opcional: link "Abrir no Drive" em cada arquivo no CRM.
-
----
-
-## Ordem de entrega sugerida
-
-1. **Uploads + bucket + UI** (mais isolado, valor imediato).
-2. **SLA + cron + notificações** (mexe em tarefas, base para o painel).
-3. **Painel de carga + alertas de inatividade** (consome dados do passo 2).
-4. **Sync Google Drive** (depende dos passos 1 e dos documentos já existentes; precisa do conector conectado).
-
-Posso começar pelo passo 1 ou fazer tudo numa sequência longa — me diga a preferência. Se "tudo", sigo na ordem acima.
+## Notas técnicas
+- Não usar CHECK constraints com `now()` — usar trigger se precisar validar `sla_due_at >= created_at`.
+- `escalated_to` é texto livre por simplicidade (não há tabela de "alertas/notificações" ainda; se a equipe quiser notificação push/email depois, adicionamos uma tabela `notifications` em fase própria).
+- Toda lógica de escalação fica na edge function — frontend só lê estado.

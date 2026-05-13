@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Patient, STAGE_LABELS, PatientTask, getTaskUrgency, LOSS_REASON_LABELS, PreOpChecklistItem } from '@/data/types';
+import { Patient, STAGE_LABELS, PatientTask, getTaskUrgency, LOSS_REASON_LABELS, PreOpChecklistItem, getTaskSlaState, formatSlaChip } from '@/data/types';
 import { PROCEDURES, SURGEONS, CONCIERGES, PAYERS, BILLING_TYPES, SURGICAL_APPROACHES, PATIENT_TYPE_LABELS, procedureNeedsApproach, LATERALITY_OPTIONS, procedureNeedsLaterality, HOSPITALS, INDICATION_SOURCES } from '@/data/constants';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
@@ -125,7 +125,13 @@ export function PatientPanel({ patient, open, onClose, onCompleteTask, onAddTask
     return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
   };
 
-  const pendingTasks = patient.tasks.filter((t) => !t.completed).sort((a, b) => new Date(`${a.dueDate}T${a.dueTime}`).getTime() - new Date(`${b.dueDate}T${b.dueTime}`).getTime());
+  const slaRank: Record<string, number> = { escalated: 0, breached: 1, warning: 2, ok: 3 };
+  const pendingTasks = patient.tasks.filter((t) => !t.completed).sort((a, b) => {
+    const ra = slaRank[getTaskSlaState(a)] ?? 3;
+    const rb = slaRank[getTaskSlaState(b)] ?? 3;
+    if (ra !== rb) return ra - rb;
+    return new Date(`${a.dueDate}T${a.dueTime}`).getTime() - new Date(`${b.dueDate}T${b.dueTime}`).getTime();
+  });
   const completedTasks = patient.tasks.filter((t) => t.completed);
   const showApproach = procedureNeedsApproach(editing ? editData.procedure_name : patient.procedure);
   const showLaterality = procedureNeedsLaterality(editing ? editData.procedure_name : patient.procedure);
@@ -206,15 +212,37 @@ export function PatientPanel({ patient, open, onClose, onCompleteTask, onAddTask
                 )}
                 {pendingTasks.map((task) => {
                   const urgency = getTaskUrgency(task);
+                  const slaState = getTaskSlaState(task);
+                  const slaChip = slaState !== 'ok' ? formatSlaChip(task) : null;
+                  const rowBg =
+                    slaState === 'escalated' ? 'bg-purple-500/10 border border-purple-500/30' :
+                    slaState === 'breached' ? 'bg-destructive/10 border border-destructive/30' :
+                    slaState === 'warning' ? 'bg-pipeline-amber/10 border border-pipeline-amber/30' :
+                    'bg-muted/50';
                   return (
-                    <div key={task.id} className="flex items-center gap-2 p-2 rounded-lg bg-muted/50 group">
+                    <div key={task.id} className={`flex items-center gap-2 p-2 rounded-lg group ${rowBg}`}>
                       <button onClick={() => onCompleteTask(patient.id, task.id)} className="shrink-0 hover:scale-110 transition-transform">
                         <Circle className={`h-4 w-4 ${urgencyColors[urgency]}`} />
                       </button>
                       <div className="min-w-0 flex-1">
                         <p className="text-sm text-foreground truncate">{task.title}</p>
                         <p className="text-[11px] text-muted-foreground">{formatDate(task.dueDate)} {task.dueTime} • {task.responsible}</p>
+                        {task.escalationReason && (
+                          <p className="text-[10px] text-purple-700 dark:text-purple-300 mt-0.5">{task.escalationReason}</p>
+                        )}
                       </div>
+                      {slaChip && (
+                        <Badge
+                          variant="outline"
+                          className={`text-[10px] shrink-0 ${
+                            slaChip.tone === 'escalated' ? 'border-purple-500/40 text-purple-700 dark:text-purple-300' :
+                            slaChip.tone === 'breached' ? 'border-destructive/40 text-destructive' :
+                            'border-pipeline-amber/40 text-pipeline-amber'
+                          }`}
+                        >
+                          {slaChip.label}
+                        </Badge>
+                      )}
                     </div>
                   );
                 })}

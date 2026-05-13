@@ -764,6 +764,39 @@ export type Database = {
         }
         Relationships: []
       }
+      sla_policies: {
+        Row: {
+          created_at: string
+          escalate_after_hours: number
+          escalate_to_role: string
+          id: string
+          preset: string
+          responsible: string | null
+          sla_hours: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          escalate_after_hours?: number
+          escalate_to_role?: string
+          id?: string
+          preset: string
+          responsible?: string | null
+          sla_hours?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          escalate_after_hours?: number
+          escalate_to_role?: string
+          id?: string
+          preset?: string
+          responsible?: string | null
+          sla_hours?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       tasks: {
         Row: {
           completed: boolean
@@ -771,10 +804,17 @@ export type Database = {
           created_at: string
           due_date: string
           due_time: string
+          escalate_after_hours: number
+          escalated_at: string | null
+          escalated_to: string | null
+          escalation_reason: string | null
           id: string
           patient_id: string
           preset: string | null
           responsible: string
+          sla_breached_at: string | null
+          sla_due_at: string | null
+          sla_hours: number
           title: string
           updated_at: string
         }
@@ -784,10 +824,17 @@ export type Database = {
           created_at?: string
           due_date: string
           due_time?: string
+          escalate_after_hours?: number
+          escalated_at?: string | null
+          escalated_to?: string | null
+          escalation_reason?: string | null
           id?: string
           patient_id: string
           preset?: string | null
           responsible?: string
+          sla_breached_at?: string | null
+          sla_due_at?: string | null
+          sla_hours?: number
           title: string
           updated_at?: string
         }
@@ -797,10 +844,17 @@ export type Database = {
           created_at?: string
           due_date?: string
           due_time?: string
+          escalate_after_hours?: number
+          escalated_at?: string | null
+          escalated_to?: string | null
+          escalation_reason?: string | null
           id?: string
           patient_id?: string
           preset?: string | null
           responsible?: string
+          sla_breached_at?: string | null
+          sla_due_at?: string | null
+          sla_hours?: number
           title?: string
           updated_at?: string
         }

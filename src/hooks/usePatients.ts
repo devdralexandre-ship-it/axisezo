@@ -39,6 +39,13 @@ function mapDbToPatient(db: DbPatient): Patient {
     completed: t.completed,
     completedAt: t.completed_at,
     createdAt: t.created_at?.split('T')[0] || '',
+    slaHours: t.sla_hours ?? 24,
+    slaDueAt: t.sla_due_at ?? null,
+    slaBreachedAt: t.sla_breached_at ?? null,
+    escalateAfterHours: t.escalate_after_hours ?? 24,
+    escalatedAt: t.escalated_at ?? null,
+    escalatedTo: t.escalated_to ?? null,
+    escalationReason: t.escalation_reason ?? null,
   }));
 
   const contacts: ContactRecord[] = ((db as any).contact_records || []).map((c: any) => ({
@@ -232,7 +239,9 @@ export function useAddTask() {
         due_date: task.dueDate,
         due_time: task.dueTime + ':00',
         responsible: task.responsible,
-      });
+        sla_hours: task.slaHours ?? 24,
+        escalate_after_hours: task.escalateAfterHours ?? 24,
+      } as any);
       if (error) throw error;
     },
     onSuccess: () => {

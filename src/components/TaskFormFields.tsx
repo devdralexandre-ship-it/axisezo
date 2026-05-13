@@ -11,6 +11,8 @@ export interface TaskDraft {
   dueDate: string;
   dueTime: string;
   responsible: Owner;
+  slaHours: number;
+  escalateAfterHours: number;
 }
 
 export const emptyTaskDraft = (defaultResponsible?: Owner): TaskDraft => ({
@@ -19,6 +21,8 @@ export const emptyTaskDraft = (defaultResponsible?: Owner): TaskDraft => ({
   dueDate: '',
   dueTime: '10:00',
   responsible: defaultResponsible || OWNERS[0],
+  slaHours: 24,
+  escalateAfterHours: 24,
 });
 
 interface Props {
@@ -88,6 +92,29 @@ export function TaskFormFields({ value, onChange, compact = false }: Props) {
             {OWNERS.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
           </SelectContent>
         </Select>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-2">
+          <Label className={labelCls}>SLA (horas)</Label>
+          <Input
+            type="number"
+            min={1}
+            value={value.slaHours}
+            onChange={(e) => set('slaHours', Math.max(1, parseInt(e.target.value) || 24))}
+            className={inputCls}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label className={labelCls}>Escalar após (h)</Label>
+          <Input
+            type="number"
+            min={1}
+            value={value.escalateAfterHours}
+            onChange={(e) => set('escalateAfterHours', Math.max(1, parseInt(e.target.value) || 24))}
+            className={inputCls}
+          />
+        </div>
       </div>
     </div>
   );
