@@ -378,6 +378,24 @@ Deno.serve(async (req) => {
     docInfo = { id: docRow.id, title: docRow.title, type: docRow.type };
     if (!docRow.pdf_path) throw new Error("Documento não tem PDF gerado");
 
+    // Fetch template signature_box (if document was generated from a template)
+    let signatureBox: SignatureBox | null = null;
+    if (docRow.template_id) {
+      const { data: tplRow } = await admin
+        .from("document_templates")
+        .select("signature_box")
+        .eq("id", docRow.template_id)
+        .maybeSingle();
+      const raw = tplRow?.signature_box as any;
+      if (raw && typeof raw.x === "number" && typeof raw.y === "number"
+        && typeof raw.width === "number" && typeof raw.height === "number") {
+        signatureBox = {
+          x: raw.x, y: raw.y, width: raw.width, height: raw.height,
+          page: typeof raw.page === "number" ? raw.page : undefined,
+        };
+      }
+    }
+
     const { data: patientRow, error: pErr } = await userClient
       .from("patients").select("id, name, surgeon").eq("id", docRow.patient_id).maybeSingle();
     if (pErr || !patientRow) throw new Error("Paciente não encontrado");
