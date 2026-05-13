@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { usePatientDocuments, useDeleteDocument, getDocumentSignedUrl } from '@/hooks/useDocuments';
+import { usePatientDocuments, useDeleteDocument, useDocumentDownloadUrl } from '@/hooks/useDocuments';
 import { useSurgeonCertStatus, useSignDocument, useAuthorizeDocumentSignature } from '@/hooks/useSigning';
 import { useUserRole } from '@/hooks/useUserRole';
 import { DOCUMENT_TYPE_LABELS } from '@/data/documents';
@@ -22,70 +22,8 @@ export function PatientDocuments({ patient }: Props) {
   const { isSurgeon, surgeonName } = useUserRole();
   const [genOpen, setGenOpen] = useState(false);
   const [confirmDoc, setConfirmDoc] = useState<{ id: string; title: string } | null>(null);
-  const [downloading, setDownloading] = useState<string | null>(null);
 
   const isResponsibleSurgeon = isSurgeon && surgeonName === patient?.surgeon;
-
-  const handleDownload = async (pdfPath: string, title: string) => {
-    if (downloading) return;
-    setDownloading(pdfPath);
-    const filename = `${title}.pdf`.replace(/[\\/:*?"<>|]+/g, '_');
-    let cleanUrl: string | null = null;
-    let attachmentUrl: string | null = null;
-    try {
-      [cleanUrl, attachmentUrl] = await Promise.all([
-        getDocumentSignedUrl(pdfPath),
-        getDocumentSignedUrl(pdfPath, { downloadAs: filename, asAttachment: true }),
-      ]);
-    } catch (e) {
-      console.error('[download] erro ao gerar link', e);
-    }
-    if (!cleanUrl && !attachmentUrl) {
-      console.error('[download] signed URL nula para', pdfPath);
-      toast.error('Não foi possível gerar o link. Tente novamente.');
-      setDownloading(null);
-      return;
-    }
-
-    try {
-      if (cleanUrl) {
-        console.info('[download] tentativa A: blob download', { pdfPath, filename });
-        const resp = await fetch(cleanUrl);
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-        const blob = await resp.blob();
-        console.info('[download] blob recebido', { size: blob.size, type: blob.type });
-        if (blob.size === 0) throw new Error('Arquivo vazio');
-        const objUrl = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = objUrl;
-        a.download = filename;
-        a.rel = 'noopener';
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        setTimeout(() => URL.revokeObjectURL(objUrl), 1000);
-        return;
-      }
-
-      throw new Error('URL limpa indisponível');
-    } catch (e) {
-      console.warn('[download] tentativa A falhou, usando fallback', e);
-
-      if (!attachmentUrl) {
-        toast.error('Falha ao baixar o documento');
-        return;
-      }
-
-      console.info('[download] tentativa B: nova aba com attachment', { pdfPath, filename });
-      const popup = window.open(attachmentUrl, '_blank', 'noopener');
-      if (popup) return;
-
-      console.info('[download] tentativa C: navegação na aba atual com attachment', { pdfPath, filename });
-      window.location.assign(attachmentUrl);
-    } finally {
-      setDownloading(null);
-    }
-  };
 
   const handleConfirmSign = () => {
     if (!confirmDoc) return;
