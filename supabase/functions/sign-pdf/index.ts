@@ -59,6 +59,31 @@ function formatBR(date: Date): string {
   }).format(date);
 }
 
+interface SignatureBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  page?: number; // 0-based index; if absent, uses last page
+}
+
+// Minimum viable inline box (points). Below this, fallback to new page.
+const MIN_BOX_W = 180;
+const MIN_BOX_H = 70;
+
+function truncateToWidth(text: string, font: any, size: number, maxW: number): string {
+  if (font.widthOfTextAtSize(text, size) <= maxW) return text;
+  const ell = "…";
+  let lo = 0, hi = text.length;
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2);
+    const candidate = text.slice(0, mid) + ell;
+    if (font.widthOfTextAtSize(candidate, size) <= maxW) lo = mid;
+    else hi = mid - 1;
+  }
+  return text.slice(0, lo) + ell;
+}
+
 async function drawSignatureBlock(opts: {
   pdfDoc: any;
   signerName: string;
@@ -66,13 +91,13 @@ async function drawSignatureBlock(opts: {
   specialty: string | null;
   signedAt: Date;
   verificationId: string;
+  signatureBox: SignatureBox | null;
 }) {
-  const { pdfDoc, signerName, crm, specialty, signedAt, verificationId } = opts;
+  const { pdfDoc, signerName, crm, specialty, signedAt, verificationId, signatureBox } = opts;
   const helv = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const helvBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
   const helvOblique = await pdfDoc.embedFont(StandardFonts.HelveticaOblique);
 
-  // Generate QR code
   const verifyUrl = `${VERIFY_BASE_URL}/${verificationId}`;
   const qrPngBuf = await QRCode.toBuffer(verifyUrl, {
     errorCorrectionLevel: "M",
@@ -83,22 +108,120 @@ async function drawSignatureBlock(opts: {
   const qrImage = await pdfDoc.embedPng(new Uint8Array(qrPngBuf));
 
   const pages = pdfDoc.getPages();
-  let page = pages[pages.length - 1];
-  const { width: pageW, height: pageH } = page.getSize();
 
-  const blockH = 110;
+  // ----- Inline mode: use template's signature_box on existing page -----
+  const useInline = signatureBox &&
+    signatureBox.width >= MIN_BOX_W &&
+    signatureBox.height >= MIN_BOX_H;
+
+  if (signatureBox && !useInline) {
+    console.warn(
+      `[sign-pdf] signature_box muito pequeno (${signatureBox.width}x${signatureBox.height}pt; mínimo ${MIN_BOX_W}x${MIN_BOX_H}). Fallback para nova página.`,
+    );
+  }
+
+  if (useInline) {
+    const pageIdx = (typeof signatureBox.page === "number"
+      && signatureBox.page >= 0
+      && signatureBox.page < pages.length)
+      ? signatureBox.page
+      : pages.length - 1;
+    const page = pages[pageIdx];
+    const { width: pageW, height: pageH } = page.getSize();
+
+    // Coordinates: PDF points, origin bottom-left. signatureBox.{x,y} is bottom-left of the box.
+    // Clamp to page bounds defensively.
+    const bx = Math.max(0, Math.min(signatureBox.x, pageW));
+    const by = Math.max(0, Math.min(signatureBox.y, pageH));
+    const bw = Math.max(0, Math.min(signatureBox.width, pageW - bx));
+    const bh = Math.max(0, Math.min(signatureBox.height, pageH - by));
+
+    const pad = 6;
+    const innerLeft = bx + pad;
+    const innerRight = bx + bw - pad;
+    const innerTop = by + bh - pad;
+    const innerBottom = by + pad;
+    const innerW = innerRight - innerLeft;
+    const innerH = innerTop - innerBottom;
+
+    // QR sized relative to box height; capped by both dimensions
+    const qrSize = Math.max(40, Math.min(innerH, Math.min(96, innerW * 0.35)));
+    const qrX = innerRight - qrSize;
+    const qrY = innerBottom + (innerH - qrSize) / 2;
+    page.drawImage(qrImage, { x: qrX, y: qrY, width: qrSize, height: qrSize });
+
+    // Text region (left of QR)
+    const textLeft = innerLeft;
+    const textRight = qrX - 8;
+    const textW = Math.max(40, textRight - textLeft);
+
+    // Responsive font sizes based on box height
+    const nameSize = innerH >= 90 ? 12 : innerH >= 75 ? 11 : 10;
+    const metaSize = innerH >= 90 ? 9.5 : innerH >= 75 ? 9 : 8.5;
+    const lineGap = nameSize + 4;
+    const metaGap = metaSize + 3;
+
+    let y = innerTop - nameSize;
+    const nameText = truncateToWidth(signerName, helvBold, nameSize, textW);
+    page.drawText(nameText, {
+      x: textLeft, y, size: nameSize, font: helvBold, color: rgb(0.06, 0.09, 0.16),
+    });
+    y -= lineGap;
+
+    const metaParts: string[] = [];
+    if (crm) metaParts.push(`CRM ${crm}`);
+    if (specialty) metaParts.push(specialty);
+    if (metaParts.length && y - metaSize >= innerBottom) {
+      const metaText = truncateToWidth(metaParts.join("  ·  "), helv, metaSize, textW);
+      page.drawText(metaText, {
+        x: textLeft, y, size: metaSize, font: helv, color: rgb(0.31, 0.36, 0.44),
+      });
+      y -= metaGap;
+    }
+
+    if (y - metaSize >= innerBottom) {
+      const tsText = truncateToWidth(
+        `Assinado em ${formatBR(signedAt)} (Brasília)`,
+        helv, metaSize, textW,
+      );
+      page.drawText(tsText, {
+        x: textLeft, y, size: metaSize, font: helv, color: rgb(0.31, 0.36, 0.44),
+      });
+      y -= metaGap;
+    }
+
+    if (y - metaSize >= innerBottom) {
+      const icpText = truncateToWidth(
+        "Documento assinado digitalmente via ICP-Brasil",
+        helvOblique, metaSize, textW,
+      );
+      page.drawText(icpText, {
+        x: textLeft, y, size: metaSize, font: helvOblique, color: rgb(0.31, 0.36, 0.44),
+      });
+      y -= metaGap;
+    }
+
+    // Verification id (small, only if room)
+    const idSize = 7;
+    if (y - idSize >= innerBottom) {
+      const idText = truncateToWidth(`ID: ${verificationId}`, helv, idSize, textW);
+      page.drawText(idText, {
+        x: textLeft, y, size: idSize, font: helv, color: rgb(0.45, 0.49, 0.56),
+      });
+    }
+    return;
+  }
+
+  // ----- Fallback: dedicated new page (legacy behavior) -----
+  const lastPage = pages[pages.length - 1];
+  const { width: pageW, height: pageH } = lastPage.getSize();
   const margin = 36;
-  let y = 60; // distance from bottom
-
-  // If not enough space, add a new page
-  // We assume content might be near bottom; add a fresh page to keep layout clean
-  page = pdfDoc.addPage([pageW, pageH]);
+  const page = pdfDoc.addPage([pageW, pageH]);
 
   const left = margin;
   const right = pageW - margin;
   const top = pageH - margin;
 
-  // Title
   page.drawText("Verificação de Assinatura Digital", {
     x: left, y: top - 12, size: 11, font: helvBold, color: rgb(0.06, 0.09, 0.16),
   });
@@ -118,26 +241,13 @@ async function drawSignatureBlock(opts: {
     x: qrX, y: qrY - 12, size: 7, font: helv, color: rgb(0.45, 0.49, 0.56),
   });
 
-  // Lock icon (vector) on the left
   const iconX = left;
   const iconY = blockTop - 18;
-  // Body
-  page.drawRectangle({
-    x: iconX, y: iconY - 10, width: 16, height: 12,
-    color: rgb(0.06, 0.09, 0.16),
-  });
-  // Shackle (drawn as a thin rect arc approximation: two vertical + top horizontal)
-  page.drawRectangle({
-    x: iconX + 2, y: iconY + 2, width: 1.5, height: 8, color: rgb(0.06, 0.09, 0.16),
-  });
-  page.drawRectangle({
-    x: iconX + 12.5, y: iconY + 2, width: 1.5, height: 8, color: rgb(0.06, 0.09, 0.16),
-  });
-  page.drawRectangle({
-    x: iconX + 2, y: iconY + 9, width: 12, height: 1.5, color: rgb(0.06, 0.09, 0.16),
-  });
+  page.drawRectangle({ x: iconX, y: iconY - 10, width: 16, height: 12, color: rgb(0.06, 0.09, 0.16) });
+  page.drawRectangle({ x: iconX + 2, y: iconY + 2, width: 1.5, height: 8, color: rgb(0.06, 0.09, 0.16) });
+  page.drawRectangle({ x: iconX + 12.5, y: iconY + 2, width: 1.5, height: 8, color: rgb(0.06, 0.09, 0.16) });
+  page.drawRectangle({ x: iconX + 2, y: iconY + 9, width: 12, height: 1.5, color: rgb(0.06, 0.09, 0.16) });
 
-  // Signer name
   let textY = blockTop - 8;
   page.drawText(signerName, {
     x: iconX + 24, y: textY, size: 12, font: helvBold, color: rgb(0.06, 0.09, 0.16),
@@ -162,7 +272,6 @@ async function drawSignatureBlock(opts: {
     x: iconX + 24, y: textY, size: 9, font: helvOblique, color: rgb(0.31, 0.36, 0.44),
   });
 
-  // Footer line + verification id
   const footerY = 48;
   page.drawLine({
     start: { x: left, y: footerY + 18 },
@@ -268,6 +377,24 @@ Deno.serve(async (req) => {
     if (docErr || !docRow) throw new Error("Documento não encontrado ou sem acesso");
     docInfo = { id: docRow.id, title: docRow.title, type: docRow.type };
     if (!docRow.pdf_path) throw new Error("Documento não tem PDF gerado");
+
+    // Fetch template signature_box (if document was generated from a template)
+    let signatureBox: SignatureBox | null = null;
+    if (docRow.template_id) {
+      const { data: tplRow } = await admin
+        .from("document_templates")
+        .select("signature_box")
+        .eq("id", docRow.template_id)
+        .maybeSingle();
+      const raw = tplRow?.signature_box as any;
+      if (raw && typeof raw.x === "number" && typeof raw.y === "number"
+        && typeof raw.width === "number" && typeof raw.height === "number") {
+        signatureBox = {
+          x: raw.x, y: raw.y, width: raw.width, height: raw.height,
+          page: typeof raw.page === "number" ? raw.page : undefined,
+        };
+      }
+    }
 
     const { data: patientRow, error: pErr } = await userClient
       .from("patients").select("id, name, surgeon").eq("id", docRow.patient_id).maybeSingle();
@@ -400,6 +527,7 @@ Deno.serve(async (req) => {
       specialty: specialtyDisplay,
       signedAt: signedAtDate,
       verificationId,
+      signatureBox,
     });
 
     pdflibAddPlaceholder({
