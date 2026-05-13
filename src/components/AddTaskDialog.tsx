@@ -30,6 +30,8 @@ export function AddTaskDialog({ open, onClose, onAdd, patientName, defaultRespon
       completed: false,
       completedAt: null,
       createdAt: new Date().toISOString().split('T')[0],
+      slaHours: draft.slaHours,
+      escalateAfterHours: draft.escalateAfterHours,
     });
     onClose();
   };
