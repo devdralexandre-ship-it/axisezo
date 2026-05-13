@@ -8,6 +8,7 @@ import Index from "./pages/Index.tsx";
 import Auth from "./pages/Auth.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import Templates from "./pages/Templates.tsx";
+import Library from "./pages/Library.tsx";
 import ResetPassword from "./pages/ResetPassword.tsx";
 import AdminUsers from "./pages/AdminUsers.tsx";
 import Profile from "./pages/Profile.tsx";
@@ -43,6 +44,7 @@ const App = () => (
             <Route path="/verify-document/:id" element={<VerifyDocument />} />
             <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
             <Route path="/templates" element={<ProtectedRoute><Templates /></ProtectedRoute>} />
+            <Route path="/library" element={<ProtectedRoute><Library /></ProtectedRoute>} />
             <Route path="/admin/users" element={<ProtectedRoute><AdminUsers /></ProtectedRoute>} />
             <Route path="/perfil" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
             <Route path="/perfil/mfa" element={<ProtectedRoute><MfaEnroll /></ProtectedRoute>} />

@@ -11,7 +11,7 @@ import { LossReasonDialog } from './LossReasonDialog';
 import { DeletePatientDialog } from './DeletePatientDialog';
 import { CsvImporter } from './CsvImporter';
 import { Button } from '@/components/ui/button';
-import { Plus, Users, DollarSign, TrendingUp, LogOut, Upload, FileText, Shield, UserCircle } from 'lucide-react';
+import { Plus, Users, DollarSign, TrendingUp, LogOut, Upload, FileText, Shield, UserCircle, BookOpen } from 'lucide-react';
 import { useUserRole } from '@/hooks/useUserRole';
 import { Link } from 'react-router-dom';
 import { DragDropContext, DropResult } from '@hello-pangea/dnd';
