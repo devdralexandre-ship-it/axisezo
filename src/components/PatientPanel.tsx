@@ -125,7 +125,13 @@ export function PatientPanel({ patient, open, onClose, onCompleteTask, onAddTask
     return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
   };
 
-  const pendingTasks = patient.tasks.filter((t) => !t.completed).sort((a, b) => new Date(`${a.dueDate}T${a.dueTime}`).getTime() - new Date(`${b.dueDate}T${b.dueTime}`).getTime());
+  const slaRank: Record<string, number> = { escalated: 0, breached: 1, warning: 2, ok: 3 };
+  const pendingTasks = patient.tasks.filter((t) => !t.completed).sort((a, b) => {
+    const ra = slaRank[getTaskSlaState(a)] ?? 3;
+    const rb = slaRank[getTaskSlaState(b)] ?? 3;
+    if (ra !== rb) return ra - rb;
+    return new Date(`${a.dueDate}T${a.dueTime}`).getTime() - new Date(`${b.dueDate}T${b.dueTime}`).getTime();
+  });
   const completedTasks = patient.tasks.filter((t) => t.completed);
   const showApproach = procedureNeedsApproach(editing ? editData.procedure_name : patient.procedure);
   const showLaterality = procedureNeedsLaterality(editing ? editData.procedure_name : patient.procedure);
