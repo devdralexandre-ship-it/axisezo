@@ -68,7 +68,7 @@ export function PatientOrientations({ patient }: Props) {
 
   // Proactive suggestion banner
   const suggestion = useMemo(() => {
-    if (patient.stage === 'surgery_scheduled' || patient.stage === 'surgery_authorized') {
+    if (patient.stage === 'surgery_scheduled' || patient.stage === 'preop_preparation') {
       const pkg = sortedAll.packages.find(p =>
         (p.phase === 'preop') &&
         (!p.procedure || p.procedure === patient.procedure) &&
