@@ -22,28 +22,44 @@ export function PatientDocuments({ patient }: Props) {
   const { isSurgeon, surgeonName } = useUserRole();
   const [genOpen, setGenOpen] = useState(false);
   const [confirmDoc, setConfirmDoc] = useState<{ id: string; title: string } | null>(null);
+  const [downloading, setDownloading] = useState<string | null>(null);
 
   const isResponsibleSurgeon = isSurgeon && surgeonName === patient?.surgeon;
 
   const handleDownload = async (pdfPath: string, title: string) => {
+    if (downloading) return;
+    setDownloading(pdfPath);
+    const filename = `${title}.pdf`.replace(/[\\/:*?"<>|]+/g, '_');
+    let url: string | null = null;
     try {
-      const filename = `${title}.pdf`.replace(/[\\/:*?"<>|]+/g, '_');
-      const url = await getDocumentSignedUrl(pdfPath, filename);
-      if (!url) {
-        console.error('[download] signed URL nula para', pdfPath);
-        toast.error('Não foi possível gerar o link');
-        return;
-      }
+      url = await getDocumentSignedUrl(pdfPath, filename);
+    } catch (e) {
+      console.error('[download] erro ao gerar link', e);
+    }
+    if (!url) {
+      console.error('[download] signed URL nula para', pdfPath);
+      toast.error('Não foi possível gerar o link. Tente novamente.');
+      setDownloading(null);
+      return;
+    }
+    try {
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const blob = await resp.blob();
+      const objUrl = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url;
+      a.href = objUrl;
       a.download = filename;
       a.rel = 'noopener';
       document.body.appendChild(a);
       a.click();
       a.remove();
+      setTimeout(() => URL.revokeObjectURL(objUrl), 1000);
     } catch (e) {
-      console.error('[download] falha', e);
+      console.error('[download] falha ao baixar arquivo', e);
       toast.error('Falha ao baixar o documento');
+    } finally {
+      setDownloading(null);
     }
   };
 
@@ -144,10 +160,13 @@ export function PatientDocuments({ patient }: Props) {
                 variant="ghost"
                 size="icon"
                 className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                disabled={downloading === d.signed_pdf_path}
                 onClick={(e) => { e.stopPropagation(); handleDownload(d.signed_pdf_path, `${d.title} (assinado)`); }}
                 title="Baixar PDF assinado"
               >
-                <ShieldCheck className="h-3.5 w-3.5 text-pipeline-green" />
+                {downloading === d.signed_pdf_path
+                  ? <Loader2 className="h-3.5 w-3.5 animate-spin text-pipeline-green" />
+                  : <ShieldCheck className="h-3.5 w-3.5 text-pipeline-green" />}
               </Button>
             )}
             {d.pdf_path && (
@@ -155,10 +174,13 @@ export function PatientDocuments({ patient }: Props) {
                 variant="ghost"
                 size="icon"
                 className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                disabled={downloading === d.pdf_path}
                 onClick={(e) => { e.stopPropagation(); handleDownload(d.pdf_path!, d.title); }}
                 title="Baixar"
               >
-                <Download className="h-3.5 w-3.5" />
+                {downloading === d.pdf_path
+                  ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  : <Download className="h-3.5 w-3.5" />}
               </Button>
             )}
             <Button
