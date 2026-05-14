@@ -425,6 +425,7 @@ export type Database = {
           age: number | null
           alerts: string | null
           anesthesia_fees: number | null
+          assigned_user_ids: string[]
           billing_type: string | null
           concierge: string
           created_at: string
@@ -463,6 +464,7 @@ export type Database = {
           age?: number | null
           alerts?: string | null
           anesthesia_fees?: number | null
+          assigned_user_ids?: string[]
           billing_type?: string | null
           concierge?: string
           created_at?: string
@@ -501,6 +503,7 @@ export type Database = {
           age?: number | null
           alerts?: string | null
           anesthesia_fees?: number | null
+          assigned_user_ids?: string[]
           billing_type?: string | null
           concierge?: string
           created_at?: string
@@ -1043,6 +1046,27 @@ export type Database = {
           },
         ]
       }
+      user_capabilities: {
+        Row: {
+          caps: Json
+          created_at: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          caps?: Json
+          created_at?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          caps?: Json
+          created_at?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -1224,6 +1248,10 @@ export type Database = {
           surgeon_name: string
           valid_to: string
         }[]
+      }
+      has_capability: {
+        Args: { _cap: string; _user_id: string }
+        Returns: boolean
       }
       has_role: {
         Args: {
