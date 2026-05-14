@@ -11,7 +11,16 @@ import { LossReasonDialog } from './LossReasonDialog';
 import { DeletePatientDialog } from './DeletePatientDialog';
 import { CsvImporter } from './CsvImporter';
 import { Button } from '@/components/ui/button';
-import { Plus, Users, DollarSign, TrendingUp, LogOut, Upload, FileText, Shield, UserCircle, BookOpen } from 'lucide-react';
+import { Plus, Users, DollarSign, TrendingUp, LogOut, Upload, FileText, Shield, UserCircle, BookOpen, Menu } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { useNavigate } from 'react-router-dom';
 import { useUserRole } from '@/hooks/useUserRole';
 import { Link } from 'react-router-dom';
 import { DragDropContext, DropResult } from '@hello-pangea/dnd';
@@ -35,6 +44,7 @@ export function PipelineDashboard() {
   const { signOut, user } = useAuth();
   const { isAdmin, canSeeFinancials, can } = useUserRole();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
@@ -317,18 +327,18 @@ export function PipelineDashboard() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-background">
-      <header className="border-b border-border px-6 py-4">
-        <div className="flex items-center justify-between mb-4">
-          <div>
+    <div className="flex flex-col h-screen bg-background overflow-hidden">
+      <header className="border-b border-border px-4 md:px-6 py-3 md:py-4 shrink-0 bg-background">
+        <div className="flex items-center justify-between gap-2 mb-3 md:mb-4">
+          <div className="min-w-0">
             <h1 className="leading-none flex items-baseline">
               <span className="font-serif text-2xl font-semibold text-primary tracking-wide">EZO</span>
               <span className="ml-2 font-sans text-[11px] uppercase tracking-[0.22em] text-muted-foreground">Urologia</span>
             </h1>
-            <p className="text-sm text-muted-foreground mt-1.5">Pipeline de decisão cirúrgica</p>
+            <p className="text-sm text-muted-foreground mt-1.5 hidden md:block">Pipeline de decisão cirúrgica</p>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground hidden sm:inline">{user?.email}</span>
+            <span className="text-xs text-muted-foreground hidden lg:inline">{user?.email}</span>
             <NotificationBell
               notifications={notifications}
               onMarkRead={handleMarkNotificationRead}
@@ -336,46 +346,93 @@ export function PipelineDashboard() {
               onClickNotification={handleNotificationClick}
               autoOpenKey={user?.id}
             />
-            <Button asChild variant="outline" size="sm">
+            {/* Desktop-only buttons */}
+            <Button asChild variant="outline" size="sm" className="hidden md:inline-flex">
               <Link to="/perfil"><UserCircle className="h-4 w-4" />Perfil</Link>
             </Button>
-            <Button asChild variant="outline" size="sm">
+            <Button asChild variant="outline" size="sm" className="hidden md:inline-flex">
               <Link to="/templates"><FileText className="h-4 w-4" />Templates</Link>
             </Button>
             {can('manage_library') && (
-              <Button asChild variant="outline" size="sm">
+              <Button asChild variant="outline" size="sm" className="hidden md:inline-flex">
                 <Link to="/library"><BookOpen className="h-4 w-4" />Biblioteca</Link>
               </Button>
             )}
             {(isAdmin || can('manage_users')) && (
-              <Button asChild variant="outline" size="sm">
+              <Button asChild variant="outline" size="sm" className="hidden md:inline-flex">
                 <Link to="/admin/users"><Shield className="h-4 w-4" />Usuários</Link>
               </Button>
             )}
             {can('import_csv') && (
-              <Button variant="outline" size="sm" onClick={() => setCsvImporterOpen(true)}>
+              <Button variant="outline" size="sm" onClick={() => setCsvImporterOpen(true)} className="hidden md:inline-flex">
                 <Upload className="h-4 w-4" />
                 Importar CSV
               </Button>
             )}
+            {/* Always visible: Add patient */}
             <Button onClick={() => setAddOpen(true)} size="sm">
               <Plus className="h-4 w-4" />
-              Novo Paciente
+              <span className="hidden sm:inline">Novo Paciente</span>
+              <span className="sm:hidden">Novo</span>
             </Button>
-            <Button variant="ghost" size="icon" onClick={signOut} title="Sair">
+            {/* Desktop-only logout */}
+            <Button variant="ghost" size="icon" onClick={signOut} title="Sair" className="hidden md:inline-flex">
               <LogOut className="h-4 w-4" />
             </Button>
+            {/* Mobile-only hamburger */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild className="md:hidden">
+                <Button variant="outline" size="icon" aria-label="Menu">
+                  <Menu className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56 bg-background z-50">
+                {user?.email && (
+                  <>
+                    <DropdownMenuLabel className="text-xs font-normal text-muted-foreground truncate">
+                      {user.email}
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
+                <DropdownMenuItem onClick={() => navigate('/perfil')}>
+                  <UserCircle className="h-4 w-4 mr-2" />Perfil
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/templates')}>
+                  <FileText className="h-4 w-4 mr-2" />Templates
+                </DropdownMenuItem>
+                {can('manage_library') && (
+                  <DropdownMenuItem onClick={() => navigate('/library')}>
+                    <BookOpen className="h-4 w-4 mr-2" />Biblioteca
+                  </DropdownMenuItem>
+                )}
+                {(isAdmin || can('manage_users')) && (
+                  <DropdownMenuItem onClick={() => navigate('/admin/users')}>
+                    <Shield className="h-4 w-4 mr-2" />Usuários
+                  </DropdownMenuItem>
+                )}
+                {can('import_csv') && (
+                  <DropdownMenuItem onClick={() => setCsvImporterOpen(true)}>
+                    <Upload className="h-4 w-4 mr-2" />Importar CSV
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={signOut}>
+                  <LogOut className="h-4 w-4 mr-2" />Sair
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 
-        <div className="flex items-center gap-6 mb-4">
+        <div className="flex items-center gap-x-6 gap-y-2 flex-wrap mb-3 md:mb-4">
           <div className="flex items-center gap-2 text-sm">
             <Users className="h-4 w-4 text-muted-foreground" />
             <span className="text-muted-foreground">Ativos:</span>
             <span className="font-semibold text-foreground">{activeFiltered.length}</span>
           </div>
           {canSeeFinancials && (
-            <div className="flex items-center gap-2 text-sm">
+            <div className="hidden md:flex items-center gap-2 text-sm">
               <DollarSign className="h-4 w-4 text-muted-foreground" />
               <span className="text-muted-foreground">Pipeline:</span>
               <span className="font-semibold text-foreground">{formatCurrency(totalValue)}</span>
@@ -392,7 +449,7 @@ export function PipelineDashboard() {
               <span className="font-semibold text-destructive">{lostCount}</span>
             </div>
           )}
-          <div className="ml-auto flex items-center gap-1">
+          <div className="md:ml-auto flex items-center gap-1 flex-wrap w-full md:w-auto">
             <Button
               variant={slaFilter === 'all' ? 'secondary' : 'ghost'}
               size="sm"

@@ -1,131 +1,68 @@
-## Sistema de Papéis e Permissões Granulares
+## Diagnóstico do bug
 
-Hoje cada papel (admin/cirurgião/concierge/call_center) já vem com um pacote fixo de permissões "embutido" no código e nas RLS. Vamos manter os papéis (que controlam **escopo de pacientes**) e adicionar uma camada de **capacidades** ligáveis por usuário (que controlam **o que ele pode fazer e ver**).
+`PipelineDashboard` está assim:
 
-### 1. Papéis (definem QUAIS pacientes a pessoa vê)
-
-| Papel | Vê quais pacientes |
-|------|--------------------|
-| **Admin** | Todos |
-| **Cirurgião** | Apenas os do próprio nome |
-| **Concierge** | Apenas os do próprio nome |
-| **Call Center** | Todos |
-| **Estagiária** *(novo)* | Todos (conforme escolhido) |
-
-Continua sendo possível dar mais de um papel à mesma pessoa.
-
-### 2. Capacidades granulares (ligadas/desligadas por usuário)
-
-Sugestão de catálogo inicial (você marca por usuário no formulário de edição):
-
-**Financeiro**
-- `view_financials` — Ver honorários, orçamentos, valor estimado, totais da pipeline
-- `edit_financials` — Editar honorários médicos, anestesia, hospital, materiais
-
-**Pacientes**
-- `edit_clinical` — Editar dados clínicos (procedimento, lateralidade, alertas)
-- `move_pipeline` — Arrastar entre estágios do Kanban
-- `delete_patients` — Deletar pacientes
-- `assigned_only` — *Restritor*: ver apenas pacientes onde for explicitamente atribuído (sobrepõe o escopo do papel, exceto Admin)
-
-**Documentos & Biblioteca**
-- `generate_documents` — Gerar/assinar documentos
-- `manage_templates` — Criar/editar templates PDF
-- `manage_library` — Criar/editar materiais e pacotes de orientação
-
-**Operacional**
-- `import_csv` — Importar CSV / exportar dados
-- `view_dashboard` — Ver métricas globais (valor da pipeline, conversão, SLA)
-- `manage_users` — Criar, editar, resetar senha de usuários (hoje só Admin)
-
-### 3. Presets rápidos (atalho na UI de criação)
-
-Para não obrigar marcar checkbox por checkbox, ofereceremos botões de preset que pré-marcam o conjunto:
-
-- **Acesso pleno** — todas as capacidades ligadas (equivalente a Admin antigo)
-- **Operacional sem financeiro** — tudo, exceto `view_financials` e `edit_financials` (perfil clássico de Call Center / Estagiária)
-- **Cirurgião padrão** — financeiro + clínico + documentos + biblioteca, sem `manage_users` nem `delete_patients`
-- **Concierge padrão** — clínico + mover pipeline + documentos, sem financeiro nem dashboard global
-- **Estagiária restrita** — somente pacientes atribuídos a ela (`assigned_only` ligado), sem financeiro, sem deletar
-- **Customizado** — você marca manualmente
-
-### 4. Atribuição direta de pacientes (para `assigned_only`)
-
-Adicionar campo `assigned_user_ids` no paciente (lista). No painel do paciente, um seletor "Atribuir a..." permite ligar usuários específicos. Quem tiver `assigned_only` só vê pacientes onde seu user_id estiver na lista.
-
-### 5. Fluxo na tela de Administração de Usuários
-
-Ao criar/editar usuário:
 ```text
-┌─ Identidade ──────────────────────────────┐
-│ Nome, email, senha temporária             │
-└───────────────────────────────────────────┘
-┌─ Papel (escopo de pacientes) ─────────────┐
-│ ☑ Admin  ☐ Cirurgião  ☐ Concierge         │
-│ ☐ Call Center  ☐ Estagiária               │
-│  → (campos condicionais: nome cirurgião…) │
-└───────────────────────────────────────────┘
-┌─ Capacidades (o que pode fazer) ──────────┐
-│ Preset: [Pleno][Sem financeiro][Cirurgião]│
-│         [Concierge][Restrita][Custom]     │
-│                                           │
-│ Financeiro                                │
-│  ☑ Ver valores                            │
-│  ☐ Editar financeiro                      │
-│ Pacientes                                 │
-│  ☑ Editar dados clínicos                  │
-│  ☑ Mover no Kanban                        │
-│  ☐ Deletar pacientes                      │
-│  ☐ Restringir aos pacientes atribuídos    │
-│ Documentos & Biblioteca…                  │
-│ Operacional…                              │
-└───────────────────────────────────────────┘
+<div class="flex flex-col h-screen">
+  <header>  ← largura natural (logo + 7 botões + email + sino + métricas + filtros)
+  <div class="flex-1 overflow-auto">  ← rolagem horizontal do Kanban
 ```
 
-### 6. Reflexo na UI
+Em tablet/celular o header é mais largo que a viewport e não tem `overflow` controlado, então a página inteira fica horizontalmente rolável. Quando o usuário rola para o lado para ver as colunas do Kanban, dois eixos de rolagem se desencontram (o do `<body>` e o do contêiner do Kanban) e o layout "quebra" visualmente.
 
-- `view_financials = false` → esconde colunas/cards financeiros (já temos a flag `canSeeFinancials`, vamos generalizá-la).
-- `delete_patients = false` → esconde botão de excluir.
-- `move_pipeline = false` → desabilita drag-and-drop.
-- `manage_library = false` → esconde "Biblioteca" no header.
-- `view_dashboard = false` → esconde widgets de métricas globais.
-- E assim por diante. Cada componente sensível consultará `usePermissions()`.
+## Solução — apenas frontend, em `src/components/PipelineDashboard.tsx`
 
----
+### 1. Conter o overflow no contêiner raiz
+- Adicionar `overflow-hidden` ao wrapper `flex flex-col h-screen`. Apenas o contêiner do Kanban rola horizontalmente; a página nunca rola.
+- `min-w-0` nos filhos flex relevantes para evitar largura forçada.
 
-## Detalhes técnicos
+### 2. Header responsivo enxuto no celular
 
-**Banco**
-- Nova tabela `user_capabilities (user_id uuid PK, caps jsonb default '{}'::jsonb, updated_at)` armazenando as flags ligadas.
-- Nova coluna `patients.assigned_user_ids uuid[] default '{}'`.
-- Função `has_capability(_uid uuid, _cap text) returns boolean` (security definer, lê do jsonb).
-- Atualizar `can_access_patient` para considerar `assigned_only`: se o usuário tem essa cap, exige `auth.uid() = ANY(assigned_user_ids)`.
-- Atualizar políticas RLS de `patients DELETE` para usar `has_capability(auth.uid(), 'delete_patients')` em vez de só `has_role(admin)`.
-- RLS de `materials/templates/library`: liberadas para quem tem `manage_library` / `manage_templates`.
+**Desktop (≥ md)** — comportamento atual: tudo visível em uma linha (logo, métricas, filtros e todos os botões).
 
-**Frontend**
-- Estender `useUserRole` → renomear/agrupar como `usePermissions` retornando `{ roles, caps, can(cap), assignedOnly }`.
-- `AdminUsers.tsx`: adicionar bloco de capacidades + presets no `UserDialog`. Adicionar `Estagiária` em `ROLE_OPTIONS` e no enum `app_role`.
-- `admin-users` edge function: aceitar `caps` no create/update e gravar em `user_capabilities`.
-- Componentes que hoje usam `isAdmin` ou `canSeeFinancials` passam a usar `can('...')`.
-- Painel do paciente: novo seletor "Atribuído a" (multi-usuário) que escreve em `assigned_user_ids`.
+**Mobile (< md)** — layout compacto:
 
-**Migração de dados existentes (idempotente)**
-- Para cada usuário atual, gravar capacidades equivalentes ao papel:
-  - admin → todas
-  - call_center → tudo exceto `view_financials`, `edit_financials`, `manage_users`, `manage_templates`, `delete_patients`
-  - surgeon → ver/editar financeiro + clínico + documentos + biblioteca + dashboard
-  - concierge → clínico + mover + documentos + biblioteca, sem financeiro
+```text
+┌──────────────────────────────────────────────┐
+│ EZO Urologia        🔔  [+ Paciente]   [☰]   │ ← linha 1
+├──────────────────────────────────────────────┤
+│ Ativos: 24   Conversão: 38%   Perdidos: 3    │ ← linha 2 (rola horiz. se preciso)
+├──────────────────────────────────────────────┤
+│ 🔍 Buscar…   [Cirurgião ▾] [Procedimento ▾]  │ ← linha 3 (FilterBar com flex-wrap)
+└──────────────────────────────────────────────┘
+```
 
-Assim ninguém perde acesso no momento da migração.
+Em evidência no mobile:
+- **Logo EZO**
+- **Sino de notificações**
+- **Botão "+ Paciente"** (sólido, primário)
+- **FilterBar** completo (já tem `flex-wrap`, vai quebrar naturalmente)
+- **Métricas principais** (Ativos / Conversão / Perdidos)
 
----
+Recolhidos em um menu **☰ (hamburger / `DropdownMenu`)** no mobile:
+- Email do usuário (no topo do menu)
+- Perfil
+- Templates
+- Biblioteca *(se `manage_library`)*
+- Usuários *(se admin/`manage_users`)*
+- Importar CSV *(se `import_csv`)*
+- Filtros de SLA (Todos / SLA estourado / Escaladas)
+- Pipeline (valor financeiro, se `view_financials`) — como item informativo
+- Sair
 
-## Escopo desta implementação
-1. Migração SQL (tabela, coluna, função, policies, seed de capabilities)
-2. Edge function `admin-users` aceitando `caps`
-3. UI da tela `/admin/users` com presets + checkboxes
-4. Hook `usePermissions` + refactor dos pontos sensíveis (financeiro, deletar, mover, biblioteca, dashboard)
-5. Seletor "Atribuído a" no painel do paciente
+No desktop esse menu fica oculto (`md:hidden`); todos os botões voltam à linha do header como hoje (`hidden md:inline-flex`).
 
-Aprovando o plano, começo pela migração e em seguida a UI.
+### 3. Header `sticky` + `shrink-0`
+Reforça que o header pertence ao viewport e não ao "mundo" do Kanban.
+
+### 4. Linha de métricas
+Aplicar `flex-wrap gap-y-2` para não causar overflow horizontal. No mobile, esconder as métricas que vão para o menu (mantendo só Ativos / Conversão / Perdidos).
+
+## Resultado esperado
+
+- **Desktop**: nenhuma mudança visual.
+- **Tablet/celular**: header em 3 linhas curtas com hamburger, sem overflow horizontal da página; o Kanban rola lateralmente apenas dentro de sua área, sem desalinhar com o header. Acesso a todas as funções permanece via menu ☰.
+
+## Arquivos afetados
+
+- `src/components/PipelineDashboard.tsx` — apenas classes Tailwind, wrappers e adição de um `DropdownMenu` mobile (sem mudança de lógica de negócios nem de permissões).
