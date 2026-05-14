@@ -338,18 +338,22 @@ export function PipelineDashboard() {
             <Button asChild variant="outline" size="sm">
               <Link to="/templates"><FileText className="h-4 w-4" />Templates</Link>
             </Button>
-            <Button asChild variant="outline" size="sm">
-              <Link to="/library"><BookOpen className="h-4 w-4" />Biblioteca</Link>
-            </Button>
-            {isAdmin && (
+            {can('manage_library') && (
+              <Button asChild variant="outline" size="sm">
+                <Link to="/library"><BookOpen className="h-4 w-4" />Biblioteca</Link>
+              </Button>
+            )}
+            {(isAdmin || can('manage_users')) && (
               <Button asChild variant="outline" size="sm">
                 <Link to="/admin/users"><Shield className="h-4 w-4" />Usuários</Link>
               </Button>
             )}
-            <Button variant="outline" size="sm" onClick={() => setCsvImporterOpen(true)}>
-              <Upload className="h-4 w-4" />
-              Importar CSV
-            </Button>
+            {can('import_csv') && (
+              <Button variant="outline" size="sm" onClick={() => setCsvImporterOpen(true)}>
+                <Upload className="h-4 w-4" />
+                Importar CSV
+              </Button>
+            )}
             <Button onClick={() => setAddOpen(true)} size="sm">
               <Plus className="h-4 w-4" />
               Novo Paciente
