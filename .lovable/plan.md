@@ -1,144 +1,131 @@
-# Fase 3 — Biblioteca de Orientações Pré/Pós-Operatórias
+## Sistema de Papéis e Permissões Granulares
 
-A secretária cadastra materiais educativos (textos, vídeos, PDFs) e monta pacotes por procedimento/cirurgião. No painel do paciente, o sistema sugere automaticamente o que enviar e quando.
+Hoje cada papel (admin/cirurgião/concierge/call_center) já vem com um pacote fixo de permissões "embutido" no código e nas RLS. Vamos manter os papéis (que controlam **escopo de pacientes**) e adicionar uma camada de **capacidades** ligáveis por usuário (que controlam **o que ele pode fazer e ver**).
 
----
+### 1. Papéis (definem QUAIS pacientes a pessoa vê)
 
-## Banco de dados
+| Papel | Vê quais pacientes |
+|------|--------------------|
+| **Admin** | Todos |
+| **Cirurgião** | Apenas os do próprio nome |
+| **Concierge** | Apenas os do próprio nome |
+| **Call Center** | Todos |
+| **Estagiária** *(novo)* | Todos (conforme escolhido) |
 
-### materials
-- title, description, kind (text | video | pdf), content_url (video externo) ou body_html (texto), file_path (PDF no storage)
-- procedure (text, opcional — qual procedimento se aplica; vazio = genérico)
-- surgeon (text, opcional — qual cirurgião; vazio = todos)
-- phase (preop | postop | general)
-- created_at, updated_at
+Continua sendo possível dar mais de um papel à mesma pessoa.
 
-### material_packages
-- name, description, surgeon (opcional), created_at, updated_at
+### 2. Capacidades granulares (ligadas/desligadas por usuário)
 
-### package_materials
-- package_id → material_id, order_index
+Sugestão de catálogo inicial (você marca por usuário no formulário de edição):
 
-### patient_sent_materials
-- patient_id, material_id (ou package_id, nullable), sent_at, channel (whatsapp | download | manual), notes
+**Financeiro**
+- `view_financials` — Ver honorários, orçamentos, valor estimado, totais da pipeline
+- `edit_financials` — Editar honorários médicos, anestesia, hospital, materiais
 
-### Storage
-- Novo bucket privado `patient-materials` para uploads de PDFs da biblioteca.
+**Pacientes**
+- `edit_clinical` — Editar dados clínicos (procedimento, lateralidade, alertas)
+- `move_pipeline` — Arrastar entre estágios do Kanban
+- `delete_patients` — Deletar pacientes
+- `assigned_only` — *Restritor*: ver apenas pacientes onde for explicitamente atribuído (sobrepõe o escopo do papel, exceto Admin)
 
----
+**Documentos & Biblioteca**
+- `generate_documents` — Gerar/assinar documentos
+- `manage_templates` — Criar/editar templates PDF
+- `manage_library` — Criar/editar materiais e pacotes de orientação
 
-## RLS e políticas
+**Operacional**
+- `import_csv` — Importar CSV / exportar dados
+- `view_dashboard` — Ver métricas globais (valor da pipeline, conversão, SLA)
+- `manage_users` — Criar, editar, resetar senha de usuários (hoje só Admin)
 
-- Admin: pode criar/editar/excluir materiais e pacotes
-- Todos os authenticated: podem visualizar materiais e pacotes
-- Todos os authenticated: podem registrar envio em `patient_sent_materials` (via `can_access_patient`)
+### 3. Presets rápidos (atalho na UI de criação)
 
----
+Para não obrigar marcar checkbox por checkbox, ofereceremos botões de preset que pré-marcam o conjunto:
 
-## Backend
+- **Acesso pleno** — todas as capacidades ligadas (equivalente a Admin antigo)
+- **Operacional sem financeiro** — tudo, exceto `view_financials` e `edit_financials` (perfil clássico de Call Center / Estagiária)
+- **Cirurgião padrão** — financeiro + clínico + documentos + biblioteca, sem `manage_users` nem `delete_patients`
+- **Concierge padrão** — clínico + mover pipeline + documentos, sem financeiro nem dashboard global
+- **Estagiária restrita** — somente pacientes atribuídos a ela (`assigned_only` ligado), sem financeiro, sem deletar
+- **Customizado** — você marca manualmente
 
-### Edge function: suggest-materials
-- Recebe patient_id
-- Retorna: materiais e pacotes que combinam com `procedure + surgeon` do paciente, ordenados por relevância
-- Relevância: match exato de procedimento → match de surgeon → genérico
+### 4. Atribuição direta de pacientes (para `assigned_only`)
 
----
+Adicionar campo `assigned_user_ids` no paciente (lista). No painel do paciente, um seletor "Atribuir a..." permite ligar usuários específicos. Quem tiver `assigned_only` só vê pacientes onde seu user_id estiver na lista.
 
-## UI — Página /library (Admin)
+### 5. Fluxo na tela de Administração de Usuários
 
-Dois tabs:
+Ao criar/editar usuário:
+```text
+┌─ Identidade ──────────────────────────────┐
+│ Nome, email, senha temporária             │
+└───────────────────────────────────────────┘
+┌─ Papel (escopo de pacientes) ─────────────┐
+│ ☑ Admin  ☐ Cirurgião  ☐ Concierge         │
+│ ☐ Call Center  ☐ Estagiária               │
+│  → (campos condicionais: nome cirurgião…) │
+└───────────────────────────────────────────┘
+┌─ Capacidades (o que pode fazer) ──────────┐
+│ Preset: [Pleno][Sem financeiro][Cirurgião]│
+│         [Concierge][Restrita][Custom]     │
+│                                           │
+│ Financeiro                                │
+│  ☑ Ver valores                            │
+│  ☐ Editar financeiro                      │
+│ Pacientes                                 │
+│  ☑ Editar dados clínicos                  │
+│  ☑ Mover no Kanban                        │
+│  ☐ Deletar pacientes                      │
+│  ☐ Restringir aos pacientes atribuídos    │
+│ Documentos & Biblioteca…                  │
+│ Operacional…                              │
+└───────────────────────────────────────────┘
+```
 
-1. **Materiais**
-   - Lista em cards: título, tipo (badge), fase (pré/pós/geral), procedimento, cirurgião
-   - Botão "Novo material": modal com formulário
-     - Título, descrição
-     - Tipo: Texto / Vídeo / PDF
-     - Se Texto: textarea rich (ou simples) para body_html
-     - Se Vídeo: input de URL (YouTube, Drive, etc.)
-     - Se PDF: upload para storage `patient-materials`
-     - Procedimento: select dos procedimentos existentes (ou vazio = genérico)
-     - Cirurgião: select dos cirurgiões (ou vazio = todos)
-     - Fase: Pré-op / Pós-op / Geral
-   - Ações: editar, excluir
+### 6. Reflexo na UI
 
-2. **Pacotes**
-   - Lista de pacotes com contagem de materiais dentro
-   - Botão "Novo pacote": modal
-     - Nome, descrição, cirurgião (opcional)
-     - Seletor de materiais para incluir (arrastar ou multi-select com order_index)
-   - Ações: editar (reorganizar materiais, renomear), excluir
-
----
-
-## UI — Painel do Paciente (nova aba "Orientações")
-
-Nova aba ao lado de "Documentos" no `PatientPanel`.
-
-### Layout
-- Topo: filtros rápidos (Pré-op | Pós-op | Geral | Pacotes | Tudo)
-- Corpo: lista de materiais/pacotes sugeridos
-
-### Card de material individual
-- Ícone por tipo (texto, vídeo, PDF)
-- Título, descrição resumida
-- Tags: fase (badge colorido), procedimento, cirurgião
-- Estado: "Já enviado" (check verde) ou "Pendente"
-- Botões:
-  - "Ver conteúdo" (abre modal: texto renderizado, player de vídeo embed, ou preview de PDF)
-  - "Marcar como enviado" (registra em `patient_sent_materials`)
-  - "Enviar WhatsApp" (desabilitado até a Fase 2 estar ativa, ou escondido)
-
-### Card de pacote
-- Nome, descrição, X materiais dentro
-- Botão "Ver pacote" → modal lista todos os materiais do pacote
-- Botão "Marcar pacote como enviado" (registra todos de uma vez)
-
-### Sugestões proativas (banner no topo da aba)
-- Se paciente está em `surgery_scheduled` e ainda não recebeu pacote pré-op do seu procedimento → banner amarelo: "Sugerido: enviar pacote pré-op de {procedimento}"
-- Se paciente está em `surgery_completed` e ainda não recebeu pacote pós-op → banner correspondente
-- Banner com botão "Enviar agora" que marca o pacote/material como enviado
+- `view_financials = false` → esconde colunas/cards financeiros (já temos a flag `canSeeFinancials`, vamos generalizá-la).
+- `delete_patients = false` → esconde botão de excluir.
+- `move_pipeline = false` → desabilita drag-and-drop.
+- `manage_library = false` → esconde "Biblioteca" no header.
+- `view_dashboard = false` → esconde widgets de métricas globais.
+- E assim por diante. Cada componente sensível consultará `usePermissions()`.
 
 ---
 
-## Hook: useMaterials
+## Detalhes técnicos
 
-- `useMaterials(filters?)` — lista materiais com filtros opcionais
-- `useMaterial(id)` — detalhe de um material
-- `useSaveMaterial()` — cria/edita
-- `useDeleteMaterial()` — remove
-- `usePackages()` — lista pacotes
-- `useSavePackage()` — cria/edita pacote
-- `useDeletePackage()` — remove
-- `useSuggestMaterials(patientId)` — chama edge function de sugestão
-- `useMarkSent()` — registra envio em `patient_sent_materials`
-- `usePatientSentMaterials(patientId)` — histórico de envios do paciente
+**Banco**
+- Nova tabela `user_capabilities (user_id uuid PK, caps jsonb default '{}'::jsonb, updated_at)` armazenando as flags ligadas.
+- Nova coluna `patients.assigned_user_ids uuid[] default '{}'`.
+- Função `has_capability(_uid uuid, _cap text) returns boolean` (security definer, lê do jsonb).
+- Atualizar `can_access_patient` para considerar `assigned_only`: se o usuário tem essa cap, exige `auth.uid() = ANY(assigned_user_ids)`.
+- Atualizar políticas RLS de `patients DELETE` para usar `has_capability(auth.uid(), 'delete_patients')` em vez de só `has_role(admin)`.
+- RLS de `materials/templates/library`: liberadas para quem tem `manage_library` / `manage_templates`.
 
----
+**Frontend**
+- Estender `useUserRole` → renomear/agrupar como `usePermissions` retornando `{ roles, caps, can(cap), assignedOnly }`.
+- `AdminUsers.tsx`: adicionar bloco de capacidades + presets no `UserDialog`. Adicionar `Estagiária` em `ROLE_OPTIONS` e no enum `app_role`.
+- `admin-users` edge function: aceitar `caps` no create/update e gravar em `user_capabilities`.
+- Componentes que hoje usam `isAdmin` ou `canSeeFinancials` passam a usar `can('...')`.
+- Painel do paciente: novo seletor "Atribuído a" (multi-usuário) que escreve em `assigned_user_ids`.
 
-## Roteamento
+**Migração de dados existentes (idempotente)**
+- Para cada usuário atual, gravar capacidades equivalentes ao papel:
+  - admin → todas
+  - call_center → tudo exceto `view_financials`, `edit_financials`, `manage_users`, `manage_templates`, `delete_patients`
+  - surgeon → ver/editar financeiro + clínico + documentos + biblioteca + dashboard
+  - concierge → clínico + mover + documentos + biblioteca, sem financeiro
 
-- Nova rota `/library` em `App.tsx`
-- Link no header do dashboard (botão "Biblioteca", ao lado de "Templates")
-
----
-
-## Seeding
-
-Incluir materiais de exemplo úteis para urologia:
-- "O que esperar da vasectomia" (texto, pré-op, Vasectomia)
-- "Cuidados pós-cirurgia de próstata" (texto, pós-op, Prostatectomia)
-- "Como preparar o jejum pré-operatório" (texto, pré-op, genérico)
-- "Exercícios de reabilitação pélvica" (vídeo, pós-op, genérico)
-
-Pacotes seed:
-- "Pacote Pré-op Vasectomia" (materiais específicos + genéricos de pré-op)
-- "Pacote Pós-op Cirurgia de Próstata"
+Assim ninguém perde acesso no momento da migração.
 
 ---
 
-## Notas
+## Escopo desta implementação
+1. Migração SQL (tabela, coluna, função, policies, seed de capabilities)
+2. Edge function `admin-users` aceitando `caps`
+3. UI da tela `/admin/users` com presets + checkboxes
+4. Hook `usePermissions` + refactor dos pontos sensíveis (financeiro, deletar, mover, biblioteca, dashboard)
+5. Seletor "Atribuído a" no painel do paciente
 
-- Nenhuma dependência externa nova (usa storage e edge functions existentes)
-- A Fase 2 (WhatsApp) é opcional para o funcionamento da Fase 3 — o botão "Enviar WhatsApp" pode ficar desabilitado com tooltip "Disponível quando o WhatsApp for configurado"
-- Reutiliza componentes de UI existentes: Dialog, Card, Badge, Button, Select, Tabs
-- PDF de materiais: upload direto ao storage; preview via signed URL
+Aprovando o plano, começo pela migração e em seguida a UI.
