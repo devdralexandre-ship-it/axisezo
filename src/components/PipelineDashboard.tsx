@@ -33,7 +33,7 @@ export function PipelineDashboard() {
   const deletePatientMutation = useDeletePatient();
   const importPatientsMutation = useImportPatients();
   const { signOut, user } = useAuth();
-  const { isAdmin, canSeeFinancials } = useUserRole();
+  const { isAdmin, canSeeFinancials, can } = useUserRole();
   const queryClient = useQueryClient();
 
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
@@ -122,6 +122,10 @@ export function PipelineDashboard() {
   }, []);
 
   const handleDragEnd = useCallback((result: DropResult) => {
+    if (!can('move_pipeline')) {
+      toast.error('Você não tem permissão para mover pacientes.');
+      return;
+    }
     if (!result.destination) return;
     const { draggableId, destination, source } = result;
     const newStage = destination.droppableId as PipelineStage;
@@ -338,18 +342,22 @@ export function PipelineDashboard() {
             <Button asChild variant="outline" size="sm">
               <Link to="/templates"><FileText className="h-4 w-4" />Templates</Link>
             </Button>
-            <Button asChild variant="outline" size="sm">
-              <Link to="/library"><BookOpen className="h-4 w-4" />Biblioteca</Link>
-            </Button>
-            {isAdmin && (
+            {can('manage_library') && (
+              <Button asChild variant="outline" size="sm">
+                <Link to="/library"><BookOpen className="h-4 w-4" />Biblioteca</Link>
+              </Button>
+            )}
+            {(isAdmin || can('manage_users')) && (
               <Button asChild variant="outline" size="sm">
                 <Link to="/admin/users"><Shield className="h-4 w-4" />Usuários</Link>
               </Button>
             )}
-            <Button variant="outline" size="sm" onClick={() => setCsvImporterOpen(true)}>
-              <Upload className="h-4 w-4" />
-              Importar CSV
-            </Button>
+            {can('import_csv') && (
+              <Button variant="outline" size="sm" onClick={() => setCsvImporterOpen(true)}>
+                <Upload className="h-4 w-4" />
+                Importar CSV
+              </Button>
+            )}
             <Button onClick={() => setAddOpen(true)} size="sm">
               <Plus className="h-4 w-4" />
               Novo Paciente
@@ -431,9 +439,9 @@ export function PipelineDashboard() {
                 const dateB = new Date(b.indicationDate || b.createdAt || '9999-12-31').getTime();
                 return dateA - dateB;
               });
-              return <PipelineColumn key={stage} stage={stage} patients={stagePatients} onPatientClick={handlePatientClick} onCompleteTask={handleCompleteTask} onDeletePatient={handleDeletePatient} />;
+              return <PipelineColumn key={stage} stage={stage} patients={stagePatients} onPatientClick={handlePatientClick} onCompleteTask={handleCompleteTask} onDeletePatient={can('delete_patients') ? handleDeletePatient : undefined} />;
             })}
-            <PipelineColumn key="lost" stage="lost" patients={filtered.filter((p) => p.stage === 'lost').sort((a, b) => new Date(a.indicationDate || a.createdAt || '9999-12-31').getTime() - new Date(b.indicationDate || b.createdAt || '9999-12-31').getTime())} onPatientClick={handlePatientClick} onCompleteTask={handleCompleteTask} onDeletePatient={handleDeletePatient} variant="lost" />
+            <PipelineColumn key="lost" stage="lost" patients={filtered.filter((p) => p.stage === 'lost').sort((a, b) => new Date(a.indicationDate || a.createdAt || '9999-12-31').getTime() - new Date(b.indicationDate || b.createdAt || '9999-12-31').getTime())} onPatientClick={handlePatientClick} onCompleteTask={handleCompleteTask} onDeletePatient={can('delete_patients') ? handleDeletePatient : undefined} variant="lost" />
           </div>
         </div>
       </DragDropContext>

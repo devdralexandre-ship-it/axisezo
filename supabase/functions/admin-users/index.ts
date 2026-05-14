@@ -8,7 +8,16 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const ROLES = ["admin", "surgeon", "concierge", "call_center"] as const;
+const ROLES = ["admin", "surgeon", "concierge", "call_center", "intern"] as const;
+
+const CAPABILITIES = [
+  "view_financials", "edit_financials",
+  "edit_clinical", "move_pipeline", "delete_patients", "assigned_only",
+  "generate_documents", "manage_templates", "manage_library",
+  "import_csv", "view_dashboard", "manage_users",
+] as const;
+
+const CapsSchema = z.record(z.enum(CAPABILITIES), z.boolean()).optional();
 
 const CreateSchema = z.object({
   action: z.literal("create"),
@@ -18,6 +27,7 @@ const CreateSchema = z.object({
   surgeon_name: z.string().max(120).nullable().optional(),
   concierge_name: z.string().max(120).nullable().optional(),
   roles: z.array(z.enum(ROLES)).min(1),
+  caps: CapsSchema,
 });
 
 const UpdateSchema = z.object({
@@ -28,6 +38,7 @@ const UpdateSchema = z.object({
   concierge_name: z.string().max(120).nullable().optional(),
   active: z.boolean().optional(),
   roles: z.array(z.enum(ROLES)).optional(),
+  caps: CapsSchema,
 });
 
 const DeleteSchema = z.object({
@@ -69,7 +80,6 @@ Deno.serve(async (req) => {
     const ANON = Deno.env.get("SUPABASE_ANON_KEY")!;
     const SERVICE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    // Verify caller
     const userClient = createClient(SUPABASE_URL, ANON, {
       global: { headers: { Authorization: authHeader } },
     });
@@ -77,7 +87,6 @@ Deno.serve(async (req) => {
     if (claimsErr || !claims?.claims?.sub) return json({ error: "Unauthorized" }, 401);
     const callerId = claims.claims.sub as string;
 
-    // Admin check
     const admin = createClient(SUPABASE_URL, SERVICE);
     const { data: roleRow } = await admin
       .from("user_roles")
@@ -87,7 +96,6 @@ Deno.serve(async (req) => {
       .maybeSingle();
     if (!roleRow) return json({ error: "Forbidden: admin only" }, 403);
 
-    // Validate
     const parsed = BodySchema.safeParse(await req.json());
     if (!parsed.success) {
       return json({ error: parsed.error.flatten() }, 400);
@@ -95,9 +103,10 @@ Deno.serve(async (req) => {
     const body = parsed.data;
 
     if (body.action === "list") {
-      const [{ data: profiles }, { data: roles }, listRes] = await Promise.all([
+      const [{ data: profiles }, { data: roles }, { data: capsRows }, listRes] = await Promise.all([
         admin.from("profiles").select("user_id, display_name, surgeon_name, concierge_name, active"),
         admin.from("user_roles").select("user_id, role"),
+        admin.from("user_capabilities").select("user_id, caps"),
         admin.auth.admin.listUsers(),
       ]);
       const emailByUser = new Map(
@@ -109,6 +118,10 @@ Deno.serve(async (req) => {
         arr.push(r.role as string);
         rolesByUser.set(r.user_id, arr);
       }
+      const capsByUser = new Map<string, Record<string, boolean>>();
+      for (const c of capsRows ?? []) {
+        capsByUser.set(c.user_id, (c.caps ?? {}) as Record<string, boolean>);
+      }
       const users = (profiles ?? []).map((p) => ({
         user_id: p.user_id,
         email: emailByUser.get(p.user_id) ?? "",
@@ -117,6 +130,7 @@ Deno.serve(async (req) => {
         concierge_name: p.concierge_name,
         active: p.active,
         roles: rolesByUser.get(p.user_id) ?? [],
+        caps: capsByUser.get(p.user_id) ?? {},
       }));
       return json({ users });
     }
@@ -133,7 +147,6 @@ Deno.serve(async (req) => {
       }
       const newId = created.data.user.id;
 
-      // Profile already created by handle_new_user trigger; update operational fields.
       await admin
         .from("profiles")
         .update({
@@ -148,6 +161,12 @@ Deno.serve(async (req) => {
         await admin
           .from("user_roles")
           .insert(body.roles.map((role) => ({ user_id: newId, role })));
+      }
+
+      if (body.caps) {
+        await admin
+          .from("user_capabilities")
+          .upsert({ user_id: newId, caps: body.caps }, { onConflict: "user_id" });
       }
       return json({ ok: true, user_id: newId });
     }
@@ -169,6 +188,11 @@ Deno.serve(async (req) => {
             .insert(body.roles.map((role) => ({ user_id: body.user_id, role })));
         }
       }
+      if (body.caps) {
+        await admin
+          .from("user_capabilities")
+          .upsert({ user_id: body.user_id, caps: body.caps }, { onConflict: "user_id" });
+      }
       return json({ ok: true });
     }
 
@@ -176,6 +200,7 @@ Deno.serve(async (req) => {
       if (body.user_id === callerId) {
         return json({ error: "Você não pode deletar a própria conta." }, 400);
       }
+      await admin.from("user_capabilities").delete().eq("user_id", body.user_id);
       await admin.from("user_roles").delete().eq("user_id", body.user_id);
       await admin.from("profiles").delete().eq("user_id", body.user_id);
       const del = await admin.auth.admin.deleteUser(body.user_id);
