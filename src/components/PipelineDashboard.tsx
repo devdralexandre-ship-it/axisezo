@@ -122,6 +122,10 @@ export function PipelineDashboard() {
   }, []);
 
   const handleDragEnd = useCallback((result: DropResult) => {
+    if (!can('move_pipeline')) {
+      toast.error('Você não tem permissão para mover pacientes.');
+      return;
+    }
     if (!result.destination) return;
     const { draggableId, destination, source } = result;
     const newStage = destination.droppableId as PipelineStage;
