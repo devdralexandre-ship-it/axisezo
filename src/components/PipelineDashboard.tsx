@@ -33,7 +33,7 @@ export function PipelineDashboard() {
   const deletePatientMutation = useDeletePatient();
   const importPatientsMutation = useImportPatients();
   const { signOut, user } = useAuth();
-  const { isAdmin, canSeeFinancials } = useUserRole();
+  const { isAdmin, canSeeFinancials, can } = useUserRole();
   const queryClient = useQueryClient();
 
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
