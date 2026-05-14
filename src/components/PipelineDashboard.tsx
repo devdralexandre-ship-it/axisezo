@@ -449,7 +449,7 @@ export function PipelineDashboard() {
               <span className="font-semibold text-destructive">{lostCount}</span>
             </div>
           )}
-          <div className="ml-auto flex items-center gap-1">
+          <div className="md:ml-auto flex items-center gap-1 flex-wrap w-full md:w-auto">
             <Button
               variant={slaFilter === 'all' ? 'secondary' : 'ghost'}
               size="sm"
