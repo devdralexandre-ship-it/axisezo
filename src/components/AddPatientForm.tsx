@@ -374,21 +374,23 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label>Cirurgião *</Label>
-                <Select value={surgeon} onValueChange={setSurgeon}>
+                <Select value={surgeon} onValueChange={setSurgeon} disabled={lockSurgeon}>
                   <SelectTrigger className="focus:ring-offset-0"><SelectValue placeholder="Selecione" /></SelectTrigger>
                   <SelectContent>
                     {SURGEONS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                   </SelectContent>
                 </Select>
+                {lockSurgeon && <p className="text-[11px] text-muted-foreground">Vinculado ao seu perfil</p>}
               </div>
               <div className="space-y-2">
                 <Label>Concierge</Label>
-                <Select value={concierge} onValueChange={setConcierge}>
+                <Select value={concierge} onValueChange={setConcierge} disabled={lockConcierge}>
                   <SelectTrigger className="focus:ring-offset-0"><SelectValue placeholder="Selecione" /></SelectTrigger>
                   <SelectContent>
                     {CONCIERGES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                   </SelectContent>
                 </Select>
+                {lockConcierge && <p className="text-[11px] text-muted-foreground">Vinculado ao seu perfil</p>}
               </div>
             </div>
 
