@@ -199,7 +199,14 @@ export function useAddPatient() {
       qc.invalidateQueries({ queryKey: ['patients'] });
       toast.success('Paciente adicionado!');
     },
-    onError: (e) => toast.error(`Erro: ${e.message}`),
+    onError: (e: any) => {
+      const msg = String(e?.message || '');
+      if (msg.includes('row-level security') || msg.includes('row level security')) {
+        toast.error('Você só pode cadastrar pacientes vinculados a você. Verifique os campos Cirurgião e Concierge.');
+      } else {
+        toast.error(`Erro: ${msg}`);
+      }
+    },
   });
 }
 
