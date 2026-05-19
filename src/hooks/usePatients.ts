@@ -121,6 +121,24 @@ export function useAddPatient() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (p: Partial<Patient> & { name: string; procedure: string; surgeon: string; initialTasks?: { title: string; dueDate: string; dueTime: string; responsible: string }[] }) => {
+      // Defense in depth: auto-fill concierge/surgeon from the current user's profile
+      // so RLS (which requires concierge = current_concierge_name() / surgeon = current_surgeon_name())
+      // doesn't fail when the form leaves them empty.
+      let conciergeName = p.concierge || '';
+      let surgeonName = p.surgeon || '';
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: prof } = await supabase
+            .from('profiles')
+            .select('concierge_name, surgeon_name')
+            .eq('user_id', user.id)
+            .maybeSingle();
+          if (!conciergeName && prof?.concierge_name) conciergeName = prof.concierge_name;
+          if (!surgeonName && prof?.surgeon_name) surgeonName = prof.surgeon_name;
+        }
+      } catch { /* ignore */ }
+
       const { data, error } = await supabase.from('patients').insert({
         name: p.name,
         procedure_name: p.procedure,
