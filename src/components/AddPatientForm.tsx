@@ -140,7 +140,10 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
 
   const resetForm = () => {
     setName(''); setAge(''); setPatientType('adult'); setProcedure(''); setCustomProcedure('');
-    setSurgicalApproach(''); setLaterality(''); setSurgeon(''); setConcierge(''); setStage(PIPELINE_STAGES[0]);
+    setSurgicalApproach(''); setLaterality('');
+    setSurgeon(lockSurgeon ? surgeonName! : '');
+    setConcierge(lockConcierge ? conciergeName! : '');
+    setStage(PIPELINE_STAGES[0]);
     setPhone(''); setEmail(''); setResponsibleContact(''); setPayer(''); setPayerOther('');
     setBillingType(''); setMedicalFees(''); setAnesthesiaFees(''); setHospitalBudget('');
     setMaterialsCost(''); setDesiredHospital(''); setCustomHospital('');
