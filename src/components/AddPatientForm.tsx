@@ -37,6 +37,10 @@ interface PendingUpload {
 const OTHER_PROCEDURE = '__outro__';
 
 export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
+  const { isConcierge, isSurgeon, isAdmin, conciergeName, surgeonName } = useUserRole();
+  const lockConcierge = isConcierge && !isAdmin && !!conciergeName;
+  const lockSurgeon = isSurgeon && !isAdmin && !!surgeonName;
+
   const [name, setName] = useState('');
   const [age, setAge] = useState('');
   const [patientType, setPatientType] = useState('adult');
@@ -44,8 +48,15 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
   const [customProcedure, setCustomProcedure] = useState('');
   const [surgicalApproach, setSurgicalApproach] = useState('');
   const [laterality, setLaterality] = useState('');
-  const [surgeon, setSurgeon] = useState('');
-  const [concierge, setConcierge] = useState('');
+  const [surgeon, setSurgeon] = useState(lockSurgeon ? surgeonName! : '');
+  const [concierge, setConcierge] = useState(lockConcierge ? conciergeName! : '');
+
+  useEffect(() => {
+    if (open) {
+      if (lockConcierge) setConcierge(conciergeName!);
+      if (lockSurgeon) setSurgeon(surgeonName!);
+    }
+  }, [open, lockConcierge, lockSurgeon, conciergeName, surgeonName]);
   const [stage, setStage] = useState(PIPELINE_STAGES[0]);
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
