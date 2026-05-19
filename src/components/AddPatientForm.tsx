@@ -1,4 +1,5 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { useUserRole } from '@/hooks/useUserRole';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -36,6 +37,10 @@ interface PendingUpload {
 const OTHER_PROCEDURE = '__outro__';
 
 export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
+  const { isConcierge, isSurgeon, isAdmin, conciergeName, surgeonName } = useUserRole();
+  const lockConcierge = isConcierge && !isAdmin && !!conciergeName;
+  const lockSurgeon = isSurgeon && !isAdmin && !!surgeonName;
+
   const [name, setName] = useState('');
   const [age, setAge] = useState('');
   const [patientType, setPatientType] = useState('adult');
@@ -43,8 +48,15 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
   const [customProcedure, setCustomProcedure] = useState('');
   const [surgicalApproach, setSurgicalApproach] = useState('');
   const [laterality, setLaterality] = useState('');
-  const [surgeon, setSurgeon] = useState('');
-  const [concierge, setConcierge] = useState('');
+  const [surgeon, setSurgeon] = useState(lockSurgeon ? surgeonName! : '');
+  const [concierge, setConcierge] = useState(lockConcierge ? conciergeName! : '');
+
+  useEffect(() => {
+    if (open) {
+      if (lockConcierge) setConcierge(conciergeName!);
+      if (lockSurgeon) setSurgeon(surgeonName!);
+    }
+  }, [open, lockConcierge, lockSurgeon, conciergeName, surgeonName]);
   const [stage, setStage] = useState(PIPELINE_STAGES[0]);
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
@@ -128,7 +140,10 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
 
   const resetForm = () => {
     setName(''); setAge(''); setPatientType('adult'); setProcedure(''); setCustomProcedure('');
-    setSurgicalApproach(''); setLaterality(''); setSurgeon(''); setConcierge(''); setStage(PIPELINE_STAGES[0]);
+    setSurgicalApproach(''); setLaterality('');
+    setSurgeon(lockSurgeon ? surgeonName! : '');
+    setConcierge(lockConcierge ? conciergeName! : '');
+    setStage(PIPELINE_STAGES[0]);
     setPhone(''); setEmail(''); setResponsibleContact(''); setPayer(''); setPayerOther('');
     setBillingType(''); setMedicalFees(''); setAnesthesiaFees(''); setHospitalBudget('');
     setMaterialsCost(''); setDesiredHospital(''); setCustomHospital('');
@@ -359,21 +374,23 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label>Cirurgião *</Label>
-                <Select value={surgeon} onValueChange={setSurgeon}>
+                <Select value={surgeon} onValueChange={setSurgeon} disabled={lockSurgeon}>
                   <SelectTrigger className="focus:ring-offset-0"><SelectValue placeholder="Selecione" /></SelectTrigger>
                   <SelectContent>
                     {SURGEONS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                   </SelectContent>
                 </Select>
+                {lockSurgeon && <p className="text-[11px] text-muted-foreground">Vinculado ao seu perfil</p>}
               </div>
               <div className="space-y-2">
                 <Label>Concierge</Label>
-                <Select value={concierge} onValueChange={setConcierge}>
+                <Select value={concierge} onValueChange={setConcierge} disabled={lockConcierge}>
                   <SelectTrigger className="focus:ring-offset-0"><SelectValue placeholder="Selecione" /></SelectTrigger>
                   <SelectContent>
                     {CONCIERGES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                   </SelectContent>
                 </Select>
+                {lockConcierge && <p className="text-[11px] text-muted-foreground">Vinculado ao seu perfil</p>}
               </div>
             </div>
 

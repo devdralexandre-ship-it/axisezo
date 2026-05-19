@@ -121,12 +121,30 @@ export function useAddPatient() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (p: Partial<Patient> & { name: string; procedure: string; surgeon: string; initialTasks?: { title: string; dueDate: string; dueTime: string; responsible: string }[] }) => {
+      // Defense in depth: auto-fill concierge/surgeon from the current user's profile
+      // so RLS (which requires concierge = current_concierge_name() / surgeon = current_surgeon_name())
+      // doesn't fail when the form leaves them empty.
+      let conciergeName = p.concierge || '';
+      let surgeonName = p.surgeon || '';
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: prof } = await supabase
+            .from('profiles')
+            .select('concierge_name, surgeon_name')
+            .eq('user_id', user.id)
+            .maybeSingle();
+          if (!conciergeName && prof?.concierge_name) conciergeName = prof.concierge_name;
+          if (!surgeonName && prof?.surgeon_name) surgeonName = prof.surgeon_name;
+        }
+      } catch { /* ignore */ }
+
       const { data, error } = await supabase.from('patients').insert({
         name: p.name,
         procedure_name: p.procedure,
         procedure_category: p.procedureCategory || '',
-        surgeon: p.surgeon,
-        concierge: p.concierge || '',
+        surgeon: surgeonName,
+        concierge: conciergeName,
         owner: p.owner || 'Call Center',
         stage: (p.stage || 'indication') as any,
         stage_entered_at: p.stageEnteredAt || new Date().toISOString().split('T')[0],
@@ -181,7 +199,14 @@ export function useAddPatient() {
       qc.invalidateQueries({ queryKey: ['patients'] });
       toast.success('Paciente adicionado!');
     },
-    onError: (e) => toast.error(`Erro: ${e.message}`),
+    onError: (e: any) => {
+      const msg = String(e?.message || '');
+      if (msg.includes('row-level security') || msg.includes('row level security')) {
+        toast.error('Você só pode cadastrar pacientes vinculados a você. Verifique os campos Cirurgião e Concierge.');
+      } else {
+        toast.error(`Erro: ${msg}`);
+      }
+    },
   });
 }
 
