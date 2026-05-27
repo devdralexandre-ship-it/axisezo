@@ -438,6 +438,25 @@ export function useImportPatients() {
       }>;
     }) => {
       const today = new Date().toISOString().split('T')[0];
+
+      // Resolve concierge from current user's profile so imported patients are not
+      // invisible to the concierge that owns them (RLS requires patients.concierge
+      // to match current_concierge_name()).
+      let defaultConcierge = '';
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: prof } = await supabase
+            .from('profiles')
+            .select('concierge_name')
+            .eq('user_id', user.id)
+            .maybeSingle();
+          if (prof?.concierge_name) defaultConcierge = prof.concierge_name;
+        }
+      } catch {
+        // ignore — falls back to empty concierge
+      }
+
       let imported = 0;
       for (const p of patients) {
         // Parse entry date from CSV
