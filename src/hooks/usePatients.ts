@@ -252,9 +252,9 @@ export function useAddPatient() {
     },
     onError: (e: any) => {
       // eslint-disable-next-line no-console
-      console.error('[addPatient] error', { message: e?.message, code: e?.code, details: e?.details, hint: e?.hint });
+      console.error('[addPatient] error', { phase: e?.phase, message: e?.message, code: e?.code, details: e?.details, hint: e?.hint });
       const msg = String(e?.message || '');
-      const diag = [e?.code, e?.details, e?.hint].filter(Boolean).join(' | ');
+      const diag = [e?.phase && `fase=${e.phase}`, e?.code, e?.details, e?.hint].filter(Boolean).join(' | ');
       if (msg.includes('row-level security') || msg.includes('row level security')) {
         toast.error(`RLS bloqueou o cadastro. Diag: ${diag || msg}`);
       } else {
