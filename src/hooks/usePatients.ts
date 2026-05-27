@@ -126,18 +126,51 @@ export function useAddPatient() {
       // doesn't fail when the form leaves them empty.
       let conciergeName = p.concierge || '';
       let surgeonName = p.surgeon || '';
+      let profileSnapshot: any = null;
+      let userIdSnapshot: string | null = null;
+      let userRoles: string[] = [];
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
-          const { data: prof } = await supabase
-            .from('profiles')
-            .select('concierge_name, surgeon_name')
-            .eq('user_id', user.id)
-            .maybeSingle();
+          userIdSnapshot = user.id;
+          const [{ data: prof }, { data: rolesRows }] = await Promise.all([
+            supabase.from('profiles').select('concierge_name, surgeon_name, active').eq('user_id', user.id).maybeSingle(),
+            supabase.from('user_roles').select('role').eq('user_id', user.id),
+          ]);
+          profileSnapshot = prof;
+          userRoles = (rolesRows ?? []).map((r: any) => r.role);
           if (!conciergeName && prof?.concierge_name) conciergeName = prof.concierge_name;
           if (!surgeonName && prof?.surgeon_name) surgeonName = prof.surgeon_name;
         }
-      } catch { /* ignore */ }
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.warn('[addPatient] failed to read profile/roles', e);
+      }
+
+      // Guard: concierge-only user without concierge_name resolved → block early with clear message
+      if (userRoles.includes('concierge') && !userRoles.includes('admin') && !conciergeName) {
+        throw new Error('Seu perfil não tem concierge_name vinculado. Fale com o admin para corrigir.');
+      }
+      if (userRoles.includes('surgeon') && !userRoles.includes('admin') && !surgeonName) {
+        throw new Error('Seu perfil não tem surgeon_name vinculado. Fale com o admin para corrigir.');
+      }
+
+      // Diagnostic logging — temporary, to capture what is actually being sent to RLS.
+      // eslint-disable-next-line no-console
+      console.log('[addPatient] payload', {
+        userId: userIdSnapshot,
+        roles: userRoles,
+        profile: profileSnapshot,
+        formConcierge: p.concierge,
+        formSurgeon: p.surgeon,
+        finalConcierge: conciergeName,
+        finalSurgeon: surgeonName,
+        finalConciergeHex: Array.from(conciergeName).map((c) => c.charCodeAt(0).toString(16)).join(' '),
+        profileConciergeHex: profileSnapshot?.concierge_name
+          ? Array.from(profileSnapshot.concierge_name as string).map((c) => (c as string).charCodeAt(0).toString(16)).join(' ')
+          : null,
+      });
+
 
       const { data, error } = await supabase.from('patients').insert({
         name: p.name,
@@ -200,13 +233,17 @@ export function useAddPatient() {
       toast.success('Paciente adicionado!');
     },
     onError: (e: any) => {
+      // eslint-disable-next-line no-console
+      console.error('[addPatient] error', { message: e?.message, code: e?.code, details: e?.details, hint: e?.hint });
       const msg = String(e?.message || '');
+      const diag = [e?.code, e?.details, e?.hint].filter(Boolean).join(' | ');
       if (msg.includes('row-level security') || msg.includes('row level security')) {
-        toast.error('Você só pode cadastrar pacientes vinculados a você. Verifique os campos Cirurgião e Concierge.');
+        toast.error(`RLS bloqueou o cadastro. Diag: ${diag || msg}`);
       } else {
-        toast.error(`Erro: ${msg}`);
+        toast.error(`Erro: ${msg}${diag ? ` (${diag})` : ''}`);
       }
     },
+
   });
 }
 

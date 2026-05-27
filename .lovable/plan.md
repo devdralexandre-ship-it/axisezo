@@ -1,33 +1,40 @@
-## Causa do erro
+## Diagnóstico
 
-A RLS de INSERT em `patients` exige, para o papel `concierge`:
+- O perfil da Margô no banco está correto (`role=concierge`, `concierge_name='Margô'`), as funções `current_concierge_name()` / `has_role()` retornam o esperado, e a política RLS de INSERT em `patients` aceita `concierge='Margô'` para um usuário concierge. Manualmente, o cenário **passa** na RLS.
+- Publicado está "up to date", então o bundle de produção é o mesmo do preview — já tem o auto-lock e a defesa em profundidade.
+- Mesmo assim, nenhum paciente foi inserido por ela hoje. Ou seja: o INSERT chega no Postgres com um valor de `concierge` diferente de `'Margô'` (ou ainda em branco), por algum motivo que não consigo provar sem ver a request real.
 
-```
-concierge = current_concierge_name()  -- valor do profile, no caso 'Margô'
-```
+Logs do Postgres / PostgREST não trazem o payload do INSERT que falhou, então o próximo passo é capturar essa informação direto do navegador da Margô.
 
-No formulário de novo paciente o campo "Concierge" começa **vazio** e não é obrigatório. Quando a Margô incluiu o paciente sem selecionar a si mesma na lista, a linha foi gravada com `concierge = ''`, o que viola a policy e retorna o erro. Com seu login (admin) a policy passa por outro caminho e funciona normalmente.
+## Plano
 
-## Plano de correção (apenas frontend, sem mexer em RLS)
+### 1. Primeiro: descartar cache do navegador (sem código)
+Antes de mexer em qualquer coisa, pedir para a Margô:
+- Fazer **hard refresh** em `axiscrm.app` (Ctrl+Shift+R no Windows, Cmd+Shift+R no Mac).
+- Tentar cadastrar de novo um paciente de teste.
 
-Garantir que, quando o usuário logado é concierge, o paciente sempre seja criado vinculado a ele.
+Se o erro sumir → era cache do `index.html` antigo. Fim.
 
-1. **`src/components/AddPatientForm.tsx`**
-   - Usar `useUserRole()` para ler `isConcierge` e `conciergeName`.
-   - Inicializar `concierge` com `conciergeName` quando o usuário é concierge (via `useState` + `useEffect` ao abrir o diálogo).
-   - Desabilitar o `Select` de concierge para esse papel (mostrar o nome dele já selecionado, sem poder trocar). Admin/cirurgião/call center continuam podendo escolher livremente.
+### 2. Se ainda falhar: adicionar diagnóstico temporário em `useAddPatient`
+Pequena instrumentação só para essa investigação, em `src/hooks/usePatients.ts`:
 
-2. **`src/hooks/usePatients.ts` (`useAddPatient`)**
-   - Como defesa em profundidade, antes do `insert` ler o perfil do usuário atual (`profiles.concierge_name` / `surgeon_name`) e:
-     - se o usuário só tem papel `concierge` e `concierge` veio vazio, preencher com o nome dele;
-     - mesma lógica espelhada para `surgeon`, evitando o mesmo bug acontecer com cirurgiões.
-   - Isso protege também o CSV importer e qualquer caminho futuro.
+- Antes do `.from('patients').insert(...)`, fazer `console.log('[addPatient] payload', { surgeon: surgeonName, concierge: conciergeName, role-info })` incluindo `user.id` e o resultado da leitura de `profiles`.
+- No `onError`, exibir no toast (de forma curta) `e?.code` e os primeiros caracteres de `e?.details`/`e?.hint`, para sabermos qual branch da policy quebrou.
+- Adicionar um *guard* explícito: se o usuário tem role concierge e `conciergeName` final está vazio, abortar o insert e mostrar toast claro "Seu perfil não tem concierge_name vinculado — fale com o admin", em vez de deixar a RLS falhar.
 
-3. **Mensagem de erro mais clara**
-   - No `onError` do `useAddPatient`, se a mensagem contiver `row-level security`, exibir um toast amigável: *"Você só pode cadastrar pacientes vinculados a você. Verifique o campo Concierge/Cirurgião."*
+### 3. Coletar dado e fechar o caso
+Pedir para a Margô:
+- Abrir o console do navegador (F12 → aba Console) antes de tentar.
+- Tentar cadastrar.
+- Mandar print do console + do toast.
 
-## Resultado esperado
+Com isso eu saberei se o payload está chegando como `concierge=''`, `concierge='Margo'` (sem acento, mismatch UTF-8), ou outra coisa, e aí o fix definitivo é trivial.
 
-- Margô abre o formulário → campo "Concierge" já vem preenchido com "Margô" e travado → insert respeita a policy → paciente é criado.
-- Admin continua podendo escolher qualquer concierge.
-- Nenhuma mudança em RLS, migrations ou schema.
+### 4. Depois do fix definitivo
+Remover o `console.log` e simplificar o toast de volta para a mensagem amigável que já existe.
+
+## Detalhes técnicos
+
+- Arquivos tocados na etapa 2: apenas `src/hooks/usePatients.ts` (mutação `useAddPatient`).
+- Nada muda em banco, RLS, funções, edge functions ou no `AddPatientForm`.
+- Diagnóstico é não-destrutivo e revertido na etapa 4.
