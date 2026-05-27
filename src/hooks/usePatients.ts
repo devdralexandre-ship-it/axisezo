@@ -481,7 +481,7 @@ export function useImportPatients() {
           procedure_name: p.procedure,
           procedure_category: '',
           surgeon: defaultSurgeon,
-          concierge: '',
+          concierge: defaultConcierge,
           owner: 'Call Center',
           stage: p.stage as any,
           stage_entered_at: resolvedDate,
