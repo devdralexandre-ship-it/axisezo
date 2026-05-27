@@ -139,8 +139,16 @@ export function useAddPatient() {
           ]);
           profileSnapshot = prof;
           userRoles = (rolesRows ?? []).map((r: any) => r.role);
-          if (!conciergeName && prof?.concierge_name) conciergeName = prof.concierge_name;
-          if (!surgeonName && prof?.surgeon_name) surgeonName = prof.surgeon_name;
+          if (userRoles.includes('concierge') && !userRoles.includes('admin') && prof?.concierge_name) {
+            conciergeName = prof.concierge_name;
+          } else if (!conciergeName && prof?.concierge_name) {
+            conciergeName = prof.concierge_name;
+          }
+          if (userRoles.includes('surgeon') && !userRoles.includes('admin') && prof?.surgeon_name) {
+            surgeonName = prof.surgeon_name;
+          } else if (!surgeonName && prof?.surgeon_name) {
+            surgeonName = prof.surgeon_name;
+          }
         }
       } catch (e) {
         // eslint-disable-next-line no-console
@@ -172,7 +180,9 @@ export function useAddPatient() {
       });
 
 
-      const { data, error } = await supabase.from('patients').insert({
+      const patientId = crypto.randomUUID();
+      const insertPayload: Record<string, any> = {
+        id: patientId,
         name: p.name,
         procedure_name: p.procedure,
         procedure_category: p.procedureCategory || '',
@@ -204,15 +214,22 @@ export function useAddPatient() {
         surgical_approach: p.surgicalApproach,
         laterality: (p as any).laterality || null,
         procedure_codes: p.procedureCodes ?? { main: null, extras: [] },
-      } as any).select().single();
-      if (error) throw error;
+      };
+
+      if (userIdSnapshot) insertPayload.assigned_user_ids = [userIdSnapshot];
+
+      const { error } = await supabase.from('patients').insert(insertPayload as any);
+      if (error) throw Object.assign(error, { phase: 'patient' });
+
+      const data = { id: patientId };
 
       const checklistInserts = PREOP_CHECKLIST_ITEMS.map((key) => ({
         patient_id: data.id,
         item_key: key,
         checked: false,
       }));
-      await supabase.from('preop_checklist_items').insert(checklistInserts);
+      const { error: checklistError } = await supabase.from('preop_checklist_items').insert(checklistInserts);
+      if (checklistError) throw Object.assign(checklistError, { phase: 'checklist' });
 
       if (p.initialTasks && p.initialTasks.length > 0) {
         const taskInserts = p.initialTasks.map((t) => ({
@@ -223,7 +240,8 @@ export function useAddPatient() {
           responsible: t.responsible,
           completed: false,
         }));
-        await supabase.from('tasks').insert(taskInserts);
+        const { error: tasksError } = await supabase.from('tasks').insert(taskInserts);
+        if (tasksError) throw Object.assign(tasksError, { phase: 'tasks' });
       }
 
       return data;
