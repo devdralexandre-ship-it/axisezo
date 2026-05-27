@@ -1,40 +1,47 @@
-## Diagnóstico
+# Por que Margô vê só 106 de 160
 
-- O perfil da Margô no banco está correto (`role=concierge`, `concierge_name='Margô'`), as funções `current_concierge_name()` / `has_role()` retornam o esperado, e a política RLS de INSERT em `patients` aceita `concierge='Margô'` para um usuário concierge. Manualmente, o cenário **passa** na RLS.
-- Publicado está "up to date", então o bundle de produção é o mesmo do preview — já tem o auto-lock e a defesa em profundidade.
-- Mesmo assim, nenhum paciente foi inserido por ela hoje. Ou seja: o INSERT chega no Postgres com um valor de `concierge` diferente de `'Margô'` (ou ainda em branco), por algum motivo que não consigo provar sem ver a request real.
+Consultando o banco:
 
-Logs do Postgres / PostgREST não trazem o payload do INSERT que falhou, então o próximo passo é capturar essa informação direto do navegador da Margô.
+- Profile da Margô: `concierge_name = "Margô"`, role = `concierge`, `assigned_only = false`.
+- Distribuição do campo `concierge` na tabela `patients`:
+  - `"Margô"` → **110 pacientes**
+  - `""` (string vazia) → **54 pacientes**
 
-## Plano
+A política RLS `can_access_patient` para um usuário com role `concierge` (sem `admin`, sem `call_center`/`intern`) só libera o paciente quando `patients.concierge = current_concierge_name()`. Como 54 pacientes estão com concierge em branco, eles ficam invisíveis para ela — daí a diferença (~160 totais vs ~106 visíveis; a sua conta admin vê tudo).
 
-### 1. Primeiro: descartar cache do navegador (sem código)
-Antes de mexer em qualquer coisa, pedir para a Margô:
-- Fazer **hard refresh** em `axiscrm.app` (Ctrl+Shift+R no Windows, Cmd+Shift+R no Mac).
-- Tentar cadastrar de novo um paciente de teste.
+A origem dos brancos é principalmente o `useImportPatients` (CSV), que insere `concierge: ''` fixo, e provavelmente cadastros antigos feitos por call_center/admin sem preencher o campo.
 
-Se o erro sumir → era cache do `index.html` antigo. Fim.
+# Correção proposta
 
-### 2. Se ainda falhar: adicionar diagnóstico temporário em `useAddPatient`
-Pequena instrumentação só para essa investigação, em `src/hooks/usePatients.ts`:
+### 1) Backfill no banco (migration)
+Atualizar todos os pacientes com concierge vazio/nulo para `"Margô"`, já que hoje ela é a única concierge ativa:
 
-- Antes do `.from('patients').insert(...)`, fazer `console.log('[addPatient] payload', { surgeon: surgeonName, concierge: conciergeName, role-info })` incluindo `user.id` e o resultado da leitura de `profiles`.
-- No `onError`, exibir no toast (de forma curta) `e?.code` e os primeiros caracteres de `e?.details`/`e?.hint`, para sabermos qual branch da policy quebrou.
-- Adicionar um *guard* explícito: se o usuário tem role concierge e `conciergeName` final está vazio, abortar o insert e mostrar toast claro "Seu perfil não tem concierge_name vinculado — fale com o admin", em vez de deixar a RLS falhar.
+```sql
+UPDATE public.patients
+SET concierge = 'Margô'
+WHERE concierge IS NULL OR btrim(concierge) = '';
+```
 
-### 3. Coletar dado e fechar o caso
-Pedir para a Margô:
-- Abrir o console do navegador (F12 → aba Console) antes de tentar.
-- Tentar cadastrar.
-- Mandar print do console + do toast.
+### 2) Evitar regressão no CSV import
+Em `src/hooks/usePatients.ts` → `useImportPatients`: receber também um `defaultConcierge` (igual ao padrão já feito com surgeon) e usar no insert em vez de string vazia. Atualizar `src/components/CsvImporter.tsx` para passar a concierge padrão (atual do usuário logado, ou seleção pelo admin).
 
-Com isso eu saberei se o payload está chegando como `concierge=''`, `concierge='Margo'` (sem acento, mismatch UTF-8), ou outra coisa, e aí o fix definitivo é trivial.
+### 3) Default no formulário de cadastro
+Em `AddPatientForm`, quando o usuário logado tem role `concierge`, pré-preencher o campo Concierge com o `conciergeName` do profile (o `useAddPatient` já faz isso como defesa em profundidade, mas o usuário deve ver o valor na UI).
 
-### 4. Depois do fix definitivo
-Remover o `console.log` e simplificar o toast de volta para a mensagem amigável que já existe.
+# O que NÃO mexer
 
-## Detalhes técnicos
+- A RLS está correta — a regra "concierge só vê seus próprios pacientes" é intencional.
+- Não há problema de encoding ("Margô" bate exatamente em hex).
+- Não preciso alterar policies nem `can_access_patient`.
 
-- Arquivos tocados na etapa 2: apenas `src/hooks/usePatients.ts` (mutação `useAddPatient`).
-- Nada muda em banco, RLS, funções, edge functions ou no `AddPatientForm`.
-- Diagnóstico é não-destrutivo e revertido na etapa 4.
+# Verificação após aplicar
+
+Rodar:
+```sql
+SELECT count(*) FROM patients WHERE concierge = 'Margô';
+```
+Deve passar de 110 para 164 (110 + 54). Margô faz hard refresh e passa a ver todos.
+
+---
+
+**Pergunta antes de implementar:** confirma que **todos** os 54 pacientes com concierge em branco devem ir para Margô? Se houver pacientes que pertencem a outra concierge (futura/inativa), me diga quais critérios usar — caso contrário aplico o backfill global para "Margô".
