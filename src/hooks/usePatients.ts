@@ -233,13 +233,17 @@ export function useAddPatient() {
       toast.success('Paciente adicionado!');
     },
     onError: (e: any) => {
+      // eslint-disable-next-line no-console
+      console.error('[addPatient] error', { message: e?.message, code: e?.code, details: e?.details, hint: e?.hint });
       const msg = String(e?.message || '');
+      const diag = [e?.code, e?.details, e?.hint].filter(Boolean).join(' | ');
       if (msg.includes('row-level security') || msg.includes('row level security')) {
-        toast.error('Você só pode cadastrar pacientes vinculados a você. Verifique os campos Cirurgião e Concierge.');
+        toast.error(`RLS bloqueou o cadastro. Diag: ${diag || msg}`);
       } else {
-        toast.error(`Erro: ${msg}`);
+        toast.error(`Erro: ${msg}${diag ? ` (${diag})` : ''}`);
       }
     },
+
   });
 }
 
