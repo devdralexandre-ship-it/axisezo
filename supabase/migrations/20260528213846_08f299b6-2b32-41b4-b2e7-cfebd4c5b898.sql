@@ -1,0 +1,1 @@
+ALTER TABLE public.patients ADD COLUMN IF NOT EXISTS surgery_date date, ADD COLUMN IF NOT EXISTS surgery_time time;

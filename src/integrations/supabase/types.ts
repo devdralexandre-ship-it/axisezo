@@ -457,6 +457,8 @@ export type Database = {
           stage: Database["public"]["Enums"]["pipeline_stage"]
           stage_entered_at: string
           surgeon: string
+          surgery_date: string | null
+          surgery_time: string | null
           surgical_approach: string | null
           updated_at: string
         }
@@ -496,6 +498,8 @@ export type Database = {
           stage?: Database["public"]["Enums"]["pipeline_stage"]
           stage_entered_at?: string
           surgeon: string
+          surgery_date?: string | null
+          surgery_time?: string | null
           surgical_approach?: string | null
           updated_at?: string
         }
@@ -535,6 +539,8 @@ export type Database = {
           stage?: Database["public"]["Enums"]["pipeline_stage"]
           stage_entered_at?: string
           surgeon?: string
+          surgery_date?: string | null
+          surgery_time?: string | null
           surgical_approach?: string | null
           updated_at?: string
         }
