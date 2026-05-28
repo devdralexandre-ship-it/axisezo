@@ -1,47 +1,48 @@
-# Por que Margô vê só 106 de 160
+## Objetivo
 
-Consultando o banco:
+Quando um paciente for arrastado para a coluna **Cirurgia Agendada**, abrir um diálogo pedindo a data da cirurgia (e horário opcional). A data fica salva no paciente e aparece no card e no painel.
 
-- Profile da Margô: `concierge_name = "Margô"`, role = `concierge`, `assigned_only = false`.
-- Distribuição do campo `concierge` na tabela `patients`:
-  - `"Margô"` → **110 pacientes**
-  - `""` (string vazia) → **54 pacientes**
+## Mudanças
 
-A política RLS `can_access_patient` para um usuário com role `concierge` (sem `admin`, sem `call_center`/`intern`) só libera o paciente quando `patients.concierge = current_concierge_name()`. Como 54 pacientes estão com concierge em branco, eles ficam invisíveis para ela — daí a diferença (~160 totais vs ~106 visíveis; a sua conta admin vê tudo).
+### 1. Banco
+- Adicionar coluna `surgery_date` (date, nullable) e `surgery_time` (time, nullable) na tabela `patients`.
+- Migração simples, sem mudança de RLS.
 
-A origem dos brancos é principalmente o `useImportPatients` (CSV), que insere `concierge: ''` fixo, e provavelmente cadastros antigos feitos por call_center/admin sem preencher o campo.
+### 2. Diálogo novo `SurgeryDateDialog`
+- Espelha o padrão do `LossReasonDialog`.
+- Campos: data (obrigatório, usando o shadcn DatePicker com Popover+Calendar) e horário (opcional, input time).
+- Botões "Confirmar" e "Cancelar". Cancelar aborta a movimentação.
 
-# Correção proposta
+### 3. `PipelineDashboard.tsx`
+- Igual ao fluxo de "lost": ao detectar `newStage === 'surgery_scheduled'` no `handleDragEnd`, guardar `pendingSurgeryDrag` e abrir o diálogo em vez de mover direto.
+- `handleSurgeryDateConfirm`: aplica update otimista (stage + surgeryDate + surgeryTime), chama `updateStage.mutate` com os novos campos, faz rollback em erro.
+- `handleSurgeryDateCancel`: fecha sem mover.
+- Se o paciente já estiver em `surgery_scheduled` e for movido para outra coluna e voltar, o diálogo abre de novo (sempre pede confirmação da data).
 
-### 1) Backfill no banco (migration)
-Atualizar todos os pacientes com concierge vazio/nulo para `"Margô"`, já que hoje ela é a única concierge ativa:
+### 4. `useUpdatePatientStage` (`src/hooks/usePatients.ts`)
+- Aceitar `surgeryDate?: string | null` e `surgeryTime?: string | null` nos parâmetros e incluir no `update` quando presentes (ou quando `stage !== 'surgery_scheduled'`, limpar para null — opcional, podemos manter o histórico; vou **manter** os valores caso volte).
 
-```sql
-UPDATE public.patients
-SET concierge = 'Margô'
-WHERE concierge IS NULL OR btrim(concierge) = '';
-```
+### 5. `types.ts`
+- Adicionar `surgeryDate?: string | null` e `surgeryTime?: string | null` em `Patient`.
+- Mapear em `mapDbToPatient` em `usePatients.ts`.
 
-### 2) Evitar regressão no CSV import
-Em `src/hooks/usePatients.ts` → `useImportPatients`: receber também um `defaultConcierge` (igual ao padrão já feito com surgeon) e usar no insert em vez de string vazia. Atualizar `src/components/CsvImporter.tsx` para passar a concierge padrão (atual do usuário logado, ou seleção pelo admin).
+### 6. Exibição
+- `PatientCard.tsx`: quando `stage === 'surgery_scheduled'` e `surgeryDate` existir, mostrar uma badge/linha "Cirurgia: dd/mm/aaaa [hh:mm]".
+- `PatientPanel.tsx`: mostrar a data abaixo do bloco da etapa quando aplicável; permitir editar via um pequeno botão "Alterar data" que reabre o `SurgeryDateDialog` (reaproveitando o componente, sem alterar stage).
 
-### 3) Default no formulário de cadastro
-Em `AddPatientForm`, quando o usuário logado tem role `concierge`, pré-preencher o campo Concierge com o `conciergeName` do profile (o `useAddPatient` já faz isso como defesa em profundidade, mas o usuário deve ver o valor na UI).
+## Detalhes técnicos
 
-# O que NÃO mexer
+- Datas seguem o padrão já usado no projeto (`YYYY-MM-DD` salvo no banco, formatado para PT-BR na UI com `date-fns/format` + locale `ptBR`).
+- O `SurgeryDateDialog` usa `Calendar` com `className="p-3 pointer-events-auto"` para funcionar dentro do `Dialog`.
+- Sem mudanças de RLS — a coluna nova herda as policies existentes (`can_access_patient`).
+- Não introduz dependência nova.
 
-- A RLS está correta — a regra "concierge só vê seus próprios pacientes" é intencional.
-- Não há problema de encoding ("Margô" bate exatamente em hex).
-- Não preciso alterar policies nem `can_access_patient`.
+## Arquivos afetados
 
-# Verificação após aplicar
-
-Rodar:
-```sql
-SELECT count(*) FROM patients WHERE concierge = 'Margô';
-```
-Deve passar de 110 para 164 (110 + 54). Margô faz hard refresh e passa a ver todos.
-
----
-
-**Pergunta antes de implementar:** confirma que **todos** os 54 pacientes com concierge em branco devem ir para Margô? Se houver pacientes que pertencem a outra concierge (futura/inativa), me diga quais critérios usar — caso contrário aplico o backfill global para "Margô".
+- `supabase/migrations/<novo>.sql` (nova migração)
+- `src/data/types.ts`
+- `src/hooks/usePatients.ts`
+- `src/components/SurgeryDateDialog.tsx` (novo)
+- `src/components/PipelineDashboard.tsx`
+- `src/components/PatientCard.tsx`
+- `src/components/PatientPanel.tsx`

@@ -8,6 +8,7 @@ import { AddPatientForm } from './AddPatientForm';
 import { AddTaskDialog } from './AddTaskDialog';
 import { NotificationBell } from './NotificationBell';
 import { LossReasonDialog } from './LossReasonDialog';
+import { SurgeryDateDialog } from './SurgeryDateDialog';
 import { DeletePatientDialog } from './DeletePatientDialog';
 import { CsvImporter } from './CsvImporter';
 import { Button } from '@/components/ui/button';
@@ -63,6 +64,9 @@ export function PipelineDashboard() {
   const [lossDialogOpen, setLossDialogOpen] = useState(false);
   const [pendingLossDrag, setPendingLossDrag] = useState<{ patientId: string; fromStage: PipelineStage } | null>(null);
 
+  const [surgeryDialogOpen, setSurgeryDialogOpen] = useState(false);
+  const [pendingSurgeryDrag, setPendingSurgeryDrag] = useState<{ patientId: string; fromStage: PipelineStage } | null>(null);
+  const [editingSurgeryPatientId, setEditingSurgeryPatientId] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletePatientId, setDeletePatientId] = useState<string | null>(null);
   const [csvImporterOpen, setCsvImporterOpen] = useState(false);
@@ -148,6 +152,12 @@ export function PipelineDashboard() {
       return;
     }
 
+    if (newStage === 'surgery_scheduled') {
+      setPendingSurgeryDrag({ patientId: draggableId, fromStage: oldStage });
+      setSurgeryDialogOpen(true);
+      return;
+    }
+
     // Optimistic update
     queryClient.setQueryData<Patient[]>(['patients'], (old) => {
       if (!old) return old;
@@ -221,6 +231,81 @@ export function PipelineDashboard() {
     setLossDialogOpen(false);
     setPendingLossDrag(null);
   }, []);
+
+  const handleSurgeryDateConfirm = useCallback((dateIso: string, timeIso: string | null) => {
+    // Edit-only flow (from panel) — doesn't change stage
+    if (editingSurgeryPatientId) {
+      const id = editingSurgeryPatientId;
+      queryClient.setQueryData<Patient[]>(['patients'], (old) => {
+        if (!old) return old;
+        return old.map((p) => p.id === id
+          ? { ...p, surgeryDate: dateIso, surgeryTime: timeIso ? timeIso.substring(0, 5) : null }
+          : p);
+      });
+      updateFields.mutate(
+        { id, fields: { surgery_date: dateIso, surgery_time: timeIso } },
+        {
+          onError: () => {
+            toast.error('Erro ao salvar a data da cirurgia.');
+            queryClient.invalidateQueries({ queryKey: ['patients'] });
+          },
+          onSuccess: () => toast.success('Data da cirurgia atualizada'),
+        },
+      );
+      setSurgeryDialogOpen(false);
+      setEditingSurgeryPatientId(null);
+      return;
+    }
+
+    if (!pendingSurgeryDrag) return;
+    const { patientId, fromStage } = pendingSurgeryDrag;
+    const today = new Date().toISOString().split('T')[0];
+
+    queryClient.setQueryData<Patient[]>(['patients'], (old) => {
+      if (!old) return old;
+      return old.map((p) => p.id === patientId
+        ? {
+            ...p,
+            stage: 'surgery_scheduled' as PipelineStage,
+            stageEnteredAt: today,
+            surgeryDate: dateIso,
+            surgeryTime: timeIso ? timeIso.substring(0, 5) : null,
+          }
+        : p);
+    });
+
+    updateStage.mutate(
+      { id: patientId, stage: 'surgery_scheduled', surgeryDate: dateIso, surgeryTime: timeIso },
+      {
+        onError: () => {
+          queryClient.setQueryData<Patient[]>(['patients'], (old) => {
+            if (!old) return old;
+            return old.map((p) => p.id === patientId ? { ...p, stage: fromStage } : p);
+          });
+          toast.error('Erro ao agendar cirurgia. Tente novamente.');
+        },
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: ['patients'] });
+          toast.success('Cirurgia agendada');
+        },
+      },
+    );
+
+    setSurgeryDialogOpen(false);
+    setPendingSurgeryDrag(null);
+  }, [pendingSurgeryDrag, editingSurgeryPatientId, updateStage, updateFields, queryClient]);
+
+  const handleSurgeryDateCancel = useCallback(() => {
+    setSurgeryDialogOpen(false);
+    setPendingSurgeryDrag(null);
+    setEditingSurgeryPatientId(null);
+  }, []);
+
+  const handleEditSurgeryDate = useCallback((patientId: string) => {
+    setEditingSurgeryPatientId(patientId);
+    setSurgeryDialogOpen(true);
+  }, []);
+
 
   const handleUpdateDecision = useCallback((patientId: string, status: DecisionStatus) => {
     updateFields.mutate({ id: patientId, fields: { decision_status: status } });
@@ -310,6 +395,8 @@ export function PipelineDashboard() {
 
   const taskPatient = taskPatientId ? patients.find((p) => p.id === taskPatientId) : null;
   const lossDialogPatient = pendingLossDrag ? patients.find((p) => p.id === pendingLossDrag.patientId) : null;
+  const surgeryDialogPatientId = pendingSurgeryDrag?.patientId || editingSurgeryPatientId || null;
+  const surgeryDialogPatient = surgeryDialogPatientId ? patients.find((p) => p.id === surgeryDialogPatientId) : null;
   const deleteDialogPatient = deletePatientId ? patients.find((p) => p.id === deletePatientId) : null;
 
   if (isLoading) {
@@ -511,10 +598,20 @@ export function PipelineDashboard() {
         onAddTask={handleAddTask}
         onTogglePreOpItem={handleTogglePreOpItem}
         onUpdateFields={handleUpdateFields}
+        onEditSurgeryDate={handleEditSurgeryDate}
       />
       <AddPatientForm open={addOpen} onClose={() => setAddOpen(false)} onAdd={handleAddPatient} />
       <AddTaskDialog open={addTaskOpen} onClose={() => setAddTaskOpen(false)} onAdd={handleTaskCreated} patientName={taskPatient?.name || ''} defaultResponsible={taskPatient?.owner} />
       <LossReasonDialog open={lossDialogOpen} patientName={lossDialogPatient?.name || ''} onConfirm={handleLossConfirm} onCancel={handleLossCancel} />
+      <SurgeryDateDialog
+        open={surgeryDialogOpen}
+        patientName={surgeryDialogPatient?.name || ''}
+        initialDate={surgeryDialogPatient?.surgeryDate}
+        initialTime={surgeryDialogPatient?.surgeryTime}
+        title={editingSurgeryPatientId ? 'Alterar data da cirurgia' : 'Agendar cirurgia'}
+        onConfirm={handleSurgeryDateConfirm}
+        onCancel={handleSurgeryDateCancel}
+      />
       <DeletePatientDialog open={deleteDialogOpen} patientName={deleteDialogPatient?.name || ''} onConfirm={handleDeleteConfirm} onCancel={handleDeleteCancel} />
       <CsvImporter
         open={csvImporterOpen}

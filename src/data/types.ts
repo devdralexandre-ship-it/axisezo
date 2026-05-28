@@ -222,6 +222,8 @@ export interface Patient {
   materialsCost: number | null;
   preOpChecklist: PreOpChecklist;
   procedureCodes: { main: { code: string; label: string } | null; extras: { code: string; label: string }[] };
+  surgeryDate: string | null;
+  surgeryTime: string | null;
 }
 
 export function getDaysSinceIndication(p: Patient): number {
