@@ -106,6 +106,16 @@ export function PatientCard({ patient, onClick, onCompleteTask, onDelete }: Pati
           </span>
         </div>
 
+        {patient.stage === 'surgery_scheduled' && patient.surgeryDate && (
+          <div className="flex items-center gap-1.5 text-[11px] p-1.5 rounded bg-primary/10 text-primary font-medium">
+            <Calendar className="h-3 w-3" />
+            <span>
+              Cirurgia: {new Date(patient.surgeryDate + 'T12:00:00').toLocaleDateString('pt-BR')}
+              {patient.surgeryTime ? ` às ${patient.surgeryTime}` : ''}
+            </span>
+          </div>
+        )}
+
         {nextTask ? (
           <>
             <div
