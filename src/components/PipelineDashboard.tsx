@@ -62,7 +62,6 @@ export function PipelineDashboard() {
   const [readNotifications, setReadNotifications] = useState<Set<string>>(new Set());
 
   const [lossDialogOpen, setLossDialogOpen] = useState(false);
-  const [lossDialogOpen, setLossDialogOpen] = useState(false);
   const [pendingLossDrag, setPendingLossDrag] = useState<{ patientId: string; fromStage: PipelineStage } | null>(null);
 
   const [surgeryDialogOpen, setSurgeryDialogOpen] = useState(false);
