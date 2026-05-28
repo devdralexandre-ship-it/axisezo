@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import DOMPurify from 'dompurify';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -221,7 +222,7 @@ export function PatientOrientations({ patient }: Props) {
             <DialogHeader><DialogTitle>{viewing.title}</DialogTitle></DialogHeader>
             {viewing.description && <p className="text-sm text-muted-foreground">{viewing.description}</p>}
             {viewing.kind === 'text' && (
-              <div className="prose prose-sm max-w-none text-sm" dangerouslySetInnerHTML={{ __html: viewing.body_html }} />
+              <div className="prose prose-sm max-w-none text-sm" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(viewing.body_html) }} />
             )}
             {viewing.kind === 'video' && viewing.content_url && (
               youtubeEmbed(viewing.content_url) ? (

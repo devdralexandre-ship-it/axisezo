@@ -4,6 +4,25 @@ import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
+  // Shared-secret auth: caller must present the SLA_WATCHER_SECRET
+  const expected = Deno.env.get('SLA_WATCHER_SECRET');
+  if (!expected) {
+    return new Response(JSON.stringify({ error: 'Server not configured' }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+  const auth = req.headers.get('authorization') ?? '';
+  const headerSecret =
+    req.headers.get('x-watcher-secret') ??
+    (auth.toLowerCase().startsWith('bearer ') ? auth.slice(7).trim() : '');
+  if (headerSecret !== expected) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
   try {
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
