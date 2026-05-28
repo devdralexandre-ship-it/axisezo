@@ -203,6 +203,8 @@ export function PatientPanel({ patient, open, onClose, onCompleteTask, onAddTask
               {patient.lossReasonDetail && ` — ${patient.lossReasonDetail}`}
             </p>
           )}
+        </SheetHeader>
+
 
         <div className="p-6 space-y-6">
           {/* Alerts */}
