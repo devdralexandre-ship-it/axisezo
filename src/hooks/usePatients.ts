@@ -104,6 +104,8 @@ function mapDbToPatient(db: DbPatient): Patient {
     procedureCodes: ((db as any).procedure_codes && typeof (db as any).procedure_codes === 'object')
       ? { main: (db as any).procedure_codes.main ?? null, extras: Array.isArray((db as any).procedure_codes.extras) ? (db as any).procedure_codes.extras : [] }
       : { main: null, extras: [] },
+    surgeryDate: (db as any).surgery_date ?? null,
+    surgeryTime: (db as any).surgery_time ? String((db as any).surgery_time).substring(0, 5) : null,
   };
 }
 
@@ -268,16 +270,20 @@ export function useAddPatient() {
 export function useUpdatePatientStage() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, stage, lossReason, lossReasonDetail }: {
+    mutationFn: async ({ id, stage, lossReason, lossReasonDetail, surgeryDate, surgeryTime }: {
       id: string; stage: PipelineStage; lossReason?: LossReason | null; lossReasonDetail?: string | null;
+      surgeryDate?: string | null; surgeryTime?: string | null;
     }) => {
       const today = new Date().toISOString().split('T')[0];
-      const { error } = await supabase.from('patients').update({
+      const payload: Record<string, any> = {
         stage: stage as any,
         stage_entered_at: today,
         loss_reason: (lossReason || null) as any,
         loss_reason_detail: lossReasonDetail || null,
-      }).eq('id', id);
+      };
+      if (surgeryDate !== undefined) payload.surgery_date = surgeryDate;
+      if (surgeryTime !== undefined) payload.surgery_time = surgeryTime;
+      const { error } = await supabase.from('patients').update(payload).eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {},
