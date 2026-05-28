@@ -8,6 +8,7 @@ import { AddPatientForm } from './AddPatientForm';
 import { AddTaskDialog } from './AddTaskDialog';
 import { NotificationBell } from './NotificationBell';
 import { LossReasonDialog } from './LossReasonDialog';
+import { SurgeryDateDialog } from './SurgeryDateDialog';
 import { DeletePatientDialog } from './DeletePatientDialog';
 import { CsvImporter } from './CsvImporter';
 import { Button } from '@/components/ui/button';
@@ -61,8 +62,12 @@ export function PipelineDashboard() {
   const [readNotifications, setReadNotifications] = useState<Set<string>>(new Set());
 
   const [lossDialogOpen, setLossDialogOpen] = useState(false);
+  const [lossDialogOpen, setLossDialogOpen] = useState(false);
   const [pendingLossDrag, setPendingLossDrag] = useState<{ patientId: string; fromStage: PipelineStage } | null>(null);
 
+  const [surgeryDialogOpen, setSurgeryDialogOpen] = useState(false);
+  const [pendingSurgeryDrag, setPendingSurgeryDrag] = useState<{ patientId: string; fromStage: PipelineStage } | null>(null);
+  const [editingSurgeryPatientId, setEditingSurgeryPatientId] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletePatientId, setDeletePatientId] = useState<string | null>(null);
   const [csvImporterOpen, setCsvImporterOpen] = useState(false);
@@ -145,6 +150,12 @@ export function PipelineDashboard() {
     if (newStage === 'lost') {
       setPendingLossDrag({ patientId: draggableId, fromStage: oldStage });
       setLossDialogOpen(true);
+      return;
+    }
+
+    if (newStage === 'surgery_scheduled') {
+      setPendingSurgeryDrag({ patientId: draggableId, fromStage: oldStage });
+      setSurgeryDialogOpen(true);
       return;
     }
 
