@@ -395,6 +395,8 @@ export function PipelineDashboard() {
 
   const taskPatient = taskPatientId ? patients.find((p) => p.id === taskPatientId) : null;
   const lossDialogPatient = pendingLossDrag ? patients.find((p) => p.id === pendingLossDrag.patientId) : null;
+  const surgeryDialogPatientId = pendingSurgeryDrag?.patientId || editingSurgeryPatientId || null;
+  const surgeryDialogPatient = surgeryDialogPatientId ? patients.find((p) => p.id === surgeryDialogPatientId) : null;
   const deleteDialogPatient = deletePatientId ? patients.find((p) => p.id === deletePatientId) : null;
 
   if (isLoading) {
