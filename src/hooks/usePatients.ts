@@ -283,7 +283,7 @@ export function useUpdatePatientStage() {
       };
       if (surgeryDate !== undefined) payload.surgery_date = surgeryDate;
       if (surgeryTime !== undefined) payload.surgery_time = surgeryTime;
-      const { error } = await supabase.from('patients').update(payload).eq('id', id);
+      const { error } = await supabase.from('patients').update(payload as any).eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {},
