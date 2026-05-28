@@ -232,6 +232,81 @@ export function PipelineDashboard() {
     setPendingLossDrag(null);
   }, []);
 
+  const handleSurgeryDateConfirm = useCallback((dateIso: string, timeIso: string | null) => {
+    // Edit-only flow (from panel) — doesn't change stage
+    if (editingSurgeryPatientId) {
+      const id = editingSurgeryPatientId;
+      queryClient.setQueryData<Patient[]>(['patients'], (old) => {
+        if (!old) return old;
+        return old.map((p) => p.id === id
+          ? { ...p, surgeryDate: dateIso, surgeryTime: timeIso ? timeIso.substring(0, 5) : null }
+          : p);
+      });
+      updateFields.mutate(
+        { id, fields: { surgery_date: dateIso, surgery_time: timeIso } },
+        {
+          onError: () => {
+            toast.error('Erro ao salvar a data da cirurgia.');
+            queryClient.invalidateQueries({ queryKey: ['patients'] });
+          },
+          onSuccess: () => toast.success('Data da cirurgia atualizada'),
+        },
+      );
+      setSurgeryDialogOpen(false);
+      setEditingSurgeryPatientId(null);
+      return;
+    }
+
+    if (!pendingSurgeryDrag) return;
+    const { patientId, fromStage } = pendingSurgeryDrag;
+    const today = new Date().toISOString().split('T')[0];
+
+    queryClient.setQueryData<Patient[]>(['patients'], (old) => {
+      if (!old) return old;
+      return old.map((p) => p.id === patientId
+        ? {
+            ...p,
+            stage: 'surgery_scheduled' as PipelineStage,
+            stageEnteredAt: today,
+            surgeryDate: dateIso,
+            surgeryTime: timeIso ? timeIso.substring(0, 5) : null,
+          }
+        : p);
+    });
+
+    updateStage.mutate(
+      { id: patientId, stage: 'surgery_scheduled', surgeryDate: dateIso, surgeryTime: timeIso },
+      {
+        onError: () => {
+          queryClient.setQueryData<Patient[]>(['patients'], (old) => {
+            if (!old) return old;
+            return old.map((p) => p.id === patientId ? { ...p, stage: fromStage } : p);
+          });
+          toast.error('Erro ao agendar cirurgia. Tente novamente.');
+        },
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: ['patients'] });
+          toast.success('Cirurgia agendada');
+        },
+      },
+    );
+
+    setSurgeryDialogOpen(false);
+    setPendingSurgeryDrag(null);
+  }, [pendingSurgeryDrag, editingSurgeryPatientId, updateStage, updateFields, queryClient]);
+
+  const handleSurgeryDateCancel = useCallback(() => {
+    setSurgeryDialogOpen(false);
+    setPendingSurgeryDrag(null);
+    setEditingSurgeryPatientId(null);
+  }, []);
+
+  const handleEditSurgeryDate = useCallback((patientId: string) => {
+    setEditingSurgeryPatientId(patientId);
+    setSurgeryDialogOpen(true);
+  }, []);
+
+
   const handleUpdateDecision = useCallback((patientId: string, status: DecisionStatus) => {
     updateFields.mutate({ id: patientId, fields: { decision_status: status } });
   }, [updateFields]);
