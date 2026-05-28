@@ -29,6 +29,7 @@ interface PatientPanelProps {
   onAddTask: (patientId: string) => void;
   onTogglePreOpItem: (patientId: string, item: PreOpChecklistItem) => void;
   onUpdateFields: (patientId: string, fields: Record<string, any>) => void;
+  onEditSurgeryDate?: (patientId: string) => void;
 }
 
 function getFinancialVisibility(billingType: string | null) {
@@ -42,7 +43,7 @@ function computeEstimatedTotal(medicalFees: number | null, anesthesiaFees: numbe
   return (medicalFees || 0) + (anesthesiaFees || 0) + (hospitalBudget || 0) + (materialsCost || 0);
 }
 
-export function PatientPanel({ patient, open, onClose, onCompleteTask, onAddTask, onTogglePreOpItem, onUpdateFields }: PatientPanelProps) {
+export function PatientPanel({ patient, open, onClose, onCompleteTask, onAddTask, onTogglePreOpItem, onUpdateFields, onEditSurgeryDate }: PatientPanelProps) {
   const [editing, setEditing] = useState(false);
   const [editData, setEditData] = useState<Record<string, any>>({});
 
@@ -174,13 +175,34 @@ export function PatientPanel({ patient, open, onClose, onCompleteTask, onAddTask
           <p className="text-xs text-muted-foreground mt-2">
             Etapa: <span className="font-medium text-foreground">{STAGE_LABELS[patient.stage]}</span>
           </p>
+          {patient.stage === 'surgery_scheduled' && (
+            <div className="mt-2 flex items-center gap-2 text-xs">
+              <Calendar className="h-3.5 w-3.5 text-primary" />
+              <span className="text-muted-foreground">Cirurgia:</span>
+              <span className="font-medium text-foreground">
+                {patient.surgeryDate
+                  ? `${new Date(patient.surgeryDate + 'T12:00:00').toLocaleDateString('pt-BR')}${patient.surgeryTime ? ` às ${patient.surgeryTime}` : ''}`
+                  : 'não informada'}
+              </span>
+              {onEditSurgeryDate && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-xs"
+                  onClick={() => onEditSurgeryDate(patient.id)}
+                >
+                  <Pencil className="h-3 w-3 mr-1" />
+                  {patient.surgeryDate ? 'Alterar' : 'Definir'}
+                </Button>
+              )}
+            </div>
+          )}
           {patient.stage === 'lost' && patient.lossReason && (
             <p className="text-xs text-destructive mt-1">
               Motivo: {LOSS_REASON_LABELS[patient.lossReason]}
               {patient.lossReasonDetail && ` — ${patient.lossReasonDetail}`}
             </p>
           )}
-        </SheetHeader>
 
         <div className="p-6 space-y-6">
           {/* Alerts */}
