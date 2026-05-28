@@ -598,10 +598,20 @@ export function PipelineDashboard() {
         onAddTask={handleAddTask}
         onTogglePreOpItem={handleTogglePreOpItem}
         onUpdateFields={handleUpdateFields}
+        onEditSurgeryDate={handleEditSurgeryDate}
       />
       <AddPatientForm open={addOpen} onClose={() => setAddOpen(false)} onAdd={handleAddPatient} />
       <AddTaskDialog open={addTaskOpen} onClose={() => setAddTaskOpen(false)} onAdd={handleTaskCreated} patientName={taskPatient?.name || ''} defaultResponsible={taskPatient?.owner} />
       <LossReasonDialog open={lossDialogOpen} patientName={lossDialogPatient?.name || ''} onConfirm={handleLossConfirm} onCancel={handleLossCancel} />
+      <SurgeryDateDialog
+        open={surgeryDialogOpen}
+        patientName={surgeryDialogPatient?.name || ''}
+        initialDate={surgeryDialogPatient?.surgeryDate}
+        initialTime={surgeryDialogPatient?.surgeryTime}
+        title={editingSurgeryPatientId ? 'Alterar data da cirurgia' : 'Agendar cirurgia'}
+        onConfirm={handleSurgeryDateConfirm}
+        onCancel={handleSurgeryDateCancel}
+      />
       <DeletePatientDialog open={deleteDialogOpen} patientName={deleteDialogPatient?.name || ''} onConfirm={handleDeleteConfirm} onCancel={handleDeleteCancel} />
       <CsvImporter
         open={csvImporterOpen}
