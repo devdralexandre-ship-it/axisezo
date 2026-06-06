@@ -168,8 +168,9 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
       : null;
 
     setSubmitting(true);
+    let created: { id: string } | void;
     try {
-      const created = await onAdd({
+      created = await onAdd({
         name,
         age: age ? parseInt(age) : null,
         patientType,
@@ -209,28 +210,42 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
           extras: extraCbhpm.filter((e) => e.code || e.label),
         },
       } as any);
-
-      // Upload pending files now that we have the patient id
-      const newId = (created && typeof created === 'object' && 'id' in created) ? (created as any).id as string : null;
-      if (newId && pendingUploads.length) {
-        let ok = 0;
-        for (const p of pendingUploads) {
-          try {
-            await uploadPatientFile({ patientId: newId, file: p.file, category: p.category as UploadCategory });
-            ok++;
-          } catch (e: any) {
-            toast.error(`Falha em "${p.file.name}": ${e?.message ?? 'erro'}`);
-          }
-        }
-        if (ok) toast.success(`${ok} anexo(s) enviado(s)`);
-      }
-
-      resetForm();
-      onClose();
-    } catch (e: any) {
+    } catch {
       // mutation toast already fires
-    } finally {
       setSubmitting(false);
+      return;
+    }
+
+    // Patient is created — close the dialog immediately so the user is never
+    // blocked by attachment uploads (which may be slow or fail).
+    const newId = (created && typeof created === 'object' && 'id' in created) ? (created as any).id as string : null;
+    const filesToUpload = newId ? [...pendingUploads] : [];
+    resetForm();
+    onClose();
+    setSubmitting(false);
+
+    // Fire-and-forget uploads. Each file reports its own toast; the Kanban
+    // refreshes automatically via Realtime as documents arrive.
+    if (newId && filesToUpload.length) {
+      const total = filesToUpload.length;
+      void (async () => {
+        const results = await Promise.allSettled(
+          filesToUpload.map((p) =>
+            uploadPatientFile({ patientId: newId, file: p.file, category: p.category as UploadCategory })
+          )
+        );
+        const ok = results.filter((r) => r.status === 'fulfilled').length;
+        const fail = results.length - ok;
+        results.forEach((r, idx) => {
+          if (r.status === 'rejected') {
+            const f = filesToUpload[idx];
+            const msg = (r.reason as any)?.message ?? 'erro desconhecido';
+            toast.error(`Falha em "${f.file.name}": ${msg}`);
+          }
+        });
+        if (ok) toast.success(`${ok}/${total} anexo(s) enviado(s)`);
+        if (fail && !ok) toast.error(`Nenhum anexo foi enviado (${fail} falha${fail > 1 ? 's' : ''}).`);
+      })();
     }
   };
 

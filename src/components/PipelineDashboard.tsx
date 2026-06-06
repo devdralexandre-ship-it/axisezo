@@ -29,10 +29,12 @@ import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useQueryClient } from '@tanstack/react-query';
+import { useRealtimePatients } from '@/hooks/useRealtimePatients';
 
 const ACTIVE_STAGES = PIPELINE_STAGES.filter((s) => s !== 'lost') as PipelineStage[];
 
 export function PipelineDashboard() {
+  useRealtimePatients();
   const { data: patients = [], isLoading } = usePatients();
   const updateStage = useUpdatePatientStage();
   const updateFields = useUpdatePatientFields();

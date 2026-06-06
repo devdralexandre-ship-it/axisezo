@@ -55,15 +55,38 @@ export async function uploadPatientFile(params: {
   const { patientId, file, category } = params;
   if (file.size > MAX_BYTES) throw new Error(`Arquivo "${file.name}" excede 20 MB.`);
 
+  const nameLower = file.name.toLowerCase();
+  const typeLower = (file.type || '').toLowerCase();
+  if (typeLower === 'image/heic' || typeLower === 'image/heif' || nameLower.endsWith('.heic') || nameLower.endsWith('.heif')) {
+    throw new Error('Formato HEIC/HEIF do iPhone não é suportado. No iPhone: Ajustes → Câmera → Formatos → "Mais Compatível", ou envie como JPEG/PNG.');
+  }
+
+  // Some iPhones / cameras send an empty MIME — infer from extension so the
+  // browser actually treats it as an image when downloading.
+  let contentType = file.type || '';
+  if (!contentType) {
+    if (nameLower.endsWith('.jpg') || nameLower.endsWith('.jpeg')) contentType = 'image/jpeg';
+    else if (nameLower.endsWith('.png')) contentType = 'image/png';
+    else if (nameLower.endsWith('.webp')) contentType = 'image/webp';
+    else if (nameLower.endsWith('.pdf')) contentType = 'application/pdf';
+    else contentType = 'application/octet-stream';
+  }
+
   const { data: userData } = await supabase.auth.getUser();
   const uid = userData?.user?.id ?? null;
 
   const path = `${patientId}/${category}/${crypto.randomUUID()}_${safeName(file.name)}`;
   const up = await supabase.storage.from('patient-uploads').upload(path, file, {
-    contentType: file.type || 'application/octet-stream',
+    contentType,
     upsert: false,
   });
-  if (up.error) throw up.error;
+  if (up.error) {
+    const e: any = up.error;
+    // eslint-disable-next-line no-console
+    console.error('[uploadPatientFile] storage error', { name: file.name, type: contentType, size: file.size, error: e });
+    const code = e?.statusCode || e?.status || e?.error || '';
+    throw new Error(`${e?.message || 'falha ao enviar'}${code ? ` (${code})` : ''}`);
+  }
 
   const { data, error } = await supabase
     .from('patient_uploads')
@@ -72,7 +95,7 @@ export async function uploadPatientFile(params: {
       category,
       file_name: file.name,
       storage_path: path,
-      mime_type: file.type || 'application/octet-stream',
+      mime_type: contentType,
       size_bytes: file.size,
       uploaded_by: uid,
     })
@@ -80,7 +103,9 @@ export async function uploadPatientFile(params: {
     .single();
   if (error) {
     await supabase.storage.from('patient-uploads').remove([path]);
-    throw error;
+    // eslint-disable-next-line no-console
+    console.error('[uploadPatientFile] db insert error', error);
+    throw new Error(`Banco rejeitou o registro: ${error.message}`);
   }
   return data as PatientUpload;
 }
