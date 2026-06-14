@@ -14,7 +14,7 @@ import { TaskFormFields, TaskDraft, emptyTaskDraft } from './TaskFormFields';
 import { CodeAutocomplete } from './CodeAutocomplete';
 import { uploadPatientFile, UPLOAD_CATEGORIES, UploadCategory } from '@/hooks/usePatientUploads';
 import { toast } from 'sonner';
-import { STAGE_LABELS as STAGE_LBL } from '@/data/types';
+
 
 const normalizeName = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ');
 
