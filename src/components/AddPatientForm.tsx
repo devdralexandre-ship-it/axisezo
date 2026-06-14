@@ -45,9 +45,16 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
   const lockConcierge = isConcierge && !isAdmin && !!conciergeName;
   const lockSurgeon = isSurgeon && !isAdmin && !!surgeonName;
 
+  const { data: allPatients = [] } = usePatients();
+
   const [name, setName] = useState('');
   const [age, setAge] = useState('');
   const [patientType, setPatientType] = useState('adult');
+  const duplicateMatches = useMemo(() => {
+    const n = normalizeName(name);
+    if (n.length < 3) return [];
+    return allPatients.filter((p) => normalizeName(p.name) === n);
+  }, [name, allPatients]);
   const [procedure, setProcedure] = useState('');
   const [customProcedure, setCustomProcedure] = useState('');
   const [surgicalApproach, setSurgicalApproach] = useState('');
@@ -161,7 +168,8 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
   };
 
   const handleSubmit = async () => {
-    if (!name || !effectiveProcedure || !surgeon || !hasValidTask || submitting) return;
+    const trimmedName = name.trim();
+    if (!trimmedName || !effectiveProcedure || !surgeon || !hasValidTask || submitting) return;
     const today = new Date().toISOString().split('T')[0];
     const finalPayer = payer === 'Outros' ? payerOther : payer;
     const finalHospital = isCustomHospital ? customHospital : desiredHospital;
@@ -175,7 +183,7 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
     let created: { id: string } | void;
     try {
       created = await onAdd({
-        name,
+        name: trimmedName,
         age: age ? parseInt(age) : null,
         patientType,
         procedure: effectiveProcedure,
