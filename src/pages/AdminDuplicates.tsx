@@ -171,9 +171,9 @@ export default function AdminDuplicates() {
                         disabled={deletePatient.isPending}
                       >
                         <Trash2 className="h-3.5 w-3.5 shrink-0" />
-                        <span className="truncate">
-                          Excluir {others.length === 1 ? 'outro' : `outros (${others.length})`}
-                        </span>
+                      <span className="truncate">
+                        Excluir duplicata{others.length === 1 ? '' : 's'}
+                      </span>
                       </Button>
                     </div>
                   </div>
