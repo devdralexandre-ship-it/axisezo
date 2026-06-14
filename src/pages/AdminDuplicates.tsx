@@ -142,35 +142,38 @@ export default function AdminDuplicates() {
                     key={p.id}
                     className="grid grid-cols-12 gap-2 items-center p-2 rounded-md border border-border bg-muted/20 text-xs"
                   >
-                    <div className="col-span-3">
+                    <div className="col-span-3 min-w-0">
                       <p className="font-semibold text-foreground truncate">{p.procedure}</p>
                       <p className="text-muted-foreground">{STAGE_LABELS[p.stage]}</p>
                     </div>
-                    <div className="col-span-2">
+                    <div className="col-span-1 min-w-0">
                       <p className="text-muted-foreground">Cirurgião</p>
                       <p className="text-foreground truncate">{p.surgeon || '—'}</p>
                     </div>
-                    <div className="col-span-2">
+                    <div className="col-span-2 min-w-0">
                       <p className="text-muted-foreground">Telefone</p>
                       <p className="text-foreground truncate">{p.phone || '—'}</p>
                     </div>
-                    <div className="col-span-2">
+                    <div className="col-span-2 min-w-0">
                       <p className="text-muted-foreground">E-mail</p>
                       <p className="text-foreground truncate">{p.email || '—'}</p>
                     </div>
-                    <div className="col-span-1">
+                    <div className="col-span-1 min-w-0">
                       <p className="text-muted-foreground">Criado</p>
                       <p className="text-foreground">{formatDate(p.createdAt)}</p>
                     </div>
-                    <div className="col-span-2 flex justify-end">
+                    <div className="col-span-3 min-w-0 flex justify-end">
                       <Button
                         size="sm"
                         variant="destructive"
+                        className="w-full"
                         onClick={() => setPendingDelete({ keep: p, remove: others })}
                         disabled={deletePatient.isPending}
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
-                        Manter este, excluir {others.length === 1 ? 'o outro' : `os ${others.length}`}
+                        <Trash2 className="h-3.5 w-3.5 shrink-0" />
+                        <span className="truncate">
+                          Excluir {others.length === 1 ? 'outro' : `outros (${others.length})`}
+                        </span>
                       </Button>
                     </div>
                   </div>
