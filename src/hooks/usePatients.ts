@@ -238,8 +238,10 @@ export function useAddPatient() {
       toast.success('Paciente adicionado!');
     },
     onError: (e: any) => {
-      // eslint-disable-next-line no-console
-      console.error('[addPatient] error', { phase: e?.phase, message: e?.message, code: e?.code, details: e?.details, hint: e?.hint });
+      if (import.meta.env.DEV) {
+        // eslint-disable-next-line no-console
+        console.error('[addPatient] error', { phase: e?.phase, message: e?.message, code: e?.code });
+      }
       const msg = String(e?.message || '');
       const diag = [e?.phase && `fase=${e.phase}`, e?.code, e?.details, e?.hint].filter(Boolean).join(' | ');
       if (msg.includes('row-level security') || msg.includes('row level security')) {
