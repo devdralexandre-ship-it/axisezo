@@ -283,6 +283,24 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
                 <Input type="number" value={age} onChange={(e) => setAge(e.target.value)} placeholder="0" className="focus-visible:ring-offset-0" />
               </div>
             </div>
+            {duplicateMatches.length > 0 && (
+              <div className="flex items-start gap-2 p-2.5 rounded-md border border-pipeline-amber/40 bg-pipeline-amber/10 text-xs text-pipeline-amber">
+                <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                <div className="space-y-0.5">
+                  <p className="font-semibold">
+                    Já existe {duplicateMatches.length === 1 ? 'um paciente' : `${duplicateMatches.length} pacientes`} com este nome:
+                  </p>
+                  <ul className="list-disc pl-4">
+                    {duplicateMatches.slice(0, 3).map((p) => (
+                      <li key={p.id}>
+                        {p.procedure} — {STAGE_LABELS[p.stage]}
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="opacity-80">Confirme se não é o mesmo paciente antes de continuar.</p>
+                </div>
+              </div>
+            )}
 
             {/* Patient Type */}
             <div className="space-y-2">
