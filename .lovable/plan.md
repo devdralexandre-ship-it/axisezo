@@ -1,76 +1,42 @@
+# Correção do valor no card + Detecção de duplicatas
+
 ## Diagnóstico
 
-Levantei o fluxo no código e identifiquei três causas distintas para o que o João descreve:
+**1. Valor antigo no card (Thales Silva Machado)**
+O card lê `patient.estimatedValue ?? patient.medicalFees` (`PatientCard.tsx:44`). No banco, esse paciente tem `estimated_value = 6` (valor legado/erro de digitação antigo) e `medical_fees = 6000`. Como o painel de edição (`PatientPanel.tsx`) **nunca atualiza `estimated_value`** — só grava `medical_fees`, `anesthesia_fees`, `hospital_budget`, `materials_cost` — o card continua mostrando o valor velho de `estimated_value`. Editar honorários funciona no banco; apenas a exibição usa um campo obsoleto.
 
-1. **Kanban não atualiza após incluir / excluir** — hoje só dependemos do `invalidateQueries(['patients'])` que dispara um refetch após a mutação local. Ele funciona, mas (a) não cobre quando outro usuário faz a mudança e (b) se o pós-processamento da inclusão trava (item 2 abaixo), o `invalidate` nunca chega a rodar.
+**2. Duplicata**
+Existem duas linhas para "Thales Silva Machado": uma com nome `"Thales Silva Machado"` e outra com espaço à esquerda `" Thales Silva Machado"`. Não há nenhum mecanismo que detecte/avise duplicatas no cadastro nem ferramenta para revisá-las.
 
-2. **Janela "Novo paciente" não fecha e botão "Criar paciente" fica girando** — o `handleSubmit` faz `await onAdd(...)` (o paciente é criado e o toast "Paciente adicionado!" dispara aqui) e **depois** percorre `pendingUploads` em série, fazendo upload de cada anexo antes de chamar `onClose()`. Se um arquivo trava ou demora (ex.: foto grande, HEIC, falha de RLS, conexão instável), o `setSubmitting(false)` e o `onClose()` ficam pendurados — daí a sensação de "incluiu mas não fechou".
+## Mudanças propostas
 
-3. **Foto não carrega (novo paciente e card)** — no `useUploadPatientFile` qualquer erro do storage é convertido em um toast genérico (`e?.message`). Erros como HEIC, MIME vazio, falha de RLS ou tamanho excessivo aparecem todos como erro silencioso/genérico, então não dá para saber o motivo real. PDFs funcionam porque caem no caminho "feliz" (MIME `application/pdf`, tamanho moderado).
+### Parte A — Card mostra valor correto
+1. **`PatientCard.tsx`**: trocar `displayValue` por um total calculado:
+   `medicalFees + anesthesiaFees + hospitalBudget + materialsCost`, com fallback para `estimatedValue` apenas se todos os fees forem nulos. Assim qualquer edição de honorários reflete imediatamente.
+2. **`PatientPanel.tsx`** (handleSave dos campos financeiros): ao salvar, também limpar `estimated_value` (definir como `null`) para esse campo legado deixar de competir com os fees. Mantém compatibilidade com registros antigos sem fees detalhados.
+3. **Correção pontual** do registro do Thales: zerar `estimated_value` da linha correta via insert/update para destravar a exibição imediatamente.
 
-## O que vou fazer
-
-### 1. Realtime no Kanban (todos os usuários)
-- Migration: incluir `public.patients`, `public.tasks`, `public.contact_records`, `public.preop_checklist_items`, `public.pending_items`, `public.patient_uploads`, `public.patient_documents` na publication `supabase_realtime` e marcar `REPLICA IDENTITY FULL` onde precisarem.
-- Criar `src/hooks/useRealtimePatients.ts` que abre um canal `postgres_changes` para essas tabelas e chama `queryClient.invalidateQueries({ queryKey: ['patients'] })` em qualquer `INSERT/UPDATE/DELETE`. RLS já restringe os eventos recebidos por usuário.
-- Plugar o hook no `PipelineDashboard` (uma única subscription para toda a tela).
-
-### 2. Fechar o dialog imediatamente e mover uploads para segundo plano
-- No `AddPatientForm.handleSubmit`:
-  - Assim que o `await onAdd(...)` resolver (paciente criado), chamar `resetForm()` + `onClose()` + `setSubmitting(false)` **antes** de iniciar os uploads.
-  - Disparar os uploads pendentes em segundo plano (`uploadPatientFile` por arquivo) com `Promise.allSettled`, mostrando um toast de progresso e toasts individuais de sucesso/erro por arquivo. O Kanban já vai mostrar o paciente novo (pelo Realtime + invalidate), e os anexos aparecem no card conforme terminam.
-  - Garantir `try/finally` blindado para que o botão nunca fique girando mesmo se algo lançar.
-
-### 3. Upload de imagens — diagnóstico real + bloqueio claro de HEIC
-- Em `src/hooks/usePatientUploads.ts` (`uploadPatientFile`):
-  - Detectar arquivos `image/heic` / `image/heif` / extensões `.heic` / `.heif` e rejeitar com mensagem explícita ("Fotos do iPhone em HEIC não são suportadas. No iPhone: Ajustes → Câmera → Formatos → Mais Compatível, ou envie como JPEG.").
-  - Fazer fallback de `contentType` para `image/jpeg` quando `file.type` vier vazio mas a extensão for `.jpg`/`.jpeg`/`.png`/`.webp` (alguns iPhones / câmeras enviam type vazio).
-  - Quando `supabase.storage.upload` retornar erro, propagar `error.message`, `error.statusCode` e `error.error` no toast (ex.: `Falha ao enviar "foto.jpg": new row violates row-level security policy (403)`), para que o João consiga me dizer o motivo exato caso ainda falhe.
-  - Mesmo tratamento no `PatientUploads.handleFiles` (card do paciente).
-- O input continua aceitando `image/*` + PDF — só damos uma mensagem clara quando o formato não é suportado pelo storage/visualização.
-
-### 4. Exclusão de paciente
-Sem mudança de fluxo: o `DeletePatientDialog` já fecha (`setDeleteDialogOpen(false)`) e o `useDeletePatient` faz `invalidateQueries`. Com o Realtime do item 1, a coluna do Kanban também se atualiza para os outros usuários sem refresh.
-
-## Detalhes técnicos
-
-```text
-PipelineDashboard
-  └─ useRealtimePatients()           // novo hook
-        └─ supabase.channel('kanban')
-              .on('postgres_changes', { schema:'public', table:'patients' }, invalidate)
-              .on('postgres_changes', { schema:'public', table:'tasks' }, invalidate)
-              ...
-              .subscribe()
-
-AddPatientForm.handleSubmit
-  1. await addPatientMutation       // cria paciente + checklist + tasks
-  2. resetForm(); onClose(); setSubmitting(false)
-  3. fire-and-forget: Promise.allSettled(pendingUploads.map(uploadPatientFile))
-        → toast por arquivo, Realtime atualiza o card automaticamente
-```
-
-Migration (resumo):
-```sql
-ALTER PUBLICATION supabase_realtime ADD TABLE public.patients;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.tasks;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.contact_records;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.preop_checklist_items;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.pending_items;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.patient_uploads;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.patient_documents;
-ALTER TABLE public.patients REPLICA IDENTITY FULL;
--- (idem para as outras, ignorando as já presentes)
-```
-
-## Arquivos afetados
-- `supabase/migrations/<novo>.sql` — Realtime publication + replica identity
-- `src/hooks/useRealtimePatients.ts` — **novo**
-- `src/components/PipelineDashboard.tsx` — chamar o hook
-- `src/components/AddPatientForm.tsx` — fechar dialog antes dos uploads, uploads em background
-- `src/hooks/usePatientUploads.ts` — bloqueio HEIC, fallback de MIME, mensagens de erro detalhadas
-- `src/components/PatientUploads.tsx` — herda o tratamento melhor de erro
+### Parte B — Detecção e correção de duplicatas (somente admin)
+1. **Nova página** `src/pages/AdminDuplicates.tsx`, acessível só para `admin`, listada no menu admin existente.
+2. **Lógica de detecção** (client-side, sobre `usePatients()`):
+   - Normalizar nome: `trim().toLowerCase().replace(/\s+/g,' ')`.
+   - Agrupar e mostrar grupos com 2+ pacientes. Para cada grupo, exibir: nome original, procedimento, etapa, criado em, último contato, telefone, e‑mail, valor.
+   - Indicador visual quando telefone OU e‑mail também coincide (alta confiança) vs apenas nome (média).
+3. **Ações por grupo**:
+   - **Manter este / Excluir os demais**: botão por linha que marca o "canônico" e deleta os outros usando o `useDeletePatient` existente (que já remove tasks/contacts/checklist/pending). Confirmação obrigatória.
+   - **Ignorar grupo** (sessão apenas, sem persistência) — opcional, marca como revisado localmente.
+4. **Prevenção de novas duplicatas no formulário** (`AddPatientForm.tsx`):
+   - Ao digitar o nome (debounce 300 ms), procurar na lista atual pacientes com nome normalizado igual e mostrar um aviso amarelo abaixo do campo: "Já existe um paciente com este nome (etapa X). Deseja continuar?". Não bloqueia; apenas alerta.
+   - `.trim()` aplicado ao nome antes de enviar para o banco, eliminando a causa raiz do caso do Thales (espaço à esquerda).
 
 ## Fora de escopo
-- Conversão automática HEIC→JPEG no browser (custosa, exige lib pesada). Vamos só orientar o usuário.
-- Mudanças no fluxo de exclusão além do Realtime.
+- Merge de dados entre duplicatas (combinar histórico de contatos/tasks). Por ora apenas "manter um, excluir os outros".
+- Constraint única no banco — nomes podem legitimamente coincidir entre pacientes diferentes; constraint causaria falsos positivos.
+
+## Arquivos afetados
+- `src/components/PatientCard.tsx` (cálculo do valor exibido)
+- `src/components/PatientPanel.tsx` (limpar `estimated_value` ao salvar fees)
+- `src/components/AddPatientForm.tsx` (trim + aviso de duplicata)
+- `src/pages/AdminDuplicates.tsx` (novo)
+- `src/App.tsx` + menu admin (rota nova)
+- 1 update pontual em `patients` (zerar `estimated_value` do Thales)
