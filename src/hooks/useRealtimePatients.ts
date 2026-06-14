@@ -21,7 +21,7 @@ export function useRealtimePatients() {
   const qc = useQueryClient();
 
   useEffect(() => {
-    let channel = supabase.channel('kanban-realtime');
+    let channel = supabase.channel('kanban-realtime', { config: { private: true } });
 
     for (const table of TABLES) {
       channel = channel.on(
