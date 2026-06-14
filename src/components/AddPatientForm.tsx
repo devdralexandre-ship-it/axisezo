@@ -1,5 +1,6 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useUserRole } from '@/hooks/useUserRole';
+import { usePatients } from '@/hooks/usePatients';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,11 +9,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Patient, PIPELINE_STAGES, STAGE_LABELS, OWNERS, Owner } from '@/data/types';
 import { PROCEDURES, SURGEONS, CONCIERGES, PAYERS, BILLING_TYPES, PATIENT_TYPE_LABELS, SURGICAL_APPROACHES, procedureNeedsApproach, LATERALITY_OPTIONS, procedureNeedsLaterality, HOSPITALS, INDICATION_SOURCES } from '@/data/constants';
-import { Plus, X, Upload, Camera, FileText, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { Plus, X, Upload, Camera, FileText, Image as ImageIcon, Loader2, AlertTriangle } from 'lucide-react';
 import { TaskFormFields, TaskDraft, emptyTaskDraft } from './TaskFormFields';
 import { CodeAutocomplete } from './CodeAutocomplete';
 import { uploadPatientFile, UPLOAD_CATEGORIES, UploadCategory } from '@/hooks/usePatientUploads';
 import { toast } from 'sonner';
+import { STAGE_LABELS as STAGE_LBL } from '@/data/types';
+
+const normalizeName = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ');
 
 interface InitialTask {
   id: string;
