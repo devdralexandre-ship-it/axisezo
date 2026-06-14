@@ -165,21 +165,6 @@ export function useAddPatient() {
         throw new Error('Seu perfil não tem surgeon_name vinculado. Fale com o admin para corrigir.');
       }
 
-      // Diagnostic logging — temporary, to capture what is actually being sent to RLS.
-      // eslint-disable-next-line no-console
-      console.log('[addPatient] payload', {
-        userId: userIdSnapshot,
-        roles: userRoles,
-        profile: profileSnapshot,
-        formConcierge: p.concierge,
-        formSurgeon: p.surgeon,
-        finalConcierge: conciergeName,
-        finalSurgeon: surgeonName,
-        finalConciergeHex: Array.from(conciergeName).map((c) => c.charCodeAt(0).toString(16)).join(' '),
-        profileConciergeHex: profileSnapshot?.concierge_name
-          ? Array.from(profileSnapshot.concierge_name as string).map((c) => (c as string).charCodeAt(0).toString(16)).join(' ')
-          : null,
-      });
 
 
       const patientId = crypto.randomUUID();
@@ -253,8 +238,10 @@ export function useAddPatient() {
       toast.success('Paciente adicionado!');
     },
     onError: (e: any) => {
-      // eslint-disable-next-line no-console
-      console.error('[addPatient] error', { phase: e?.phase, message: e?.message, code: e?.code, details: e?.details, hint: e?.hint });
+      if (import.meta.env.DEV) {
+        // eslint-disable-next-line no-console
+        console.error('[addPatient] error', { phase: e?.phase, message: e?.message, code: e?.code });
+      }
       const msg = String(e?.message || '');
       const diag = [e?.phase && `fase=${e.phase}`, e?.code, e?.details, e?.hint].filter(Boolean).join(' | ');
       if (msg.includes('row-level security') || msg.includes('row level security')) {
