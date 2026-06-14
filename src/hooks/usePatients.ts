@@ -165,21 +165,6 @@ export function useAddPatient() {
         throw new Error('Seu perfil não tem surgeon_name vinculado. Fale com o admin para corrigir.');
       }
 
-      // Diagnostic logging — temporary, to capture what is actually being sent to RLS.
-      // eslint-disable-next-line no-console
-      console.log('[addPatient] payload', {
-        userId: userIdSnapshot,
-        roles: userRoles,
-        profile: profileSnapshot,
-        formConcierge: p.concierge,
-        formSurgeon: p.surgeon,
-        finalConcierge: conciergeName,
-        finalSurgeon: surgeonName,
-        finalConciergeHex: Array.from(conciergeName).map((c) => c.charCodeAt(0).toString(16)).join(' '),
-        profileConciergeHex: profileSnapshot?.concierge_name
-          ? Array.from(profileSnapshot.concierge_name as string).map((c) => (c as string).charCodeAt(0).toString(16)).join(' ')
-          : null,
-      });
 
 
       const patientId = crypto.randomUUID();
