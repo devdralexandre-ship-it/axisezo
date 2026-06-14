@@ -500,6 +500,11 @@ export function PipelineDashboard() {
                     <Shield className="h-4 w-4 mr-2" />Usuários
                   </DropdownMenuItem>
                 )}
+                {isAdmin && (
+                  <DropdownMenuItem onClick={() => navigate('/admin/duplicates')}>
+                    <Shield className="h-4 w-4 mr-2" />Duplicatas
+                  </DropdownMenuItem>
+                )}
                 {can('import_csv') && (
                   <DropdownMenuItem onClick={() => setCsvImporterOpen(true)}>
                     <Upload className="h-4 w-4 mr-2" />Importar CSV

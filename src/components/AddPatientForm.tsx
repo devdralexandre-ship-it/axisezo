@@ -1,5 +1,6 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useUserRole } from '@/hooks/useUserRole';
+import { usePatients } from '@/hooks/usePatients';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,11 +9,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Patient, PIPELINE_STAGES, STAGE_LABELS, OWNERS, Owner } from '@/data/types';
 import { PROCEDURES, SURGEONS, CONCIERGES, PAYERS, BILLING_TYPES, PATIENT_TYPE_LABELS, SURGICAL_APPROACHES, procedureNeedsApproach, LATERALITY_OPTIONS, procedureNeedsLaterality, HOSPITALS, INDICATION_SOURCES } from '@/data/constants';
-import { Plus, X, Upload, Camera, FileText, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { Plus, X, Upload, Camera, FileText, Image as ImageIcon, Loader2, AlertTriangle } from 'lucide-react';
 import { TaskFormFields, TaskDraft, emptyTaskDraft } from './TaskFormFields';
 import { CodeAutocomplete } from './CodeAutocomplete';
 import { uploadPatientFile, UPLOAD_CATEGORIES, UploadCategory } from '@/hooks/usePatientUploads';
 import { toast } from 'sonner';
+
+
+const normalizeName = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ');
 
 interface InitialTask {
   id: string;
@@ -41,9 +45,16 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
   const lockConcierge = isConcierge && !isAdmin && !!conciergeName;
   const lockSurgeon = isSurgeon && !isAdmin && !!surgeonName;
 
+  const { data: allPatients = [] } = usePatients();
+
   const [name, setName] = useState('');
   const [age, setAge] = useState('');
   const [patientType, setPatientType] = useState('adult');
+  const duplicateMatches = useMemo(() => {
+    const n = normalizeName(name);
+    if (n.length < 3) return [];
+    return allPatients.filter((p) => normalizeName(p.name) === n);
+  }, [name, allPatients]);
   const [procedure, setProcedure] = useState('');
   const [customProcedure, setCustomProcedure] = useState('');
   const [surgicalApproach, setSurgicalApproach] = useState('');
@@ -157,7 +168,8 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
   };
 
   const handleSubmit = async () => {
-    if (!name || !effectiveProcedure || !surgeon || !hasValidTask || submitting) return;
+    const trimmedName = name.trim();
+    if (!trimmedName || !effectiveProcedure || !surgeon || !hasValidTask || submitting) return;
     const today = new Date().toISOString().split('T')[0];
     const finalPayer = payer === 'Outros' ? payerOther : payer;
     const finalHospital = isCustomHospital ? customHospital : desiredHospital;
@@ -171,7 +183,7 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
     let created: { id: string } | void;
     try {
       created = await onAdd({
-        name,
+        name: trimmedName,
         age: age ? parseInt(age) : null,
         patientType,
         procedure: effectiveProcedure,
@@ -271,6 +283,24 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
                 <Input type="number" value={age} onChange={(e) => setAge(e.target.value)} placeholder="0" className="focus-visible:ring-offset-0" />
               </div>
             </div>
+            {duplicateMatches.length > 0 && (
+              <div className="flex items-start gap-2 p-2.5 rounded-md border border-pipeline-amber/40 bg-pipeline-amber/10 text-xs text-pipeline-amber">
+                <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                <div className="space-y-0.5">
+                  <p className="font-semibold">
+                    Já existe {duplicateMatches.length === 1 ? 'um paciente' : `${duplicateMatches.length} pacientes`} com este nome:
+                  </p>
+                  <ul className="list-disc pl-4">
+                    {duplicateMatches.slice(0, 3).map((p) => (
+                      <li key={p.id}>
+                        {p.procedure} — {STAGE_LABELS[p.stage]}
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="opacity-80">Confirme se não é o mesmo paciente antes de continuar.</p>
+                </div>
+              </div>
+            )}
 
             {/* Patient Type */}
             <div className="space-y-2">

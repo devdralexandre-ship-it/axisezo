@@ -11,6 +11,7 @@ import Templates from "./pages/Templates.tsx";
 import Library from "./pages/Library.tsx";
 import ResetPassword from "./pages/ResetPassword.tsx";
 import AdminUsers from "./pages/AdminUsers.tsx";
+import AdminDuplicates from "./pages/AdminDuplicates.tsx";
 import Profile from "./pages/Profile.tsx";
 import MfaEnroll from "./pages/MfaEnroll.tsx";
 import VerifyDocument from "./pages/VerifyDocument.tsx";
@@ -46,6 +47,7 @@ const App = () => (
             <Route path="/templates" element={<ProtectedRoute><Templates /></ProtectedRoute>} />
             <Route path="/library" element={<ProtectedRoute><Library /></ProtectedRoute>} />
             <Route path="/admin/users" element={<ProtectedRoute><AdminUsers /></ProtectedRoute>} />
+            <Route path="/admin/duplicates" element={<ProtectedRoute><AdminDuplicates /></ProtectedRoute>} />
             <Route path="/perfil" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
             <Route path="/perfil/mfa" element={<ProtectedRoute><MfaEnroll /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />

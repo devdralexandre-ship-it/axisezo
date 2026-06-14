@@ -41,7 +41,17 @@ export function PatientCard({ patient, onClick, onCompleteTask, onDelete }: Pati
     return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
   };
 
-  const displayValue = patient.estimatedValue ?? patient.medicalFees;
+  const feesTotal =
+    (patient.medicalFees ?? 0) +
+    (patient.anesthesiaFees ?? 0) +
+    (patient.hospitalBudget ?? 0) +
+    (patient.materialsCost ?? 0);
+  const hasAnyFee =
+    patient.medicalFees != null ||
+    patient.anesthesiaFees != null ||
+    patient.hospitalBudget != null ||
+    patient.materialsCost != null;
+  const displayValue = hasAnyFee ? feesTotal : patient.estimatedValue;
 
   return (
     <Card

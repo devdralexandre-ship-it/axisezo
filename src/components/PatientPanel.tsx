@@ -104,9 +104,20 @@ export function PatientPanel({ patient, open, onClose, onCompleteTask, onAddTask
     fields.indication_location = fields.indication_location === 'Outro' ? (fields.custom_indication || null) : (fields.indication_location || null);
     delete fields.custom_indication;
 
+    // Trim name to prevent invisible duplicates caused by leading/trailing whitespace
+    if (typeof fields.name === 'string') fields.name = fields.name.trim();
+
     for (const [key, val] of Object.entries(fields)) {
       if (val === '') fields[key] = null;
     }
+    // Clear legacy estimated_value whenever any detailed fee is being saved,
+    // so the Kanban card always reflects current fees instead of a stale total.
+    const touchesFees =
+      'medical_fees' in fields ||
+      'anesthesia_fees' in fields ||
+      'hospital_budget' in fields ||
+      'materials_cost' in fields;
+    if (touchesFees) fields.estimated_value = null;
     onUpdateFields(patient.id, fields);
     setEditing(false);
   };

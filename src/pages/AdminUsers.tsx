@@ -128,9 +128,14 @@ export default function AdminUsers() {
           <Link to="/"><Button variant="ghost" size="sm"><ArrowLeft className="h-4 w-4" /></Button></Link>
           <h1 className="text-2xl font-semibold">Administração de usuários</h1>
         </div>
-        <Button onClick={() => setCreating(true)}>
-          <Plus className="h-4 w-4" /> Novo usuário
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button asChild variant="outline">
+            <Link to="/admin/duplicates">Duplicatas</Link>
+          </Button>
+          <Button onClick={() => setCreating(true)}>
+            <Plus className="h-4 w-4" /> Novo usuário
+          </Button>
+        </div>
       </div>
 
       <Card>
