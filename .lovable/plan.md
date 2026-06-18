@@ -1,42 +1,33 @@
-# Correção do valor no card + Detecção de duplicatas
+## Objetivo
+Reduzir a CPU do banco (hoje ~96%) atacando a causa real: a query `usePatients` (JOIN pesado de 5 tabelas) está sendo reexecutada centenas de vezes por hora devido a invalidações de realtime em rajada.
 
-## Diagnóstico
+## Mudanças
 
-**1. Valor antigo no card (Thales Silva Machado)**
-O card lê `patient.estimatedValue ?? patient.medicalFees` (`PatientCard.tsx:44`). No banco, esse paciente tem `estimated_value = 6` (valor legado/erro de digitação antigo) e `medical_fees = 6000`. Como o painel de edição (`PatientPanel.tsx`) **nunca atualiza `estimated_value`** — só grava `medical_fees`, `anesthesia_fees`, `hospital_budget`, `materials_cost` — o card continua mostrando o valor velho de `estimated_value`. Editar honorários funciona no banco; apenas a exibição usa um campo obsoleto.
+### 1. `src/hooks/usePatients.ts`
+- Adicionar `staleTime: 30_000` e `refetchOnWindowFocus: false` no `useQuery(['patients'])`.
+- Remover `contact_records` e `preop_checklist_items` do `select` principal (não usados nos cards do Kanban).
 
-**2. Duplicata**
-Existem duas linhas para "Thales Silva Machado": uma com nome `"Thales Silva Machado"` e outra com espaço à esquerda `" Thales Silva Machado"`. Não há nenhum mecanismo que detecte/avise duplicatas no cadastro nem ferramenta para revisá-las.
+### 2. Novo hook `src/hooks/usePatientDetails.ts`
+- Carrega `contact_records` + `preop_checklist_items` sob demanda, só quando o painel do paciente abre. Usado por `PatientPanel`.
 
-## Mudanças propostas
+### 3. `src/hooks/useRealtimePatients.ts`
+- Debounce de 1.5 s antes de invalidar `['patients']`, agrupando rajadas de eventos (ex.: sla-watcher atualizando dezenas de tasks de uma vez) num único refetch.
+- Mesmo debounce para `patient-uploads` e `patient-documents`.
 
-### Parte A — Card mostra valor correto
-1. **`PatientCard.tsx`**: trocar `displayValue` por um total calculado:
-   `medicalFees + anesthesiaFees + hospitalBudget + materialsCost`, com fallback para `estimatedValue` apenas se todos os fees forem nulos. Assim qualquer edição de honorários reflete imediatamente.
-2. **`PatientPanel.tsx`** (handleSave dos campos financeiros): ao salvar, também limpar `estimated_value` (definir como `null`) para esse campo legado deixar de competir com os fees. Mantém compatibilidade com registros antigos sem fees detalhados.
-3. **Correção pontual** do registro do Thales: zerar `estimated_value` da linha correta via insert/update para destravar a exibição imediatamente.
+### 4. Ajustar consumidores de `Patient.contacts`/`preOpChecklist`
+- `PatientPanel` passa a usar `usePatientDetails(id)` para preencher essas seções.
+- Cards do Kanban (`PatientCard`) não dependem delas — sem mudança visual.
 
-### Parte B — Detecção e correção de duplicatas (somente admin)
-1. **Nova página** `src/pages/AdminDuplicates.tsx`, acessível só para `admin`, listada no menu admin existente.
-2. **Lógica de detecção** (client-side, sobre `usePatients()`):
-   - Normalizar nome: `trim().toLowerCase().replace(/\s+/g,' ')`.
-   - Agrupar e mostrar grupos com 2+ pacientes. Para cada grupo, exibir: nome original, procedimento, etapa, criado em, último contato, telefone, e‑mail, valor.
-   - Indicador visual quando telefone OU e‑mail também coincide (alta confiança) vs apenas nome (média).
-3. **Ações por grupo**:
-   - **Manter este / Excluir os demais**: botão por linha que marca o "canônico" e deleta os outros usando o `useDeletePatient` existente (que já remove tasks/contacts/checklist/pending). Confirmação obrigatória.
-   - **Ignorar grupo** (sessão apenas, sem persistência) — opcional, marca como revisado localmente.
-4. **Prevenção de novas duplicatas no formulário** (`AddPatientForm.tsx`):
-   - Ao digitar o nome (debounce 300 ms), procurar na lista atual pacientes com nome normalizado igual e mostrar um aviso amarelo abaixo do campo: "Já existe um paciente com este nome (etapa X). Deseja continuar?". Não bloqueia; apenas alerta.
-   - `.trim()` aplicado ao nome antes de enviar para o banco, eliminando a causa raiz do caso do Thales (espaço à esquerda).
+### 5. (Verificação) índice do sla-watcher
+- Conferir via `EXPLAIN` se `idx_tasks_sla_open` está sendo usado pelo UPDATE recorrente. Ajustar se necessário.
 
-## Fora de escopo
-- Merge de dados entre duplicatas (combinar histórico de contatos/tasks). Por ora apenas "manter um, excluir os outros".
-- Constraint única no banco — nomes podem legitimamente coincidir entre pacientes diferentes; constraint causaria falsos positivos.
+## Detalhes técnicos
 
-## Arquivos afetados
-- `src/components/PatientCard.tsx` (cálculo do valor exibido)
-- `src/components/PatientPanel.tsx` (limpar `estimated_value` ao salvar fees)
-- `src/components/AddPatientForm.tsx` (trim + aviso de duplicata)
-- `src/pages/AdminDuplicates.tsx` (novo)
-- `src/App.tsx` + menu admin (rota nova)
-- 1 update pontual em `patients` (zerar `estimated_value` do Thales)
+**Por que isso resolve:** hoje cada UPDATE em `tasks`, `patients`, `contact_records`, `preop_checklist_items`, `pending_items`, `patient_uploads` ou `patient_documents` dispara um refetch da query mais cara do sistema (1,1 s de média, 1.676 chamadas registradas = >32 min de CPU só dessa variante). O sla-watcher sozinho faz milhares de UPDATEs/dia. Debounce + staleTime + payload menor reduz a frequência e o custo de cada refetch.
+
+**Impacto esperado:** >80% menos CPU consumida pelas queries do Kanban. Pequeno atraso (~1,5 s) na propagação de mudanças entre usuários — aceitável para um CRM.
+
+**Sem mudanças:** schema do banco, RLS, lógica de negócio, layout. Apenas frontend e (opcional) um índice.
+
+## Fallback
+Se após as otimizações a instância ainda ficar saturada com mais tráfego, recomendar ao usuário aumentar a instância em **Backend → Advanced settings → Upgrade instance**.
