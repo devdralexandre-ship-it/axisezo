@@ -116,6 +116,12 @@ export function usePatients() {
       const data = await fetchPatients();
       return data.map(mapDbToPatient);
     },
+    // Reduce DB load: the underlying query is a heavy 5-table JOIN. Avoid
+    // re-running it on every focus/mount; realtime invalidations (debounced)
+    // already keep the cache fresh.
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
 }
 
