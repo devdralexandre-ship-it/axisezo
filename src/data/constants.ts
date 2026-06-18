@@ -70,7 +70,7 @@ export const SURGEONS = [
   'Dr João Estrela',
 ] as const;
 
-export const CONCIERGES = ['Margô'] as const;
+export const CONCIERGES = ['Margô', 'Íris'] as const;
 
 export const PAYERS = [
   'Bradesco',
