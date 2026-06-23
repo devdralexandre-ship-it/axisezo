@@ -1,33 +1,74 @@
-## Objetivo
-Reduzir a CPU do banco (hoje ~96%) atacando a causa real: a query `usePatients` (JOIN pesado de 5 tabelas) está sendo reexecutada centenas de vezes por hora devido a invalidações de realtime em rajada.
+## Objetivos
 
-## Mudanças
+1. Notificação evidente no login das concierges (pacientes novos + SLAs estourados).
+2. Tela de ações reformulada (em todos os locais onde aparece).
+3. Garantir realtime e persistência cross-screen.
 
-### 1. `src/hooks/usePatients.ts`
-- Adicionar `staleTime: 30_000` e `refetchOnWindowFocus: false` no `useQuery(['patients'])`.
-- Remover `contact_records` e `preop_checklist_items` do `select` principal (não usados nos cards do Kanban).
+---
 
-### 2. Novo hook `src/hooks/usePatientDetails.ts`
-- Carrega `contact_records` + `preop_checklist_items` sob demanda, só quando o painel do paciente abre. Usado por `PatientPanel`.
+## 1. Notificação de boas-vindas para concierges
 
-### 3. `src/hooks/useRealtimePatients.ts`
-- Debounce de 1.5 s antes de invalidar `['patients']`, agrupando rajadas de eventos (ex.: sla-watcher atualizando dezenas de tasks de uma vez) num único refetch.
-- Mesmo debounce para `patient-uploads` e `patient-documents`.
+**Onde aparece:** modal grande que abre automaticamente no primeiro acesso do dia, além do badge no sino atual.
 
-### 4. Ajustar consumidores de `Patient.contacts`/`preOpChecklist`
-- `PatientPanel` passa a usar `usePatientDetails(id)` para preencher essas seções.
-- Cards do Kanban (`PatientCard`) não dependem delas — sem mudança visual.
+**Conteúdo (duas seções):**
+- **Novos pacientes na sua carteira** — pacientes onde `concierge = nome da usuária` criados desde o último login dela.
+- **Tolerâncias estouradas** — ações ainda não concluídas cujo `prazo máximo + tolerância` já passou, das quais ela é responsável ou que escalaram para ela.
 
-### 5. (Verificação) índice do sla-watcher
-- Conferir via `EXPLAIN` se `idx_tasks_sla_open` está sendo usado pelo UPDATE recorrente. Ajustar se necessário.
+**Persistência do "último visto":** guardamos `last_seen_at` por usuário em `localStorage` (chave por user_id). Reabre o modal quando há itens novos desde então.
+
+**Quem vê:** usuárias com role `concierge` (Margô, Íris). Outros papéis continuam só com o sino.
+
+---
+
+## 2. Tela de ações reformulada
+
+Aplica-se a `AddTaskDialog`, ao bloco de ação dentro de `AddPatientForm` e a qualquer outro consumidor de `TaskFormFields`.
+
+**Campos novos:**
+
+| Campo | Comportamento |
+|---|---|
+| **Título** | Input livre com autocomplete. Sugestões = títulos distintos já usados em outras ações (consultados via React Query da tabela `tasks`, sem duplicar e ordenados por frequência/recência). Remove o seletor "Tipo de ação" e o conceito de presets fixos. |
+| **Responsável** | Dropdown com **cirurgiões** (`SURGEONS`) + **concierges** (`CONCIERGES`, incluindo Íris). Remove "Call Center" como opção padrão da lista. |
+| **Prazo máximo** | Data + hora. Pré-preenchido com **agora + 24h** ao abrir o formulário; editável. |
+| **Tolerância (horas)** | Substitui "SLA (horas)". Conta a partir do prazo máximo (não da criação). Default 24h. |
+| ~~Escalar após (h)~~ | Removido da UI. Fixado em 24h após o fim da tolerância. |
+
+**Cálculo de `sla_due_at`:** `prazo_máximo + tolerância`. Trigger atual `set_task_sla_due_at` é reescrito para essa fórmula (em vez de `created_at + sla_hours`).
+
+**Escalação:** continua marcando `escalated_at` 24h após `sla_due_at`. A ação **permanece visível** para a concierge responsável original E para o cirurgião do paciente (não troca o `responsible`). Watcher e UI passam a tratar `escalated_at` apenas como flag de severidade, sem reatribuir.
+
+---
+
+## 3. Realtime e persistência
+
+- `useRealtimePatients` já cobre `patients` e `tasks` (debounce 1,5s). Verificar que está montado em **todas** as telas que mostram pacientes (Index/Kanban ✅; conferir Profile/Admin se exibirem listas) e nas dialogs que dependem das mesmas queries.
+- Garantir que `AddPatientForm` e a edição do `PatientPanel` façam `invalidateQueries(['patients'])` no `onSuccess` (não só otimismo local), para que outras telas abertas (mesmo sem realtime) atualizem.
+- Sugestões de título no autocomplete usam React Query com `staleTime` curto e mesma invalidação para refletir títulos recém-criados em outros pacientes.
+
+---
 
 ## Detalhes técnicos
 
-**Por que isso resolve:** hoje cada UPDATE em `tasks`, `patients`, `contact_records`, `preop_checklist_items`, `pending_items`, `patient_uploads` ou `patient_documents` dispara um refetch da query mais cara do sistema (1,1 s de média, 1.676 chamadas registradas = >32 min de CPU só dessa variante). O sla-watcher sozinho faz milhares de UPDATEs/dia. Debounce + staleTime + payload menor reduz a frequência e o custo de cada refetch.
+**Banco (migration):**
+- Reescrever `set_task_sla_due_at()` para `due_date + due_time + sla_hours` (timezone America/Sao_Paulo).
+- Backfill de `sla_due_at` para tasks existentes não concluídas.
+- (Opcional) RPC `concierge_pending_summary()` retornando contagens de novos pacientes + SLAs estourados para o modal de login, evitando puxar tudo no cliente.
 
-**Impacto esperado:** >80% menos CPU consumida pelas queries do Kanban. Pequeno atraso (~1,5 s) na propagação de mudanças entre usuários — aceitável para um CRM.
+**Frontend:**
+- `src/components/TaskFormFields.tsx`: remove preset, adiciona autocomplete (Command/Popover do shadcn), renomeia label, default prazo = now+24h, remove campo "escalar após".
+- `src/components/AddTaskDialog.tsx` e `AddPatientForm.tsx`: ajustam `emptyTaskDraft`.
+- `src/data/types.ts`: nova lista `TASK_RESPONSIBLES = [...SURGEONS, ...CONCIERGES]`; mantém `Owner` como union para retrocompatibilidade com tasks antigas (Call Center vira "legado" só exibido, não selecionável).
+- `src/hooks/useTaskTitleSuggestions.ts` (novo): `SELECT DISTINCT title, count(*) FROM tasks GROUP BY title ORDER BY count DESC LIMIT 50`.
+- `src/components/ConciergeLoginBriefing.tsx` (novo): modal disparado em `Index.tsx` quando `useUserRole().role === 'concierge'`, lê `last_seen_at` do localStorage, mostra duas listas clicáveis (abrem o PatientPanel).
+- `NotificationBell` ganha um novo bucket "Escalada para mim (cirurgião)" para os médicos.
 
-**Sem mudanças:** schema do banco, RLS, lógica de negócio, layout. Apenas frontend e (opcional) um índice.
+**Visibilidade pós-escalação:** notificações para o cirurgião quando `escalated_at IS NOT NULL` e `patients.surgeon = current_surgeon_name()`, mantendo também a notificação para a concierge responsável.
 
-## Fallback
-Se após as otimizações a instância ainda ficar saturada com mais tráfego, recomendar ao usuário aumentar a instância em **Backend → Advanced settings → Upgrade instance**.
+---
+
+## Fora de escopo
+
+- Não criamos tabela de notificações persistentes (continuam derivadas em memória).
+- Sem mudança de roles/RLS.
+- Sem alteração no Call Center existente em tasks antigas — apenas removido das novas opções.
