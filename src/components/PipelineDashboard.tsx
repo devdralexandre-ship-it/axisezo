@@ -49,6 +49,7 @@ export function PipelineDashboard() {
   const { isAdmin, canSeeFinancials, can, isConcierge, conciergeName } = useUserRole();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const briefing = useConciergeBriefing(user?.id, conciergeName, patients);
 
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
