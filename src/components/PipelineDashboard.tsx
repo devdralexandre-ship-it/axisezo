@@ -592,9 +592,9 @@ export function PipelineDashboard() {
                 const dateB = new Date(b.indicationDate || b.createdAt || '9999-12-31').getTime();
                 return dateA - dateB;
               });
-              return <PipelineColumn key={stage} stage={stage} patients={stagePatients} onPatientClick={handlePatientClick} onCompleteTask={handleCompleteTask} onDeletePatient={can('delete_patients') ? handleDeletePatient : undefined} />;
+              return <PipelineColumn key={stage} stage={stage} patients={stagePatients} onPatientClick={handlePatientClick} onCompleteTask={handleCompleteTask} onDeletePatient={can('delete_patients') ? handleDeletePatient : undefined} newSinceIso={briefing.lastSeenAt} />;
             })}
-            <PipelineColumn key="lost" stage="lost" patients={filtered.filter((p) => p.stage === 'lost').sort((a, b) => new Date(a.indicationDate || a.createdAt || '9999-12-31').getTime() - new Date(b.indicationDate || b.createdAt || '9999-12-31').getTime())} onPatientClick={handlePatientClick} onCompleteTask={handleCompleteTask} onDeletePatient={can('delete_patients') ? handleDeletePatient : undefined} variant="lost" />
+            <PipelineColumn key="lost" stage="lost" patients={filtered.filter((p) => p.stage === 'lost').sort((a, b) => new Date(a.indicationDate || a.createdAt || '9999-12-31').getTime() - new Date(b.indicationDate || b.createdAt || '9999-12-31').getTime())} onPatientClick={handlePatientClick} onCompleteTask={handleCompleteTask} onDeletePatient={can('delete_patients') ? handleDeletePatient : undefined} variant="lost" newSinceIso={briefing.lastSeenAt} />
           </div>
         </div>
       </DragDropContext>
