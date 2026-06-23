@@ -23,13 +23,27 @@ interface PatientCardProps {
   onClick: (patient: Patient) => void;
   onCompleteTask: (patientId: string, taskId: string) => void;
   onDelete?: (patientId: string) => void;
+  /** ISO timestamp — patients created after this are flagged "Novo" */
+  newSinceIso?: string | null;
 }
 
-export function PatientCard({ patient, onClick, onCompleteTask, onDelete }: PatientCardProps) {
+export function PatientCard({ patient, onClick, onCompleteTask, onDelete, newSinceIso }: PatientCardProps) {
   const nextTask = getNextPendingTask(patient);
   const urgency = getTaskUrgency(nextTask);
   const daysInStage = getDaysInStage(patient.stageEnteredAt);
   const daysSinceIndication = getDaysSinceIndication(patient);
+
+  // Count open tasks with breached/escalated tolerance
+  const breachedCount = patient.tasks.reduce((n, t) => {
+    if (t.completed) return n;
+    const s = getTaskSlaState(t);
+    return s === 'breached' || s === 'escalated' ? n + 1 : n;
+  }, 0);
+
+  // "Novo" badge: patient created after the user's reference timestamp
+  const createdMs = patient.createdAt ? new Date(patient.createdAt + 'T00:00:00').getTime() : 0;
+  const sinceMs = newSinceIso ? new Date(newSinceIso).getTime() : Date.now() - 24 * 3600 * 1000;
+  const isNew = createdMs > 0 && createdMs >= sinceMs;
 
   const formatCurrency = (value: number | null) => {
     if (value === null) return '—';
@@ -94,6 +108,29 @@ export function PatientCard({ patient, onClick, onCompleteTask, onDelete }: Pati
         </div>
 
         <p className="text-xs text-muted-foreground truncate">{patient.procedure}</p>
+
+        {(isNew || breachedCount > 0) && (
+          <div className="flex flex-wrap gap-1">
+            {isNew && (
+              <Badge
+                variant="outline"
+                className="text-[10px] h-5 px-1.5 bg-primary/10 text-primary border-primary/30"
+                title="Paciente adicionado recentemente"
+              >
+                ✨ Novo
+              </Badge>
+            )}
+            {breachedCount > 0 && (
+              <Badge
+                variant="outline"
+                className="text-[10px] h-5 px-1.5 bg-destructive/15 text-destructive border-destructive/30"
+                title={`${breachedCount} ação(ões) com tolerância estourada`}
+              >
+                ⏰ Tolerância estourada · {breachedCount}
+              </Badge>
+            )}
+          </div>
+        )}
 
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <span className="flex items-center gap-1">

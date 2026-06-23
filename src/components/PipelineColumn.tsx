@@ -10,9 +10,10 @@ interface PipelineColumnProps {
   onCompleteTask: (patientId: string, taskId: string) => void;
   onDeletePatient?: (patientId: string) => void;
   variant?: 'default' | 'lost';
+  newSinceIso?: string | null;
 }
 
-export function PipelineColumn({ stage, patients, onPatientClick, onCompleteTask, onDeletePatient, variant = 'default' }: PipelineColumnProps) {
+export function PipelineColumn({ stage, patients, onPatientClick, onCompleteTask, onDeletePatient, variant = 'default', newSinceIso }: PipelineColumnProps) {
   const isLost = variant === 'lost';
 
   return (
@@ -45,7 +46,7 @@ export function PipelineColumn({ stage, patients, onPatientClick, onCompleteTask
                     {...provided.dragHandleProps}
                     className={snapshot.isDragging ? 'opacity-90 rotate-1' : ''}
                   >
-                    <PatientCard patient={p} onClick={onPatientClick} onCompleteTask={onCompleteTask} onDelete={onDeletePatient} />
+                    <PatientCard patient={p} onClick={onPatientClick} onCompleteTask={onCompleteTask} onDelete={onDeletePatient} newSinceIso={newSinceIso} />
                   </div>
                 )}
               </Draggable>
