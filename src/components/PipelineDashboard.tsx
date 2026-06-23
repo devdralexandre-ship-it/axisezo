@@ -30,6 +30,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRealtimePatients } from '@/hooks/useRealtimePatients';
+import { ConciergeLoginBriefing, useConciergeBriefing } from './ConciergeLoginBriefing';
 
 const ACTIVE_STAGES = PIPELINE_STAGES.filter((s) => s !== 'lost') as PipelineStage[];
 
@@ -45,9 +46,10 @@ export function PipelineDashboard() {
   const deletePatientMutation = useDeletePatient();
   const importPatientsMutation = useImportPatients();
   const { signOut, user } = useAuth();
-  const { isAdmin, canSeeFinancials, can } = useUserRole();
+  const { isAdmin, canSeeFinancials, can, isConcierge, conciergeName } = useUserRole();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const briefing = useConciergeBriefing(user?.id, conciergeName, patients);
 
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
@@ -620,6 +622,16 @@ export function PipelineDashboard() {
         onCancel={handleSurgeryDateCancel}
       />
       <DeletePatientDialog open={deleteDialogOpen} patientName={deleteDialogPatient?.name || ''} onConfirm={handleDeleteConfirm} onCancel={handleDeleteCancel} />
+      {isConcierge && conciergeName && (
+        <ConciergeLoginBriefing
+          open={briefing.open}
+          onClose={briefing.close}
+          conciergeName={conciergeName}
+          patients={patients}
+          lastSeenAt={briefing.lastSeenAt}
+          onOpenPatient={handleNotificationClick}
+        />
+      )}
       <CsvImporter
         open={csvImporterOpen}
         onClose={() => setCsvImporterOpen(false)}

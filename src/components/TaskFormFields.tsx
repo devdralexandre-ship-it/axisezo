@@ -1,29 +1,62 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { OWNERS, Owner } from '@/data/types';
-import { TASK_PRESETS, TASK_PRESET_OTHER } from '@/data/taskPresets';
+import { Owner } from '@/data/types';
+import { SURGEONS, CONCIERGES } from '@/data/constants';
+import { useTaskTitleSuggestions } from '@/hooks/useTaskTitleSuggestions';
 
 export interface TaskDraft {
+  /** Kept for backwards compatibility — no longer surfaced in UI */
   preset: string;
   title: string;
   dueDate: string;
   dueTime: string;
   responsible: Owner;
+  /** "Tolerância" in hours — counted FROM the deadline (dueDate + dueTime) */
   slaHours: number;
+  /** Fixed at 24h server-side; kept here for type compatibility */
   escalateAfterHours: number;
 }
 
-export const emptyTaskDraft = (defaultResponsible?: Owner): TaskDraft => ({
-  preset: TASK_PRESETS[0],
-  title: TASK_PRESETS[0],
-  dueDate: '',
-  dueTime: '10:00',
-  responsible: defaultResponsible || OWNERS[0],
-  slaHours: 24,
-  escalateAfterHours: 24,
-});
+/** Responsibles available in the action form: surgeons + concierges. */
+export const TASK_RESPONSIBLES: readonly string[] = [...SURGEONS, ...CONCIERGES];
+
+/** Default deadline = now + 24h, rounded to next 30min for cleaner UX. */
+function defaultDeadline(): { date: string; time: string } {
+  const d = new Date(Date.now() + 24 * 3600 * 1000);
+  // Round minutes up to next :00 or :30
+  const m = d.getMinutes();
+  if (m > 30) {
+    d.setHours(d.getHours() + 1);
+    d.setMinutes(0);
+  } else if (m > 0) {
+    d.setMinutes(30);
+  }
+  d.setSeconds(0); d.setMilliseconds(0);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return {
+    date: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
+    time: `${pad(d.getHours())}:${pad(d.getMinutes())}`,
+  };
+}
+
+export const emptyTaskDraft = (defaultResponsible?: Owner): TaskDraft => {
+  const dl = defaultDeadline();
+  const fallback = (TASK_RESPONSIBLES[0] as Owner);
+  const resp = (defaultResponsible && TASK_RESPONSIBLES.includes(defaultResponsible as string))
+    ? defaultResponsible
+    : fallback;
+  return {
+    preset: '',
+    title: '',
+    dueDate: dl.date,
+    dueTime: dl.time,
+    responsible: resp,
+    slaHours: 24,
+    escalateAfterHours: 24,
+  };
+};
 
 interface Props {
   value: TaskDraft;
@@ -33,44 +66,77 @@ interface Props {
 }
 
 export function TaskFormFields({ value, onChange, compact = false }: Props) {
-  // Sync title with preset
-  useEffect(() => {
-    if (value.preset !== TASK_PRESET_OTHER && value.title !== value.preset) {
-      onChange({ ...value, title: value.preset });
-    }
-    if (value.preset === TASK_PRESET_OTHER && value.title === TASK_PRESETS[0]) {
-      onChange({ ...value, title: '' });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value.preset]);
-
   const set = <K extends keyof TaskDraft>(k: K, v: TaskDraft[K]) =>
     onChange({ ...value, [k]: v });
 
   const labelCls = compact ? 'text-[11px]' : '';
   const inputCls = compact ? 'h-8 text-sm' : '';
 
+  // ---- Title autocomplete ----
+  const { data: suggestions = [] } = useTaskTitleSuggestions();
+  const [focused, setFocused] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setFocused(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const filteredSuggestions = useMemo(() => {
+    const q = value.title.trim().toLowerCase();
+    const list = q
+      ? suggestions.filter((s) => s.toLowerCase().includes(q) && s.toLowerCase() !== q)
+      : suggestions;
+    return list.slice(0, 8);
+  }, [suggestions, value.title]);
+
+  // ---- Responsible list: include legacy value if not in current list ----
+  const responsibleOptions = useMemo(() => {
+    const list = [...TASK_RESPONSIBLES];
+    if (value.responsible && !list.includes(value.responsible as string)) {
+      list.push(value.responsible as string);
+    }
+    return list;
+  }, [value.responsible]);
+
   return (
     <div className={compact ? 'space-y-3' : 'space-y-4'}>
-      <div className="space-y-2">
-        <Label className={labelCls}>Tipo de ação</Label>
-        <Select value={value.preset} onValueChange={(v) => set('preset', v)}>
-          <SelectTrigger className={inputCls}><SelectValue /></SelectTrigger>
-          <SelectContent>
-            {TASK_PRESETS.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-            <SelectItem value={TASK_PRESET_OTHER}>{TASK_PRESET_OTHER}</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="space-y-2">
-        <Label className={labelCls}>Título *</Label>
-        <Input
-          value={value.title}
-          onChange={(e) => set('title', e.target.value)}
-          placeholder={value.preset === TASK_PRESET_OTHER ? 'Descreva a ação' : ''}
-          className={inputCls}
-        />
+      <div className="space-y-2" ref={wrapRef}>
+        <Label className={labelCls}>Título da ação *</Label>
+        <div className="relative">
+          <Input
+            value={value.title}
+            onChange={(e) => set('title', e.target.value)}
+            onFocus={() => setFocused(true)}
+            placeholder="Ex.: Ligar para o paciente"
+            className={inputCls}
+            autoComplete="off"
+          />
+          {focused && filteredSuggestions.length > 0 && (
+            <div className="absolute z-50 left-0 right-0 mt-1 max-h-56 overflow-auto rounded-md border border-border bg-popover shadow-md">
+              {filteredSuggestions.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    set('title', s);
+                    setFocused(false);
+                  }}
+                  className="block w-full text-left px-3 py-1.5 text-sm hover:bg-accent"
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        {!focused && suggestions.length === 0 && value.title === '' && (
+          <p className="text-[11px] text-muted-foreground">Conforme outras ações forem sendo criadas, aparecerão como sugestões aqui.</p>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-3">
@@ -89,32 +155,23 @@ export function TaskFormFields({ value, onChange, compact = false }: Props) {
         <Select value={value.responsible} onValueChange={(v) => set('responsible', v as Owner)}>
           <SelectTrigger className={inputCls}><SelectValue /></SelectTrigger>
           <SelectContent>
-            {OWNERS.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+            {responsibleOptions.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
           </SelectContent>
         </Select>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-2">
-          <Label className={labelCls}>SLA (horas)</Label>
-          <Input
-            type="number"
-            min={1}
-            value={value.slaHours}
-            onChange={(e) => set('slaHours', Math.max(1, parseInt(e.target.value) || 24))}
-            className={inputCls}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label className={labelCls}>Escalar após (h)</Label>
-          <Input
-            type="number"
-            min={1}
-            value={value.escalateAfterHours}
-            onChange={(e) => set('escalateAfterHours', Math.max(1, parseInt(e.target.value) || 24))}
-            className={inputCls}
-          />
-        </div>
+      <div className="space-y-2">
+        <Label className={labelCls}>Tolerância (horas)</Label>
+        <Input
+          type="number"
+          min={0}
+          value={value.slaHours}
+          onChange={(e) => set('slaHours', Math.max(0, parseInt(e.target.value) || 0))}
+          className={inputCls}
+        />
+        <p className="text-[11px] text-muted-foreground leading-snug">
+          Tempo de tolerância contado a partir do esgotamento do prazo máximo. Após esse período, a ação é escalada automaticamente (24h depois) e segue visível para a concierge responsável e para o cirurgião do caso.
+        </p>
       </div>
     </div>
   );

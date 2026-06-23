@@ -34,6 +34,7 @@ export function useRealtimePatients() {
       pending.clear();
       if (keys.includes('patients')) {
         qc.invalidateQueries({ queryKey: ['patients'] });
+        qc.invalidateQueries({ queryKey: ['task-title-suggestions'] });
       }
       if (keys.includes('patient-uploads')) {
         qc.invalidateQueries({ queryKey: ['patient-uploads'] });
