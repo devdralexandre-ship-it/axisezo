@@ -319,12 +319,14 @@ export function useAddTask() {
         due_time: task.dueTime + ':00',
         responsible: task.responsible,
         sla_hours: task.slaHours ?? 24,
-        escalate_after_hours: task.escalateAfterHours ?? 24,
+        // Escalation is always 24h after tolerance expires (enforced server-side too).
+        escalate_after_hours: 24,
       } as any);
       if (error) throw error;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['patients'] });
+      qc.invalidateQueries({ queryKey: ['task-title-suggestions'] });
       toast.success('Ação criada!');
     },
     onError: (e) => toast.error(`Erro: ${e.message}`),
