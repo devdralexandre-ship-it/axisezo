@@ -109,6 +109,29 @@ export function PatientCard({ patient, onClick, onCompleteTask, onDelete, newSin
 
         <p className="text-xs text-muted-foreground truncate">{patient.procedure}</p>
 
+        {(isNew || breachedCount > 0) && (
+          <div className="flex flex-wrap gap-1">
+            {isNew && (
+              <Badge
+                variant="outline"
+                className="text-[10px] h-5 px-1.5 bg-primary/10 text-primary border-primary/30"
+                title="Paciente adicionado recentemente"
+              >
+                ✨ Novo
+              </Badge>
+            )}
+            {breachedCount > 0 && (
+              <Badge
+                variant="outline"
+                className="text-[10px] h-5 px-1.5 bg-destructive/15 text-destructive border-destructive/30"
+                title={`${breachedCount} ação(ões) com tolerância estourada`}
+              >
+                ⏰ Tolerância estourada · {breachedCount}
+              </Badge>
+            )}
+          </div>
+        )}
+
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <span className="flex items-center gap-1">
             <UserRound className="h-3 w-3" />
