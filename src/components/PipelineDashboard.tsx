@@ -31,6 +31,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRealtimePatients } from '@/hooks/useRealtimePatients';
 import { ConciergeLoginBriefing, useConciergeBriefing } from './ConciergeLoginBriefing';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const ACTIVE_STAGES = PIPELINE_STAGES.filter((s) => s !== 'lost') as PipelineStage[];
 
