@@ -590,21 +590,137 @@ export function PipelineDashboard() {
         />
       </header>
 
-      <DragDropContext onDragEnd={handleDragEnd}>
-        <div className="flex-1 overflow-auto">
-          <div className="flex gap-4 p-6 min-h-full min-w-max">
-            {ACTIVE_STAGES.map((stage) => {
-              const stagePatients = filtered.filter((p) => p.stage === stage).sort((a, b) => {
-                const dateA = new Date(a.indicationDate || a.createdAt || '9999-12-31').getTime();
-                const dateB = new Date(b.indicationDate || b.createdAt || '9999-12-31').getTime();
-                return dateA - dateB;
-              });
-              return <PipelineColumn key={stage} stage={stage} patients={stagePatients} onPatientClick={handlePatientClick} onCompleteTask={handleCompleteTask} onDeletePatient={can('delete_patients') ? handleDeletePatient : undefined} newSinceIso={briefing.lastSeenAt} />;
-            })}
-            <PipelineColumn key="lost" stage="lost" patients={filtered.filter((p) => p.stage === 'lost').sort((a, b) => new Date(a.indicationDate || a.createdAt || '9999-12-31').getTime() - new Date(b.indicationDate || b.createdAt || '9999-12-31').getTime())} onPatientClick={handlePatientClick} onCompleteTask={handleCompleteTask} onDeletePatient={can('delete_patients') ? handleDeletePatient : undefined} variant="lost" newSinceIso={briefing.lastSeenAt} />
+      {/* Mobile briefing banner — replaces the auto-open dialog on phones */}
+      {isMobile && isConcierge && conciergeName && (() => {
+        const since = briefing.lastSeenAt ? new Date(briefing.lastSeenAt).getTime() : 0;
+        const newCount = patients.filter(
+          (p) => p.concierge === conciergeName && p.stage !== 'lost' && new Date(p.createdAt).getTime() > since,
+        ).length;
+        let breachedCount = 0;
+        patients.forEach((p) => {
+          if (p.stage === 'lost') return;
+          const isMine = p.concierge === conciergeName;
+          p.tasks.forEach((t) => {
+            if (t.completed) return;
+            const state = getTaskSlaState(t);
+            if (state !== 'breached' && state !== 'escalated') return;
+            if (t.responsible === conciergeName || isMine) breachedCount++;
+          });
+        });
+        if (newCount === 0 && breachedCount === 0) return null;
+        return (
+          <button
+            onClick={briefing.openManually}
+            className="mx-3 mt-2 mb-1 shrink-0 flex items-center gap-2 rounded-md border border-pipeline-amber/40 bg-pipeline-amber/10 px-3 py-2 text-left text-xs text-pipeline-amber active:bg-pipeline-amber/20"
+          >
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            <span className="flex-1 truncate">
+              {newCount > 0 && <><strong>{newCount}</strong> novo{newCount > 1 ? 's' : ''}</>}
+              {newCount > 0 && breachedCount > 0 && ' · '}
+              {breachedCount > 0 && <><strong>{breachedCount}</strong> tolerância{breachedCount > 1 ? 's' : ''} estourada{breachedCount > 1 ? 's' : ''}</>}
+            </span>
+            <span className="text-[10px] opacity-70">Ver detalhes →</span>
+          </button>
+        );
+      })()}
+
+      {isMobile ? (
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Stage tabs */}
+          <div className="shrink-0 border-b border-border bg-background">
+            <div className="flex items-center gap-1 px-2 overflow-x-auto no-scrollbar">
+              {ALL_STAGES.map((stage) => {
+                const count = filtered.filter((p) => p.stage === stage).length;
+                const active = mobileStage === stage;
+                const isLost = stage === 'lost';
+                return (
+                  <button
+                    key={stage}
+                    onClick={() => setMobileStage(stage)}
+                    className={`shrink-0 px-2.5 py-2 text-[11px] font-medium uppercase tracking-wide border-b-2 transition-colors ${
+                      active
+                        ? isLost ? 'border-destructive text-destructive' : 'border-primary text-primary'
+                        : 'border-transparent text-muted-foreground'
+                    }`}
+                  >
+                    {STAGE_LABELS[stage]}
+                    <span className={`ml-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full text-[10px] px-1 ${
+                      active
+                        ? isLost ? 'bg-destructive text-destructive-foreground' : 'bg-primary text-primary-foreground'
+                        : 'bg-muted text-muted-foreground'
+                    }`}>{count}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Prev/Next quick nav */}
+          <div className="shrink-0 flex items-center justify-between px-3 py-1.5 text-[11px] text-muted-foreground">
+            <button
+              className="flex items-center gap-1 disabled:opacity-30"
+              disabled={ALL_STAGES.indexOf(mobileStage) === 0}
+              onClick={() => {
+                const i = ALL_STAGES.indexOf(mobileStage);
+                if (i > 0) setMobileStage(ALL_STAGES[i - 1]);
+              }}
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+              {ALL_STAGES.indexOf(mobileStage) > 0 ? STAGE_LABELS[ALL_STAGES[ALL_STAGES.indexOf(mobileStage) - 1]] : ''}
+            </button>
+            <button
+              className="flex items-center gap-1 disabled:opacity-30"
+              disabled={ALL_STAGES.indexOf(mobileStage) === ALL_STAGES.length - 1}
+              onClick={() => {
+                const i = ALL_STAGES.indexOf(mobileStage);
+                if (i < ALL_STAGES.length - 1) setMobileStage(ALL_STAGES[i + 1]);
+              }}
+            >
+              {ALL_STAGES.indexOf(mobileStage) < ALL_STAGES.length - 1 ? STAGE_LABELS[ALL_STAGES[ALL_STAGES.indexOf(mobileStage) + 1]] : ''}
+              <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
+
+          {/* Single column */}
+          <div className="flex-1 overflow-y-auto px-3 pb-4">
+            {(() => {
+              const stagePatients = filtered
+                .filter((p) => p.stage === mobileStage)
+                .sort((a, b) => new Date(a.indicationDate || a.createdAt || '9999-12-31').getTime() - new Date(b.indicationDate || b.createdAt || '9999-12-31').getTime());
+              return (
+                <PipelineColumn
+                  stage={mobileStage}
+                  patients={stagePatients}
+                  onPatientClick={handlePatientClick}
+                  onCompleteTask={handleCompleteTask}
+                  onDeletePatient={can('delete_patients') ? handleDeletePatient : undefined}
+                  variant={mobileStage === 'lost' ? 'lost' : 'default'}
+                  newSinceIso={briefing.lastSeenAt}
+                  disableDnd
+                  hideHeader
+                  fullWidth
+                />
+              );
+            })()}
           </div>
         </div>
-      </DragDropContext>
+      ) : (
+        <DragDropContext onDragEnd={handleDragEnd}>
+          <div className="flex-1 overflow-auto">
+            <div className="flex gap-4 p-6 min-h-full min-w-max">
+              {ACTIVE_STAGES.map((stage) => {
+                const stagePatients = filtered.filter((p) => p.stage === stage).sort((a, b) => {
+                  const dateA = new Date(a.indicationDate || a.createdAt || '9999-12-31').getTime();
+                  const dateB = new Date(b.indicationDate || b.createdAt || '9999-12-31').getTime();
+                  return dateA - dateB;
+                });
+                return <PipelineColumn key={stage} stage={stage} patients={stagePatients} onPatientClick={handlePatientClick} onCompleteTask={handleCompleteTask} onDeletePatient={can('delete_patients') ? handleDeletePatient : undefined} newSinceIso={briefing.lastSeenAt} />;
+              })}
+              <PipelineColumn key="lost" stage="lost" patients={filtered.filter((p) => p.stage === 'lost').sort((a, b) => new Date(a.indicationDate || a.createdAt || '9999-12-31').getTime() - new Date(b.indicationDate || b.createdAt || '9999-12-31').getTime())} onPatientClick={handlePatientClick} onCompleteTask={handleCompleteTask} onDeletePatient={can('delete_patients') ? handleDeletePatient : undefined} variant="lost" newSinceIso={briefing.lastSeenAt} />
+            </div>
+          </div>
+        </DragDropContext>
+      )}
 
       <PatientPanel
         patient={selectedPatient}
