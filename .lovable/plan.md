@@ -1,74 +1,82 @@
-## Objetivos
+## Otimizações da interface mobile
 
-1. Notificação evidente no login das concierges (pacientes novos + SLAs estourados).
-2. Tela de ações reformulada (em todos os locais onde aparece).
-3. Garantir realtime e persistência cross-screen.
+Foco nas três jornadas priorizadas: **cirurgião revisando casos**, **inclusão rápida de paciente** e **kanban navegável no celular**. Tudo ativado abaixo de `md` (768px) via Tailwind, mantendo o desktop intacto.
 
 ---
 
-## 1. Notificação de boas-vindas para concierges
+### 1. Pipeline: tabs por estágio com swipe (`PipelineDashboard.tsx` + `PipelineColumn.tsx`)
 
-**Onde aparece:** modal grande que abre automaticamente no primeiro acesso do dia, além do badge no sino atual.
+Substituir o scroll horizontal de 11 colunas por uma única coluna visível.
 
-**Conteúdo (duas seções):**
-- **Novos pacientes na sua carteira** — pacientes onde `concierge = nome da usuária` criados desde o último login dela.
-- **Tolerâncias estouradas** — ações ainda não concluídas cujo `prazo máximo + tolerância` já passou, das quais ela é responsável ou que escalaram para ela.
+- Barra de **tabs horizontais com scroll** fixa no topo, uma por estágio, mostrando:
+  - rótulo curto do estágio
+  - contagem de pacientes
+  - bolinha vermelha se há card com `Tolerância estourada` ou `Novo`
+- **Swipe horizontal** entre estágios (gesto nativo via `embla-carousel-react` — já instalado pelo shadcn `carousel`). Tab e swipe ficam sincronizados.
+- Cabeçalho do estágio ativo: nome completo + total R$ (oculto se `!canSeeFinancials`).
+- Filtros (`FilterBar`) recolhidos atrás de um botão "Filtros" que abre um `Sheet` lateral; chip mostra quantos filtros estão ativos.
+- Botões secundários do header (Importar CSV, Admin, Biblioteca, etc.) movidos para o `DropdownMenu` "Menu" já existente; no mobile só ficam visíveis **+ Paciente**, sino de notificação e menu.
 
-**Persistência do "último visto":** guardamos `last_seen_at` por usuário em `localStorage` (chave por user_id). Reabre o modal quando há itens novos desde então.
+### 2. Card de paciente compacto (`PatientCard.tsx`)
 
-**Quem vê:** usuárias com role `concierge` (Margô, Íris). Outros papéis continuam só com o sino.
+Versão mobile mais densa, ainda usando o mesmo componente com variantes responsivas:
+
+- **Linha 1:** nome + idade no funil (dias) + badges `Novo` / `Tolerância estourada · N` (já existem).
+- **Linha 2:** cirurgião (avatar/iniciais) + procedimento abreviado.
+- **Linha 3:** "Próxima ação" — título da `getNextPendingTask` + responsável, com cor por urgência (`getTaskUrgency`). Se não há ação pendente, mostra "Sem ação pendente" em muted.
+- **Swipe actions** (usando `framer-motion` `drag="x"` com snap):
+  - swipe → esquerda: "Concluir ação" (chama `useCompleteTask` da próxima task; abre `AddTaskDialog` para registrar próximo passo, mantendo a regra obrigatória de próxima ação).
+  - swipe → direita: "Mover estágio" — abre bottom sheet com a lista de estágios.
+  - tap longo / botão: abre o `PatientPanel`.
+- DnD do `@hello-pangea/dnd` fica **desativado no mobile** (gestos conflitam com swipe e scroll); movimentação acontece pelo swipe → "Mover estágio".
+
+### 3. PatientPanel em tela cheia (`PatientPanel.tsx`)
+
+- No mobile, o `Sheet` abre com `side="bottom"` em altura `100dvh` e cantos arredondados no topo, ao invés do slide-over de 480px.
+- Cabeçalho fixo com nome do paciente, estágio atual e botão fechar.
+- Abas internas (Resumo, Ações, Documentos, Orçamento, etc.) viram um **scroll horizontal de chips** já que tabs do shadcn estouram em telas estreitas.
+- Botões de ação primária (Adicionar ação, Concluir próxima, Mover estágio) ancorados em uma barra inferior fixa (`sticky bottom-0`) com `safe-area-inset-bottom`.
+
+### 4. AddPatientForm em etapas (`AddPatientForm.tsx`)
+
+Hoje é um formulário longo. No mobile vira **wizard de 4 passos**, mantendo um único submit no fim:
+
+```text
+[1 Identificação] → [2 Clínico] → [3 Comercial] → [4 Ação inicial]
+```
+
+- Progresso no topo (4 bolinhas + label do passo atual).
+- Botões "Voltar" / "Avançar" fixos no rodapé; "Salvar" só aparece no passo 4.
+- Campos com `inputMode` correto (`tel`, `numeric`, `email`) para subir o teclado certo.
+- Datas usam `<input type="date">` nativo no mobile (mais rápido que o popover).
+- Campos condicionais (lateralidade, via de acesso, billing) continuam respeitando a lógica existente — apenas reagrupados nos passos.
+- No desktop o formulário continua single-page (sem regressão).
+
+### 5. Briefing concierge: banner fixo no topo (`ConciergeLoginBriefing.tsx` + `PipelineDashboard.tsx`)
+
+- Substituir o modal por um **banner sticky** abaixo do header quando há novos pacientes ou tolerâncias estouradas para a concierge logada.
+- Layout: ícone + "3 novos · 2 tolerâncias estouradas" + chevron. Tap expande para a lista já existente em um `Sheet` bottom.
+- Botão "Marcar como visto" atualiza `lastSeenAt` (mesmo localStorage atual).
+- Desktop continua usando o modal atual.
+
+### 6. Ajustes globais
+
+- Header principal: logo encolhe, search vira ícone que expande para input full-width ao tocar.
+- `NotificationBell` mantém badge; popover vira `Sheet` no mobile para caber a lista.
+- Toques mínimos de 44px em todos os botões/cards.
+- `viewport-fit=cover` + classes `pb-[env(safe-area-inset-bottom)]` nas barras fixas.
 
 ---
 
-## 2. Tela de ações reformulada
+### Detalhes técnicos
 
-Aplica-se a `AddTaskDialog`, ao bloco de ação dentro de `AddPatientForm` e a qualquer outro consumidor de `TaskFormFields`.
+- Breakpoint único: `md` (Tailwind). Helper `useIsMobile()` já existe em `src/hooks/use-mobile.tsx` — usar para alternar componentes (Sheet side, swipe vs DnD).
+- Sem novas dependências: `embla-carousel-react` e `framer-motion` já estão no projeto via shadcn.
+- Nenhuma mudança em RLS, schema, hooks de dados, regra de ação obrigatória ou cálculo de SLA — apenas UI/UX.
+- Arquivos tocados: `PipelineDashboard.tsx`, `PipelineColumn.tsx`, `PatientCard.tsx`, `PatientPanel.tsx`, `AddPatientForm.tsx`, `ConciergeLoginBriefing.tsx`, `FilterBar.tsx`, `NotificationBell.tsx`. Um novo `MobileStageTabs.tsx` para encapsular o carrossel de estágios.
 
-**Campos novos:**
+### Fora de escopo
 
-| Campo | Comportamento |
-|---|---|
-| **Título** | Input livre com autocomplete. Sugestões = títulos distintos já usados em outras ações (consultados via React Query da tabela `tasks`, sem duplicar e ordenados por frequência/recência). Remove o seletor "Tipo de ação" e o conceito de presets fixos. |
-| **Responsável** | Dropdown com **cirurgiões** (`SURGEONS`) + **concierges** (`CONCIERGES`, incluindo Íris). Remove "Call Center" como opção padrão da lista. |
-| **Prazo máximo** | Data + hora. Pré-preenchido com **agora + 24h** ao abrir o formulário; editável. |
-| **Tolerância (horas)** | Substitui "SLA (horas)". Conta a partir do prazo máximo (não da criação). Default 24h. |
-| ~~Escalar após (h)~~ | Removido da UI. Fixado em 24h após o fim da tolerância. |
-
-**Cálculo de `sla_due_at`:** `prazo_máximo + tolerância`. Trigger atual `set_task_sla_due_at` é reescrito para essa fórmula (em vez de `created_at + sla_hours`).
-
-**Escalação:** continua marcando `escalated_at` 24h após `sla_due_at`. A ação **permanece visível** para a concierge responsável original E para o cirurgião do paciente (não troca o `responsible`). Watcher e UI passam a tratar `escalated_at` apenas como flag de severidade, sem reatribuir.
-
----
-
-## 3. Realtime e persistência
-
-- `useRealtimePatients` já cobre `patients` e `tasks` (debounce 1,5s). Verificar que está montado em **todas** as telas que mostram pacientes (Index/Kanban ✅; conferir Profile/Admin se exibirem listas) e nas dialogs que dependem das mesmas queries.
-- Garantir que `AddPatientForm` e a edição do `PatientPanel` façam `invalidateQueries(['patients'])` no `onSuccess` (não só otimismo local), para que outras telas abertas (mesmo sem realtime) atualizem.
-- Sugestões de título no autocomplete usam React Query com `staleTime` curto e mesma invalidação para refletir títulos recém-criados em outros pacientes.
-
----
-
-## Detalhes técnicos
-
-**Banco (migration):**
-- Reescrever `set_task_sla_due_at()` para `due_date + due_time + sla_hours` (timezone America/Sao_Paulo).
-- Backfill de `sla_due_at` para tasks existentes não concluídas.
-- (Opcional) RPC `concierge_pending_summary()` retornando contagens de novos pacientes + SLAs estourados para o modal de login, evitando puxar tudo no cliente.
-
-**Frontend:**
-- `src/components/TaskFormFields.tsx`: remove preset, adiciona autocomplete (Command/Popover do shadcn), renomeia label, default prazo = now+24h, remove campo "escalar após".
-- `src/components/AddTaskDialog.tsx` e `AddPatientForm.tsx`: ajustam `emptyTaskDraft`.
-- `src/data/types.ts`: nova lista `TASK_RESPONSIBLES = [...SURGEONS, ...CONCIERGES]`; mantém `Owner` como union para retrocompatibilidade com tasks antigas (Call Center vira "legado" só exibido, não selecionável).
-- `src/hooks/useTaskTitleSuggestions.ts` (novo): `SELECT DISTINCT title, count(*) FROM tasks GROUP BY title ORDER BY count DESC LIMIT 50`.
-- `src/components/ConciergeLoginBriefing.tsx` (novo): modal disparado em `Index.tsx` quando `useUserRole().role === 'concierge'`, lê `last_seen_at` do localStorage, mostra duas listas clicáveis (abrem o PatientPanel).
-- `NotificationBell` ganha um novo bucket "Escalada para mim (cirurgião)" para os médicos.
-
-**Visibilidade pós-escalação:** notificações para o cirurgião quando `escalated_at IS NOT NULL` e `patients.surgeon = current_surgeon_name()`, mantendo também a notificação para a concierge responsável.
-
----
-
-## Fora de escopo
-
-- Não criamos tabela de notificações persistentes (continuam derivadas em memória).
-- Sem mudança de roles/RLS.
-- Sem alteração no Call Center existente em tasks antigas — apenas removido das novas opções.
+- Mudanças no fluxo de DnD desktop.
+- Notificações push / PWA / instalação como app (pode ser próximo passo se desejado).
+- Reescrita do `BudgetForm`, `SurgicalRequestForm` e demais formulários longos — só `AddPatientForm` nesta rodada.
