@@ -151,10 +151,12 @@ export function useConciergeBriefing(
     setLastSeenAt(localStorage.getItem(storageKey));
   }, [storageKey]);
 
-  // Auto-open: once per day per user, if there is anything actionable
+  // Auto-open: once per day per user, if there is anything actionable.
+  // On mobile (< 768px) we suppress the modal — the mobile banner takes over.
   useEffect(() => {
     if (!userId || !conciergeName || !storageKey) return;
     if (!patients || patients.length === 0) return;
+    if (typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches) return;
     const today = new Date().toISOString().slice(0, 10);
     const autoFlag = `${storageKey}:autoopen:${today}`;
     if (localStorage.getItem(autoFlag)) return;
@@ -192,3 +194,4 @@ export function useConciergeBriefing(
 
   return { open, lastSeenAt, close, openManually: () => setOpen(true) };
 }
+
