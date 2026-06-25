@@ -443,11 +443,11 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label>Telefone</Label>
-                <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(11) 99999-0000" className="focus-visible:ring-offset-0" />
+                <Input type="tel" inputMode="tel" autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(11) 99999-0000" className="focus-visible:ring-offset-0" />
               </div>
               <div className="space-y-2">
                 <Label>Email</Label>
-                <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email@email.com" className="focus-visible:ring-offset-0" />
+                <Input type="email" inputMode="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email@email.com" className="focus-visible:ring-offset-0" />
               </div>
             </div>
 
