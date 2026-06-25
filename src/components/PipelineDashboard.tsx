@@ -77,6 +77,11 @@ export function PipelineDashboard() {
   const [deletePatientId, setDeletePatientId] = useState<string | null>(null);
   const [csvImporterOpen, setCsvImporterOpen] = useState(false);
 
+  const isMobile = useIsMobile();
+  const ALL_STAGES = useMemo<PipelineStage[]>(() => [...ACTIVE_STAGES, 'lost'], []);
+  const [mobileStage, setMobileStage] = useState<PipelineStage>(ACTIVE_STAGES[0]);
+
+
 
   const surgeons = useMemo(() => [...new Set(patients.map((p) => p.surgeon).filter(Boolean))], [patients]);
   const concierges = useMemo(() => [...new Set(patients.map((p) => p.concierge).filter(Boolean))], [patients]);
