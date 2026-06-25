@@ -179,7 +179,10 @@ export function PatientCard({ patient, onClick, onCompleteTask, onDelete, newSin
               >
                 <CheckCircle2 className="h-3.5 w-3.5" />
               </button>
-              <span className="truncate">{nextTask.title}</span>
+              <span className="truncate">
+                {nextTask.title}
+                {nextTask.responsible ? <span className="opacity-70"> · {nextTask.responsible}</span> : null}
+              </span>
               <span className="shrink-0 ml-auto">{formatDate(nextTask.dueDate)}</span>
             </div>
             {(() => {
