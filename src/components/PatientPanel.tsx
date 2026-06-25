@@ -161,7 +161,10 @@ export function PatientPanel({ patient, open, onClose, onCompleteTask, onAddTask
 
   return (
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent className="w-full sm:max-w-[500px] overflow-y-auto p-0">
+      <SheetContent
+        side="right"
+        className="w-full sm:max-w-[500px] overflow-y-auto p-0 max-sm:!inset-0 max-sm:!max-w-none max-sm:h-[100dvh] max-sm:!w-full max-sm:!border-0"
+      >
         <SheetHeader className="p-6 pb-4 border-b border-border">
           <div className="flex items-start justify-between gap-3">
             <div>
