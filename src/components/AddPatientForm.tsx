@@ -280,7 +280,7 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
               </div>
               <div className="space-y-2">
                 <Label>Idade</Label>
-                <Input type="number" value={age} onChange={(e) => setAge(e.target.value)} placeholder="0" className="focus-visible:ring-offset-0" />
+                <Input type="number" inputMode="numeric" value={age} onChange={(e) => setAge(e.target.value)} placeholder="0" className="focus-visible:ring-offset-0" />
               </div>
             </div>
             {duplicateMatches.length > 0 && (
