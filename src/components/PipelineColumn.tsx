@@ -11,21 +11,62 @@ interface PipelineColumnProps {
   onDeletePatient?: (patientId: string) => void;
   variant?: 'default' | 'lost';
   newSinceIso?: string | null;
+  /** When true, renders cards without drag-and-drop (mobile). */
+  disableDnd?: boolean;
+  /** When true, hides the column header (mobile tab view shows it separately). */
+  hideHeader?: boolean;
+  /** Override container width — useful in mobile single-column view. */
+  fullWidth?: boolean;
 }
 
-export function PipelineColumn({ stage, patients, onPatientClick, onCompleteTask, onDeletePatient, variant = 'default', newSinceIso }: PipelineColumnProps) {
+export function PipelineColumn({
+  stage, patients, onPatientClick, onCompleteTask, onDeletePatient,
+  variant = 'default', newSinceIso, disableDnd, hideHeader, fullWidth,
+}: PipelineColumnProps) {
   const isLost = variant === 'lost';
+  const widthCls = fullWidth ? 'w-full' : 'min-w-[240px] max-w-[280px]';
+
+  const header = !hideHeader && (
+    <div className="flex items-center justify-between mb-2 px-1 sticky top-0 z-10 bg-background py-2 -mt-2">
+      <h3 className={`text-xs font-semibold uppercase tracking-wide leading-tight ${isLost ? 'text-destructive' : 'text-foreground'}`}>
+        {STAGE_LABELS[stage]}
+      </h3>
+      <Badge variant={isLost ? 'destructive' : 'secondary'} className="text-[10px] px-1.5 py-0 h-5">
+        {patients.length}
+      </Badge>
+    </div>
+  );
+
+  const empty = (
+    <div className={`text-xs text-center py-8 border border-dashed rounded-lg ${isLost ? 'text-destructive/40 border-destructive/20' : 'text-muted-foreground border-border'}`}>
+      {isLost ? 'Nenhum perdido' : 'Nenhum paciente'}
+    </div>
+  );
+
+  if (disableDnd) {
+    return (
+      <div className={`flex flex-col shrink-0 ${widthCls} ${isLost ? 'opacity-70' : ''}`}>
+        {header}
+        <div className="flex flex-col gap-2 flex-1 pb-2 min-h-[80px]">
+          {patients.map((p) => (
+            <PatientCard
+              key={p.id}
+              patient={p}
+              onClick={onPatientClick}
+              onCompleteTask={onCompleteTask}
+              onDelete={onDeletePatient}
+              newSinceIso={newSinceIso}
+            />
+          ))}
+          {patients.length === 0 && empty}
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className={`flex flex-col min-w-[240px] max-w-[280px] shrink-0 ${isLost ? 'opacity-70' : ''}`}>
-      <div className="flex items-center justify-between mb-2 px-1 sticky top-0 z-10 bg-background py-2 -mt-2">
-        <h3 className={`text-xs font-semibold uppercase tracking-wide leading-tight ${isLost ? 'text-destructive' : 'text-foreground'}`}>
-          {STAGE_LABELS[stage]}
-        </h3>
-        <Badge variant={isLost ? 'destructive' : 'secondary'} className="text-[10px] px-1.5 py-0 h-5">
-          {patients.length}
-        </Badge>
-      </div>
+    <div className={`flex flex-col shrink-0 ${widthCls} ${isLost ? 'opacity-70' : ''}`}>
+      {header}
       <Droppable droppableId={stage}>
         {(provided, snapshot) => (
           <div
@@ -52,11 +93,7 @@ export function PipelineColumn({ stage, patients, onPatientClick, onCompleteTask
               </Draggable>
             ))}
             {provided.placeholder}
-            {patients.length === 0 && !snapshot.isDraggingOver && (
-              <div className={`text-xs text-center py-8 border border-dashed rounded-lg ${isLost ? 'text-destructive/40 border-destructive/20' : 'text-muted-foreground border-border'}`}>
-                {isLost ? 'Nenhum perdido' : 'Nenhum paciente'}
-              </div>
-            )}
+            {patients.length === 0 && !snapshot.isDraggingOver && empty}
           </div>
         )}
       </Droppable>
