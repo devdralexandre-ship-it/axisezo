@@ -766,6 +766,7 @@ export function PipelineDashboard() {
         onTogglePreOpItem={handleTogglePreOpItem}
         onUpdateFields={handleUpdateFields}
         onEditSurgeryDate={handleEditSurgeryDate}
+        onChangeStage={changeStageManual}
       />
       <AddPatientForm open={addOpen} onClose={() => setAddOpen(false)} onAdd={handleAddPatient} />
       <AddTaskDialog open={addTaskOpen} onClose={() => setAddTaskOpen(false)} onAdd={handleTaskCreated} patientName={taskPatient?.name || ''} defaultResponsible={(taskPatient?.concierge || undefined) as any} />
