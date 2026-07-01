@@ -13,6 +13,8 @@ import { Plus, X, Upload, Camera, FileText, Image as ImageIcon, Loader2, AlertTr
 import { TaskFormFields, TaskDraft, emptyTaskDraft } from './TaskFormFields';
 import { CodeAutocomplete } from './CodeAutocomplete';
 import { uploadPatientFile, UPLOAD_CATEGORIES, UploadCategory } from '@/hooks/usePatientUploads';
+import { ProcedureCombobox } from './ProcedureCombobox';
+import { recordProcedureCodeSuggestions } from '@/hooks/useCodeSuggestions';
 import { toast } from 'sonner';
 
 
