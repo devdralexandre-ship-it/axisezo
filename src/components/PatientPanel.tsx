@@ -189,9 +189,29 @@ export function PatientPanel({ patient, open, onClose, onCompleteTask, onAddTask
               </div>
             </div>
           </div>
-          <p className="text-xs text-muted-foreground mt-2">
-            Etapa: <span className="font-medium text-foreground">{STAGE_LABELS[patient.stage]}</span>
-          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+            <span className="text-muted-foreground">
+              Etapa: <span className="font-medium text-foreground">{STAGE_LABELS[patient.stage]}</span>
+            </span>
+            {onChangeStage && (
+              <Select
+                value={patient.stage}
+                onValueChange={(v) => onChangeStage(patient.id, v as PipelineStage)}
+              >
+                <SelectTrigger className="h-7 text-xs w-auto min-w-[10rem] gap-1">
+                  <ArrowRightLeft className="h-3 w-3 text-muted-foreground" />
+                  <SelectValue placeholder="Mover para..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {PIPELINE_STAGES.map((s) => (
+                    <SelectItem key={s} value={s} disabled={s === patient.stage}>
+                      {STAGE_LABELS[s]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
           {patient.stage === 'surgery_scheduled' && (
             <div className="mt-2 flex items-center gap-2 text-xs">
               <Calendar className="h-3.5 w-3.5 text-primary" />
