@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Patient, STAGE_LABELS, PatientTask, getTaskUrgency, LOSS_REASON_LABELS, PreOpChecklistItem, getTaskSlaState, formatSlaChip } from '@/data/types';
+import { Patient, STAGE_LABELS, PatientTask, getTaskUrgency, LOSS_REASON_LABELS, PreOpChecklistItem, getTaskSlaState, formatSlaChip, PIPELINE_STAGES, PipelineStage } from '@/data/types';
 import { PROCEDURES, SURGEONS, CONCIERGES, PAYERS, BILLING_TYPES, SURGICAL_APPROACHES, PATIENT_TYPE_LABELS, procedureNeedsApproach, LATERALITY_OPTIONS, procedureNeedsLaterality, HOSPITALS, INDICATION_SOURCES } from '@/data/constants';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
@@ -11,7 +11,8 @@ import { PreOpChecklist } from './PreOpChecklist';
 import { PatientDocuments } from './PatientDocuments';
 import { PatientUploads } from './PatientUploads';
 import { PatientOrientations } from './PatientOrientations';
-import { Calendar, UserRound, Stethoscope, DollarSign, Clock, Plus, CheckCircle2, Circle, Building2, CreditCard, MapPin, Pencil, Save, X, AlertTriangle, Baby, User, Phone, Mail, FileText, Contact } from 'lucide-react';
+import { ProcedureCombobox } from './ProcedureCombobox';
+import { Calendar, UserRound, Stethoscope, DollarSign, Clock, Plus, CheckCircle2, Circle, Building2, CreditCard, MapPin, Pencil, Save, X, AlertTriangle, Baby, User, Phone, Mail, FileText, Contact, ArrowRightLeft } from 'lucide-react';
 
 const OTHER_PROCEDURE = '__outro__';
 
