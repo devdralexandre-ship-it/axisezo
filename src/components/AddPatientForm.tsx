@@ -68,6 +68,20 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
       if (lockSurgeon) setSurgeon(surgeonName!);
     }
   }, [open, lockConcierge, lockSurgeon, conciergeName, surgeonName]);
+
+  // Auto-fill the action's "Responsável" with the concierge on the case,
+  // as long as the user hasn't picked a different responsible manually.
+  useEffect(() => {
+    setDraft((prev) => {
+      if (!concierge) return prev;
+      // Only sync if empty or still matches a previous concierge value
+      if (!prev.responsible || CONCIERGES.includes(prev.responsible as any)) {
+        if (prev.responsible === concierge) return prev;
+        return { ...prev, responsible: concierge as any };
+      }
+      return prev;
+    });
+  }, [concierge]);
   const [stage, setStage] = useState(PIPELINE_STAGES[0]);
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
