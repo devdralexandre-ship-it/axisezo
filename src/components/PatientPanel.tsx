@@ -339,22 +339,12 @@ export function PatientPanel({ patient, open, onClose, onCompleteTask, onAddTask
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-muted-foreground">Procedimento</label>
-                <Select
+                <ProcedureCombobox
                   value={editProcedureSelectValue}
-                  onValueChange={(v) => {
-                    if (v === OTHER_PROCEDURE) {
-                      setEditData({ ...editData, procedure_name: '', surgical_approach: null });
-                    } else {
-                      setEditData({ ...editData, procedure_name: v, surgical_approach: procedureNeedsApproach(v) ? editData.surgical_approach : null });
-                    }
-                  }}
-                >
-                  <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {PROCEDURES.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-                    <SelectItem value={OTHER_PROCEDURE}>Outro...</SelectItem>
-                  </SelectContent>
-                </Select>
+                  onSelect={(v) => setEditData({ ...editData, procedure_name: v, surgical_approach: procedureNeedsApproach(v) ? editData.surgical_approach : null })}
+                  onSelectOther={() => setEditData({ ...editData, procedure_name: '', surgical_approach: null })}
+                  compact
+                />
                 {isCustomProcedure && (
                   <Input value={editData.procedure_name} onChange={(e) => setEditData({ ...editData, procedure_name: e.target.value })} placeholder="Informe o procedimento" className="mt-2 h-8 text-sm" />
                 )}
