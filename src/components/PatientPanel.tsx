@@ -46,7 +46,7 @@ function computeEstimatedTotal(medicalFees: number | null, anesthesiaFees: numbe
   return (medicalFees || 0) + (anesthesiaFees || 0) + (hospitalBudget || 0) + (materialsCost || 0);
 }
 
-export function PatientPanel({ patient, open, onClose, onCompleteTask, onAddTask, onTogglePreOpItem, onUpdateFields, onEditSurgeryDate }: PatientPanelProps) {
+export function PatientPanel({ patient, open, onClose, onCompleteTask, onAddTask, onTogglePreOpItem, onUpdateFields, onEditSurgeryDate, onChangeStage }: PatientPanelProps) {
   const [editing, setEditing] = useState(false);
   const [editData, setEditData] = useState<Record<string, any>>({});
 
