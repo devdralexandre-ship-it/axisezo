@@ -31,6 +31,8 @@ interface PatientPanelProps {
   onTogglePreOpItem: (patientId: string, item: PreOpChecklistItem) => void;
   onUpdateFields: (patientId: string, fields: Record<string, any>) => void;
   onEditSurgeryDate?: (patientId: string) => void;
+  /** Manual stage change (used by mobile since drag-and-drop is off). */
+  onChangeStage?: (patientId: string, newStage: PipelineStage) => void;
 }
 
 function getFinancialVisibility(billingType: string | null) {
