@@ -254,6 +254,16 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
     onClose();
     setSubmitting(false);
 
+    // Record CBHPM codes as autocomplete suggestions for future patients with
+    // the same procedure. Fire-and-forget — never blocks the UI.
+    const cbhpmEntries = [
+      ...(mainCbhpm.code || mainCbhpm.label ? [{ kind: 'cbhpm' as const, value: mainCbhpm.code, label: mainCbhpm.label }] : []),
+      ...extraCbhpm.filter((e) => e.code || e.label).map((e) => ({ kind: 'cbhpm' as const, value: e.code, label: e.label })),
+    ];
+    if (effectiveProcedure && cbhpmEntries.length) {
+      void recordProcedureCodeSuggestions(effectiveProcedure, cbhpmEntries);
+    }
+
     // Fire-and-forget uploads. Each file reports its own toast; the Kanban
     // refreshes automatically via Realtime as documents arrive.
     if (newId && filesToUpload.length) {
