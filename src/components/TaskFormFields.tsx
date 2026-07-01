@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Owner } from '@/data/types';
 import { SURGEONS, CONCIERGES } from '@/data/constants';
 import { useTaskTitleSuggestions } from '@/hooks/useTaskTitleSuggestions';
+import { normalizeText } from '@/lib/utils';
 
 export interface TaskDraft {
   /** Kept for backwards compatibility — no longer surfaced in UI */
@@ -87,9 +88,9 @@ export function TaskFormFields({ value, onChange, compact = false }: Props) {
   }, []);
 
   const filteredSuggestions = useMemo(() => {
-    const q = value.title.trim().toLowerCase();
+    const q = normalizeText(value.title);
     const list = q
-      ? suggestions.filter((s) => s.toLowerCase().includes(q) && s.toLowerCase() !== q)
+      ? suggestions.filter((s) => { const n = normalizeText(s); return n.includes(q) && n !== q; })
       : suggestions;
     return list.slice(0, 8);
   }, [suggestions, value.title]);

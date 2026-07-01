@@ -28,6 +28,7 @@ import { DragDropContext, DropResult } from '@hello-pangea/dnd';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { Skeleton } from '@/components/ui/skeleton';
+import { normalizeText } from '@/lib/utils';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRealtimePatients } from '@/hooks/useRealtimePatients';
 import { ConciergeLoginBriefing, useConciergeBriefing } from './ConciergeLoginBriefing';
@@ -116,7 +117,10 @@ export function PipelineDashboard() {
 
   const filtered = useMemo(() => {
     return patients.filter((p) => {
-      if (search && !p.name.toLowerCase().includes(search.toLowerCase()) && !p.procedure.toLowerCase().includes(search.toLowerCase())) return false;
+      if (search) {
+        const q = normalizeText(search);
+        if (!normalizeText(p.name).includes(q) && !normalizeText(p.procedure).includes(q)) return false;
+      }
       if (surgeonFilter !== 'all' && p.surgeon !== surgeonFilter) return false;
       if (conciergeFilter !== 'all' && p.concierge !== conciergeFilter) return false;
       if (procedureFilter !== 'all' && p.procedure !== procedureFilter) return false;
