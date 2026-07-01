@@ -60,6 +60,7 @@ function UploadRow({ u, onDelete }: { u: PatientUpload; onDelete: () => void }) 
 }
 
 export function PatientUploads({ patientId }: Props) {
+  const qc = useQueryClient();
   const { data: uploads = [], isLoading } = usePatientUploads(patientId);
   const upload = useUploadPatientFile();
   const del = useDeletePatientUpload();
@@ -69,14 +70,21 @@ export function PatientUploads({ patientId }: Props) {
 
   const handleFiles = async (files: FileList | null) => {
     if (!files?.length) return;
-    for (const file of Array.from(files)) {
-      try {
-        await upload.mutateAsync({ patientId, file, category });
-      } catch {
-        // toast already in hook
-      }
-    }
-    toast.success(`${files.length} arquivo(s) enviado(s)`);
+    const list = Array.from(files);
+    // Run uploads in parallel and count real successes/failures so we never
+    // report "0 arquivo(s) enviado(s)" for a partially/fully successful batch.
+    const results = await Promise.allSettled(
+      list.map((file) => upload.mutateAsync({ patientId, file, category })),
+    );
+    // Wait for the uploads query to refetch before showing the toast, so the
+    // list on screen matches the message the user reads.
+    await qc.invalidateQueries({ queryKey: ['patient-uploads', patientId] });
+
+    const ok = results.filter((r) => r.status === 'fulfilled').length;
+    const fail = results.length - ok;
+    if (ok && !fail) toast.success(`${ok} arquivo(s) enviado(s)`);
+    else if (ok && fail) toast.success(`${ok} enviado(s), ${fail} com falha`);
+    else if (!ok && fail) toast.error(`Nenhum arquivo enviado (${fail} falha${fail > 1 ? 's' : ''})`);
   };
 
   return (
