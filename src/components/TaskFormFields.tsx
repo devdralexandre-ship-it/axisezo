@@ -43,10 +43,11 @@ function defaultDeadline(): { date: string; time: string } {
 
 export const emptyTaskDraft = (defaultResponsible?: Owner): TaskDraft => {
   const dl = defaultDeadline();
-  const fallback = (TASK_RESPONSIBLES[0] as Owner);
-  const resp = (defaultResponsible && TASK_RESPONSIBLES.includes(defaultResponsible as string))
-    ? defaultResponsible
-    : fallback;
+  // Only fall back to the provided default; NEVER auto-pick the first surgeon.
+  // If nothing is provided, leave the field blank so the user picks explicitly.
+  const resp = (defaultResponsible && String(defaultResponsible).trim())
+    ? (defaultResponsible as Owner)
+    : ('' as Owner);
   return {
     preset: '',
     title: '',
@@ -151,9 +152,9 @@ export function TaskFormFields({ value, onChange, compact = false }: Props) {
       </div>
 
       <div className="space-y-2">
-        <Label className={labelCls}>Responsável</Label>
-        <Select value={value.responsible} onValueChange={(v) => set('responsible', v as Owner)}>
-          <SelectTrigger className={inputCls}><SelectValue /></SelectTrigger>
+        <Label className={labelCls}>Responsável *</Label>
+        <Select value={value.responsible || undefined} onValueChange={(v) => set('responsible', v as Owner)}>
+          <SelectTrigger className={inputCls}><SelectValue placeholder="Selecionar responsável" /></SelectTrigger>
           <SelectContent>
             {responsibleOptions.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
           </SelectContent>

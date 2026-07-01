@@ -198,6 +198,41 @@ export function PipelineDashboard() {
     });
   }, [updateStage, queryClient]);
 
+  // Programmatic stage change used by the PatientPanel dropdown (mobile-first,
+  // since drag-and-drop is disabled on touch). Reuses the same guardrails as
+  // handleDragEnd (permission check, loss reason, surgery date).
+  const changeStageManual = useCallback((patientId: string, newStage: PipelineStage) => {
+    if (!can('move_pipeline')) {
+      toast.error('Você não tem permissão para mover pacientes.');
+      return;
+    }
+    const current = patients.find((p) => p.id === patientId);
+    if (!current || current.stage === newStage) return;
+    const oldStage = current.stage;
+    if (newStage === 'lost') {
+      setPendingLossDrag({ patientId, fromStage: oldStage });
+      setLossDialogOpen(true);
+      return;
+    }
+    if (newStage === 'surgery_scheduled') {
+      setPendingSurgeryDrag({ patientId, fromStage: oldStage });
+      setSurgeryDialogOpen(true);
+      return;
+    }
+    queryClient.setQueryData<Patient[]>(['patients'], (old) =>
+      old?.map((p) => p.id === patientId ? { ...p, stage: newStage, stageEnteredAt: new Date().toISOString().split('T')[0] } : p)
+    );
+    updateStage.mutate({ id: patientId, stage: newStage }, {
+      onError: () => {
+        queryClient.setQueryData<Patient[]>(['patients'], (old) =>
+          old?.map((p) => p.id === patientId ? { ...p, stage: oldStage } : p)
+        );
+        toast.error('Erro ao mover paciente. Tente novamente.');
+      },
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: ['patients'] }),
+    });
+  }, [can, patients, updateStage, queryClient]);
+
   const handleLossConfirm = useCallback((reason: LossReason, detail: string | null) => {
     if (!pendingLossDrag) return;
 
@@ -731,9 +766,10 @@ export function PipelineDashboard() {
         onTogglePreOpItem={handleTogglePreOpItem}
         onUpdateFields={handleUpdateFields}
         onEditSurgeryDate={handleEditSurgeryDate}
+        onChangeStage={changeStageManual}
       />
       <AddPatientForm open={addOpen} onClose={() => setAddOpen(false)} onAdd={handleAddPatient} />
-      <AddTaskDialog open={addTaskOpen} onClose={() => setAddTaskOpen(false)} onAdd={handleTaskCreated} patientName={taskPatient?.name || ''} defaultResponsible={taskPatient?.owner} />
+      <AddTaskDialog open={addTaskOpen} onClose={() => setAddTaskOpen(false)} onAdd={handleTaskCreated} patientName={taskPatient?.name || ''} defaultResponsible={(taskPatient?.concierge || undefined) as any} />
       <LossReasonDialog open={lossDialogOpen} patientName={lossDialogPatient?.name || ''} onConfirm={handleLossConfirm} onCancel={handleLossCancel} />
       <SurgeryDateDialog
         open={surgeryDialogOpen}

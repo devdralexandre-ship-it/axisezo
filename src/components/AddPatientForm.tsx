@@ -13,6 +13,8 @@ import { Plus, X, Upload, Camera, FileText, Image as ImageIcon, Loader2, AlertTr
 import { TaskFormFields, TaskDraft, emptyTaskDraft } from './TaskFormFields';
 import { CodeAutocomplete } from './CodeAutocomplete';
 import { uploadPatientFile, UPLOAD_CATEGORIES, UploadCategory } from '@/hooks/usePatientUploads';
+import { ProcedureCombobox } from './ProcedureCombobox';
+import { recordProcedureCodeSuggestions } from '@/hooks/useCodeSuggestions';
 import { toast } from 'sonner';
 
 
@@ -68,6 +70,20 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
       if (lockSurgeon) setSurgeon(surgeonName!);
     }
   }, [open, lockConcierge, lockSurgeon, conciergeName, surgeonName]);
+
+  // Auto-fill the action's "Responsável" with the concierge on the case,
+  // as long as the user hasn't picked a different responsible manually.
+  useEffect(() => {
+    setDraft((prev) => {
+      if (!concierge) return prev;
+      // Only sync if empty or still matches a previous concierge value
+      if (!prev.responsible || CONCIERGES.includes(prev.responsible as any)) {
+        if (prev.responsible === concierge) return prev;
+        return { ...prev, responsible: concierge as any };
+      }
+      return prev;
+    });
+  }, [concierge]);
   const [stage, setStage] = useState(PIPELINE_STAGES[0]);
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
@@ -91,9 +107,9 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
   const [mainCbhpm, setMainCbhpm] = useState<{ code: string; label: string }>({ code: '', label: '' });
   const [extraCbhpm, setExtraCbhpm] = useState<{ code: string; label: string }[]>([]);
 
-  // Inline task creation
+  // Inline task creation — default responsible = concierge assigned to case
   const [initialTasks, setInitialTasks] = useState<InitialTask[]>([]);
-  const [draft, setDraft] = useState<TaskDraft>(emptyTaskDraft());
+  const [draft, setDraft] = useState<TaskDraft>(emptyTaskDraft((lockConcierge ? conciergeName! : '') as any));
 
   // Pending uploads (sent after the patient is created)
   const [pendingUploads, setPendingUploads] = useState<PendingUpload[]>([]);
@@ -135,14 +151,16 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
 
   const addInitialTask = () => {
     if (!draft.title.trim() || !draft.dueDate) return;
+    const resp = draft.responsible || concierge;
+    if (!resp) return; // require someone
     setInitialTasks([...initialTasks, {
       id: crypto.randomUUID(),
       title: draft.title.trim(),
       dueDate: draft.dueDate,
       dueTime: draft.dueTime || '10:00',
-      responsible: draft.responsible || concierge || 'Margô',
+      responsible: resp,
     }]);
-    setDraft(emptyTaskDraft());
+    setDraft(emptyTaskDraft(concierge as any));
   };
 
   const removeInitialTask = (id: string) => {
@@ -160,7 +178,7 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
     setMaterialsCost(''); setDesiredHospital(''); setCustomHospital('');
     setIndicationLocation(''); setCustomIndication('');
     setAlerts(''); setNotes(''); setInitialTasks([]);
-    setDraft(emptyTaskDraft());
+    setDraft(emptyTaskDraft((lockConcierge ? conciergeName! : '') as any));
     setIndicationDate(new Date().toISOString().split('T')[0]);
     setMainCbhpm({ code: '', label: '' });
     setExtraCbhpm([]);
@@ -235,6 +253,16 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
     resetForm();
     onClose();
     setSubmitting(false);
+
+    // Record CBHPM codes as autocomplete suggestions for future patients with
+    // the same procedure. Fire-and-forget — never blocks the UI.
+    const cbhpmEntries = [
+      ...(mainCbhpm.code || mainCbhpm.label ? [{ kind: 'cbhpm' as const, value: mainCbhpm.code, label: mainCbhpm.label }] : []),
+      ...extraCbhpm.filter((e) => e.code || e.label).map((e) => ({ kind: 'cbhpm' as const, value: e.code, label: e.label })),
+    ];
+    if (effectiveProcedure && cbhpmEntries.length) {
+      void recordProcedureCodeSuggestions(effectiveProcedure, cbhpmEntries);
+    }
 
     // Fire-and-forget uploads. Each file reports its own toast; the Kanban
     // refreshes automatically via Realtime as documents arrive.
@@ -317,13 +345,11 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
             {/* Procedure */}
             <div className="space-y-2">
               <Label>Procedimento *</Label>
-              <Select value={procedure} onValueChange={(v) => { setProcedure(v); if (v !== OTHER_PROCEDURE && !procedureNeedsApproach(v)) setSurgicalApproach(''); }}>
-                <SelectTrigger className="focus:ring-offset-0"><SelectValue placeholder="Selecione o procedimento" /></SelectTrigger>
-                <SelectContent>
-                  {PROCEDURES.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-                  <SelectItem value={OTHER_PROCEDURE}>Outro...</SelectItem>
-                </SelectContent>
-              </Select>
+              <ProcedureCombobox
+                value={isCustomProcedure ? OTHER_PROCEDURE : procedure}
+                onSelect={(v) => { setProcedure(v); if (!procedureNeedsApproach(v)) setSurgicalApproach(''); }}
+                onSelectOther={() => { setProcedure(OTHER_PROCEDURE); setSurgicalApproach(''); }}
+              />
               {isCustomProcedure && (
                 <Input value={customProcedure} onChange={(e) => setCustomProcedure(e.target.value)} placeholder="Informe o procedimento" className="mt-2 focus-visible:ring-offset-0" />
               )}
@@ -591,7 +617,7 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
                   size="sm"
                   onClick={addInitialTask}
                   className="w-full"
-                  disabled={!draft.title.trim() || !draft.dueDate}
+                  disabled={!draft.title.trim() || !draft.dueDate || !(draft.responsible || concierge)}
                 >
                   <Plus className="h-4 w-4 mr-1" />Adicionar ação
                 </Button>

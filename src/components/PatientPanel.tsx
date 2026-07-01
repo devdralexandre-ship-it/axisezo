@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Patient, STAGE_LABELS, PatientTask, getTaskUrgency, LOSS_REASON_LABELS, PreOpChecklistItem, getTaskSlaState, formatSlaChip } from '@/data/types';
+import { Patient, STAGE_LABELS, PatientTask, getTaskUrgency, LOSS_REASON_LABELS, PreOpChecklistItem, getTaskSlaState, formatSlaChip, PIPELINE_STAGES, PipelineStage } from '@/data/types';
 import { PROCEDURES, SURGEONS, CONCIERGES, PAYERS, BILLING_TYPES, SURGICAL_APPROACHES, PATIENT_TYPE_LABELS, procedureNeedsApproach, LATERALITY_OPTIONS, procedureNeedsLaterality, HOSPITALS, INDICATION_SOURCES } from '@/data/constants';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
@@ -11,7 +11,8 @@ import { PreOpChecklist } from './PreOpChecklist';
 import { PatientDocuments } from './PatientDocuments';
 import { PatientUploads } from './PatientUploads';
 import { PatientOrientations } from './PatientOrientations';
-import { Calendar, UserRound, Stethoscope, DollarSign, Clock, Plus, CheckCircle2, Circle, Building2, CreditCard, MapPin, Pencil, Save, X, AlertTriangle, Baby, User, Phone, Mail, FileText, Contact } from 'lucide-react';
+import { ProcedureCombobox } from './ProcedureCombobox';
+import { Calendar, UserRound, Stethoscope, DollarSign, Clock, Plus, CheckCircle2, Circle, Building2, CreditCard, MapPin, Pencil, Save, X, AlertTriangle, Baby, User, Phone, Mail, FileText, Contact, ArrowRightLeft } from 'lucide-react';
 
 const OTHER_PROCEDURE = '__outro__';
 
@@ -30,6 +31,8 @@ interface PatientPanelProps {
   onTogglePreOpItem: (patientId: string, item: PreOpChecklistItem) => void;
   onUpdateFields: (patientId: string, fields: Record<string, any>) => void;
   onEditSurgeryDate?: (patientId: string) => void;
+  /** Manual stage change (used by mobile since drag-and-drop is off). */
+  onChangeStage?: (patientId: string, newStage: PipelineStage) => void;
 }
 
 function getFinancialVisibility(billingType: string | null) {
@@ -43,7 +46,7 @@ function computeEstimatedTotal(medicalFees: number | null, anesthesiaFees: numbe
   return (medicalFees || 0) + (anesthesiaFees || 0) + (hospitalBudget || 0) + (materialsCost || 0);
 }
 
-export function PatientPanel({ patient, open, onClose, onCompleteTask, onAddTask, onTogglePreOpItem, onUpdateFields, onEditSurgeryDate }: PatientPanelProps) {
+export function PatientPanel({ patient, open, onClose, onCompleteTask, onAddTask, onTogglePreOpItem, onUpdateFields, onEditSurgeryDate, onChangeStage }: PatientPanelProps) {
   const [editing, setEditing] = useState(false);
   const [editData, setEditData] = useState<Record<string, any>>({});
 
@@ -186,9 +189,29 @@ export function PatientPanel({ patient, open, onClose, onCompleteTask, onAddTask
               </div>
             </div>
           </div>
-          <p className="text-xs text-muted-foreground mt-2">
-            Etapa: <span className="font-medium text-foreground">{STAGE_LABELS[patient.stage]}</span>
-          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+            <span className="text-muted-foreground">
+              Etapa: <span className="font-medium text-foreground">{STAGE_LABELS[patient.stage]}</span>
+            </span>
+            {onChangeStage && (
+              <Select
+                value={patient.stage}
+                onValueChange={(v) => onChangeStage(patient.id, v as PipelineStage)}
+              >
+                <SelectTrigger className="h-7 text-xs w-auto min-w-[10rem] gap-1">
+                  <ArrowRightLeft className="h-3 w-3 text-muted-foreground" />
+                  <SelectValue placeholder="Mover para..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {PIPELINE_STAGES.map((s) => (
+                    <SelectItem key={s} value={s} disabled={s === patient.stage}>
+                      {STAGE_LABELS[s]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
           {patient.stage === 'surgery_scheduled' && (
             <div className="mt-2 flex items-center gap-2 text-xs">
               <Calendar className="h-3.5 w-3.5 text-primary" />
@@ -336,22 +359,12 @@ export function PatientPanel({ patient, open, onClose, onCompleteTask, onAddTask
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-muted-foreground">Procedimento</label>
-                <Select
+                <ProcedureCombobox
                   value={editProcedureSelectValue}
-                  onValueChange={(v) => {
-                    if (v === OTHER_PROCEDURE) {
-                      setEditData({ ...editData, procedure_name: '', surgical_approach: null });
-                    } else {
-                      setEditData({ ...editData, procedure_name: v, surgical_approach: procedureNeedsApproach(v) ? editData.surgical_approach : null });
-                    }
-                  }}
-                >
-                  <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {PROCEDURES.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-                    <SelectItem value={OTHER_PROCEDURE}>Outro...</SelectItem>
-                  </SelectContent>
-                </Select>
+                  onSelect={(v) => setEditData({ ...editData, procedure_name: v, surgical_approach: procedureNeedsApproach(v) ? editData.surgical_approach : null })}
+                  onSelectOther={() => setEditData({ ...editData, procedure_name: '', surgical_approach: null })}
+                  compact
+                />
                 {isCustomProcedure && (
                   <Input value={editData.procedure_name} onChange={(e) => setEditData({ ...editData, procedure_name: e.target.value })} placeholder="Informe o procedimento" className="mt-2 h-8 text-sm" />
                 )}
