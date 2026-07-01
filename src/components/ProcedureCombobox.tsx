@@ -3,7 +3,7 @@ import { Check, ChevronsUpDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { cn } from '@/lib/utils';
+import { cn, normalizeText } from '@/lib/utils';
 import { PROCEDURES } from '@/data/constants';
 
 const OTHER_PROCEDURE = '__outro__';
@@ -39,7 +39,7 @@ export function ProcedureCombobox({ value, onSelect, onSelectOther, placeholder 
         </Button>
       </PopoverTrigger>
       <PopoverContent className="p-0 w-[--radix-popover-trigger-width]" align="start">
-        <Command>
+        <Command filter={(value, search) => normalizeText(value).includes(normalizeText(search)) ? 1 : 0}>
           <CommandInput placeholder="Buscar procedimento..." />
           <CommandList>
             <CommandEmpty>Nenhum procedimento encontrado.</CommandEmpty>

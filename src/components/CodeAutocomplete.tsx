@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
+import { normalizeText } from '@/lib/utils';
 
 export type SuggestionKind = 'cbhpm' | 'cid' | 'opme';
 
@@ -66,10 +67,10 @@ export function CodeAutocomplete({
     return () => document.removeEventListener('mousedown', onClick);
   }, []);
 
-  const query = (focusedField === 'value' ? value : label).toLowerCase();
+  const query = normalizeText(focusedField === 'value' ? value : label);
   const filtered = suggestions.filter((s) => {
     if (!query) return true;
-    return s.value.toLowerCase().includes(query) || s.label.toLowerCase().includes(query);
+    return normalizeText(s.value).includes(query) || normalizeText(s.label).includes(query);
   }).slice(0, 8);
 
   return (
