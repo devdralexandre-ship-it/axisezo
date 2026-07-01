@@ -176,7 +176,7 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
     setMaterialsCost(''); setDesiredHospital(''); setCustomHospital('');
     setIndicationLocation(''); setCustomIndication('');
     setAlerts(''); setNotes(''); setInitialTasks([]);
-    setDraft(emptyTaskDraft());
+    setDraft(emptyTaskDraft((lockConcierge ? conciergeName! : '') as any));
     setIndicationDate(new Date().toISOString().split('T')[0]);
     setMainCbhpm({ code: '', label: '' });
     setExtraCbhpm([]);
