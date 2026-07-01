@@ -607,7 +607,7 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
                   size="sm"
                   onClick={addInitialTask}
                   className="w-full"
-                  disabled={!draft.title.trim() || !draft.dueDate}
+                  disabled={!draft.title.trim() || !draft.dueDate || !(draft.responsible || concierge)}
                 >
                   <Plus className="h-4 w-4 mr-1" />Adicionar ação
                 </Button>
