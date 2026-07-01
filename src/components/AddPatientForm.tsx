@@ -149,14 +149,16 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
 
   const addInitialTask = () => {
     if (!draft.title.trim() || !draft.dueDate) return;
+    const resp = draft.responsible || concierge;
+    if (!resp) return; // require someone
     setInitialTasks([...initialTasks, {
       id: crypto.randomUUID(),
       title: draft.title.trim(),
       dueDate: draft.dueDate,
       dueTime: draft.dueTime || '10:00',
-      responsible: draft.responsible || concierge || 'Margô',
+      responsible: resp,
     }]);
-    setDraft(emptyTaskDraft());
+    setDraft(emptyTaskDraft(concierge as any));
   };
 
   const removeInitialTask = (id: string) => {
