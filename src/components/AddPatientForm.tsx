@@ -335,13 +335,11 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
             {/* Procedure */}
             <div className="space-y-2">
               <Label>Procedimento *</Label>
-              <Select value={procedure} onValueChange={(v) => { setProcedure(v); if (v !== OTHER_PROCEDURE && !procedureNeedsApproach(v)) setSurgicalApproach(''); }}>
-                <SelectTrigger className="focus:ring-offset-0"><SelectValue placeholder="Selecione o procedimento" /></SelectTrigger>
-                <SelectContent>
-                  {PROCEDURES.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-                  <SelectItem value={OTHER_PROCEDURE}>Outro...</SelectItem>
-                </SelectContent>
-              </Select>
+              <ProcedureCombobox
+                value={isCustomProcedure ? OTHER_PROCEDURE : procedure}
+                onSelect={(v) => { setProcedure(v); if (!procedureNeedsApproach(v)) setSurgicalApproach(''); }}
+                onSelectOther={() => { setProcedure(OTHER_PROCEDURE); setSurgicalApproach(''); }}
+              />
               {isCustomProcedure && (
                 <Input value={customProcedure} onChange={(e) => setCustomProcedure(e.target.value)} placeholder="Informe o procedimento" className="mt-2 focus-visible:ring-offset-0" />
               )}
