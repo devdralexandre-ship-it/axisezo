@@ -91,9 +91,9 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
   const [mainCbhpm, setMainCbhpm] = useState<{ code: string; label: string }>({ code: '', label: '' });
   const [extraCbhpm, setExtraCbhpm] = useState<{ code: string; label: string }[]>([]);
 
-  // Inline task creation
+  // Inline task creation — default responsible = concierge assigned to case
   const [initialTasks, setInitialTasks] = useState<InitialTask[]>([]);
-  const [draft, setDraft] = useState<TaskDraft>(emptyTaskDraft());
+  const [draft, setDraft] = useState<TaskDraft>(emptyTaskDraft((lockConcierge ? conciergeName! : '') as any));
 
   // Pending uploads (sent after the patient is created)
   const [pendingUploads, setPendingUploads] = useState<PendingUpload[]>([]);
