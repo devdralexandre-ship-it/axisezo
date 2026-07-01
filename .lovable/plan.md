@@ -1,82 +1,58 @@
-## Otimizações da interface mobile
+# Correções e melhorias — ações, códigos, procedimentos, anexos, mobile
 
-Foco nas três jornadas priorizadas: **cirurgião revisando casos**, **inclusão rápida de paciente** e **kanban navegável no celular**. Tudo ativado abaixo de `md` (768px) via Tailwind, mantendo o desktop intacto.
+## 1. Responsável da ação sempre "Alexandre"
 
----
+**Causa:** `emptyTaskDraft()` em `src/components/TaskFormFields.tsx` faz fallback para `TASK_RESPONSIBLES[0]` (primeiro cirurgião = Dr Alexandre) quando nenhum `defaultResponsible` é passado.
 
-### 1. Pipeline: tabs por estágio com swipe (`PipelineDashboard.tsx` + `PipelineColumn.tsx`)
+**Correção:**
+- Permitir `responsible` vazio (`''`) em `TaskDraft`; remover fallback para o primeiro cirurgião.
+- `emptyTaskDraft(defaultResponsible?)` usa, em ordem: `defaultResponsible` → `''` (não atribuído).
+- `TaskFormFields`: adicionar opção "— não atribuído —" no Select e placeholder "Selecionar responsável".
+- `AddPatientForm`: passar `concierge` (state atual) como `defaultResponsible` ao criar/resetar draft; se `concierge` mudar antes do usuário editar o campo, atualizar o draft.
+- `PatientPanel` → `AddTaskDialog`: passar `defaultResponsible={patient.concierge}`.
+- Persistência: se `tasks.responsible` for NOT NULL, migração para tornar nullable e ajustar leitura para exibir "—".
 
-Substituir o scroll horizontal de 11 colunas por uma única coluna visível.
+## 2. Códigos CBHPM/TUSS com autocomplete a partir de usos anteriores
 
-- Barra de **tabs horizontais com scroll** fixa no topo, uma por estágio, mostrando:
-  - rótulo curto do estágio
-  - contagem de pacientes
-  - bolinha vermelha se há card com `Tolerância estourada` ou `Novo`
-- **Swipe horizontal** entre estágios (gesto nativo via `embla-carousel-react` — já instalado pelo shadcn `carousel`). Tab e swipe ficam sincronizados.
-- Cabeçalho do estágio ativo: nome completo + total R$ (oculto se `!canSeeFinancials`).
-- Filtros (`FilterBar`) recolhidos atrás de um botão "Filtros" que abre um `Sheet` lateral; chip mostra quantos filtros estão ativos.
-- Botões secundários do header (Importar CSV, Admin, Biblioteca, etc.) movidos para o `DropdownMenu` "Menu" já existente; no mobile só ficam visíveis **+ Paciente**, sino de notificação e menu.
+Autocomplete já lê `procedure_code_suggestions` (por `procedure + kind`), mas a tabela não é populada. Ajustes:
+- Criar helper `recordCodeSuggestions(procedure, entries[])` que faz `upsert` incrementando `usage_count`.
+- Chamar ao salvar solicitação cirúrgica (`GenerateDocumentDialog`/`SurgicalRequestForm`) e ao criar/editar paciente com códigos preenchidos (`AddPatientForm`, `PatientPanel`).
+- Rotular o campo como "CBHPM/TUSS" (mesmo `kind='cbhpm'`, já que o usuário trata como sinônimo).
 
-### 2. Card de paciente compacto (`PatientCard.tsx`)
+## 3. Procedimento com busca por digitação
 
-Versão mobile mais densa, ainda usando o mesmo componente com variantes responsivas:
+Substituir o `<Select>` de procedimento por **Combobox** (`components/ui/command` + `popover`) com input de busca filtrando `PROCEDURES` por substring case-insensitive, mantendo "Outro…". Aplicar em `AddPatientForm.tsx` e `PatientPanel.tsx` (modo edição).
 
-- **Linha 1:** nome + idade no funil (dias) + badges `Novo` / `Tolerância estourada · N` (já existem).
-- **Linha 2:** cirurgião (avatar/iniciais) + procedimento abreviado.
-- **Linha 3:** "Próxima ação" — título da `getNextPendingTask` + responsável, com cor por urgência (`getTaskUrgency`). Se não há ação pendente, mostra "Sem ação pendente" em muted.
-- **Swipe actions** (usando `framer-motion` `drag="x"` com snap):
-  - swipe → esquerda: "Concluir ação" (chama `useCompleteTask` da próxima task; abre `AddTaskDialog` para registrar próximo passo, mantendo a regra obrigatória de próxima ação).
-  - swipe → direita: "Mover estágio" — abre bottom sheet com a lista de estágios.
-  - tap longo / botão: abre o `PatientPanel`.
-- DnD do `@hello-pangea/dnd` fica **desativado no mobile** (gestos conflitam com swipe e scroll); movimentação acontece pelo swipe → "Mover estágio".
+## 4. Mudar etapa do paciente no mobile
 
-### 3. PatientPanel em tela cheia (`PatientPanel.tsx`)
+Mobile hoje usa `disableDnd`. Duas superfícies para mover:
 
-- No mobile, o `Sheet` abre com `side="bottom"` em altura `100dvh` e cantos arredondados no topo, ao invés do slide-over de 480px.
-- Cabeçalho fixo com nome do paciente, estágio atual e botão fechar.
-- Abas internas (Resumo, Ações, Documentos, Orçamento, etc.) viram um **scroll horizontal de chips** já que tabs do shadcn estouram em telas estreitas.
-- Botões de ação primária (Adicionar ação, Concluir próxima, Mover estágio) ancorados em uma barra inferior fixa (`sticky bottom-0`) com `safe-area-inset-bottom`.
+a. **Botão "Mover" no card mobile** — abre `Sheet` com radio das etapas; confirma via `updateStage`.
+b. **Seletor de etapa no cabeçalho do `PatientPanel`** — sempre visível (útil também no desktop).
 
-### 4. AddPatientForm em etapas (`AddPatientForm.tsx`)
+Handler central: extrair `moveStageWithGuards(patientId, newStage, fromStage)` de `handleDragEnd` para reuso, preservando os fluxos especiais de `lost` (`LossReasonDialog`) e `surgery_scheduled` (`SurgeryDateDialog`).
 
-Hoje é um formulário longo. No mobile vira **wizard de 4 passos**, mantendo um único submit no fim:
+## 5. Inconsistência ao anexar documentos — "carregado 0 documentos"
 
-```text
-[1 Identificação] → [2 Clínico] → [3 Comercial] → [4 Ação inicial]
-```
+**Causa confirmada:** em `PatientUploads.handleFiles`, o `toast.success` dispara antes da lista invalidar; o texto usa `files.length` fixo e o painel adjacente mostra "0" porque o `useQuery` ainda não refetchou. Além disso, se algum arquivo falhou dentro do loop, o sucesso é reportado igual.
 
-- Progresso no topo (4 bolinhas + label do passo atual).
-- Botões "Voltar" / "Avançar" fixos no rodapé; "Salvar" só aparece no passo 4.
-- Campos com `inputMode` correto (`tel`, `numeric`, `email`) para subir o teclado certo.
-- Datas usam `<input type="date">` nativo no mobile (mais rápido que o popover).
-- Campos condicionais (lateralidade, via de acesso, billing) continuam respeitando a lógica existente — apenas reagrupados nos passos.
-- No desktop o formulário continua single-page (sem regressão).
-
-### 5. Briefing concierge: banner fixo no topo (`ConciergeLoginBriefing.tsx` + `PipelineDashboard.tsx`)
-
-- Substituir o modal por um **banner sticky** abaixo do header quando há novos pacientes ou tolerâncias estouradas para a concierge logada.
-- Layout: ícone + "3 novos · 2 tolerâncias estouradas" + chevron. Tap expande para a lista já existente em um `Sheet` bottom.
-- Botão "Marcar como visto" atualiza `lastSeenAt` (mesmo localStorage atual).
-- Desktop continua usando o modal atual.
-
-### 6. Ajustes globais
-
-- Header principal: logo encolhe, search vira ícone que expande para input full-width ao tocar.
-- `NotificationBell` mantém badge; popover vira `Sheet` no mobile para caber a lista.
-- Toques mínimos de 44px em todos os botões/cards.
-- `viewport-fit=cover` + classes `pb-[env(safe-area-inset-bottom)]` nas barras fixas.
+**Correção em `src/components/PatientUploads.tsx` e `src/hooks/usePatientUploads.ts`:**
+- Rodar uploads em `Promise.allSettled`, contar `ok` e `fail`.
+- Toast: `"N arquivo(s) enviado(s)"` apenas quando `ok > 0`; `"X falha(s) ao enviar"` quando `fail > 0`. Se `ok === 0 && fail === 0`, não mostrar nada.
+- `await qc.invalidateQueries({ queryKey: ['patient-uploads', patientId] })` **antes** do toast final, para o contador do cabeçalho refletir os novos arquivos.
+- Remover o texto "carregado 0 documentos" onde quer que apareça (label do cabeçalho continua com `uploads.length` real, que agora estará atualizado).
+- Adicionar validação prévia de tamanho antes do loop.
 
 ---
 
-### Detalhes técnicos
-
-- Breakpoint único: `md` (Tailwind). Helper `useIsMobile()` já existe em `src/hooks/use-mobile.tsx` — usar para alternar componentes (Sheet side, swipe vs DnD).
-- Sem novas dependências: `embla-carousel-react` e `framer-motion` já estão no projeto via shadcn.
-- Nenhuma mudança em RLS, schema, hooks de dados, regra de ação obrigatória ou cálculo de SLA — apenas UI/UX.
-- Arquivos tocados: `PipelineDashboard.tsx`, `PipelineColumn.tsx`, `PatientCard.tsx`, `PatientPanel.tsx`, `AddPatientForm.tsx`, `ConciergeLoginBriefing.tsx`, `FilterBar.tsx`, `NotificationBell.tsx`. Um novo `MobileStageTabs.tsx` para encapsular o carrossel de estágios.
-
-### Fora de escopo
-
-- Mudanças no fluxo de DnD desktop.
-- Notificações push / PWA / instalação como app (pode ser próximo passo se desejado).
-- Reescrita do `BudgetForm`, `SurgicalRequestForm` e demais formulários longos — só `AddPatientForm` nesta rodada.
+## Arquivos afetados
+- `src/components/TaskFormFields.tsx`
+- `src/components/AddPatientForm.tsx`
+- `src/components/PatientPanel.tsx`
+- `src/components/PatientCard.tsx`
+- `src/components/PipelineDashboard.tsx`
+- `src/components/SurgicalRequestForm.tsx` / `GenerateDocumentDialog.tsx`
+- `src/components/PatientUploads.tsx`
+- `src/hooks/usePatientUploads.ts`
+- Novo helper: `src/hooks/useCodeSuggestions.ts`
+- (Se necessário) migração: `tasks.responsible` nullable.
