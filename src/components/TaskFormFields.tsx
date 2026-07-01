@@ -152,9 +152,9 @@ export function TaskFormFields({ value, onChange, compact = false }: Props) {
       </div>
 
       <div className="space-y-2">
-        <Label className={labelCls}>Responsável</Label>
-        <Select value={value.responsible} onValueChange={(v) => set('responsible', v as Owner)}>
-          <SelectTrigger className={inputCls}><SelectValue /></SelectTrigger>
+        <Label className={labelCls}>Responsável *</Label>
+        <Select value={value.responsible || undefined} onValueChange={(v) => set('responsible', v as Owner)}>
+          <SelectTrigger className={inputCls}><SelectValue placeholder="Selecionar responsável" /></SelectTrigger>
           <SelectContent>
             {responsibleOptions.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
           </SelectContent>
