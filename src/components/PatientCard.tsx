@@ -23,11 +23,11 @@ interface PatientCardProps {
   onClick: (patient: Patient) => void;
   onCompleteTask: (patientId: string, taskId: string) => void;
   onDelete?: (patientId: string) => void;
-  /** ISO timestamp — patients created after this are flagged "Novo" */
+  /** Kept for backward compat; the "Novo" badge now derives from updatedAt vs createdAt. */
   newSinceIso?: string | null;
 }
 
-export function PatientCard({ patient, onClick, onCompleteTask, onDelete, newSinceIso }: PatientCardProps) {
+export function PatientCard({ patient, onClick, onCompleteTask, onDelete }: PatientCardProps) {
   const nextTask = getNextPendingTask(patient);
   const urgency = getTaskUrgency(nextTask);
   const daysInStage = getDaysInStage(patient.stageEnteredAt);
@@ -40,10 +40,14 @@ export function PatientCard({ patient, onClick, onCompleteTask, onDelete, newSin
     return s === 'breached' || s === 'escalated' ? n + 1 : n;
   }, 0);
 
-  // "Novo" badge: patient created after the user's reference timestamp
+  // "Novo": stays until the patient record is modified for the first time.
+  // We compare updated_at vs created_at (with a 5s tolerance to absorb the
+  // trigger firing during the initial INSERT+related-rows workflow).
   const createdMs = patient.createdAt ? new Date(patient.createdAt + 'T00:00:00').getTime() : 0;
-  const sinceMs = newSinceIso ? new Date(newSinceIso).getTime() : Date.now() - 24 * 3600 * 1000;
-  const isNew = createdMs > 0 && createdMs >= sinceMs;
+  const updatedMs = patient.updatedAt ? new Date(patient.updatedAt).getTime() : 0;
+  const createdIsoMs = (patient as any).createdAt ? new Date((patient as any).createdAt).getTime() : createdMs;
+  const isNew = createdMs > 0 && (!updatedMs || Math.abs(updatedMs - Math.max(createdMs, createdIsoMs)) < 5000);
+
 
   const formatCurrency = (value: number | null) => {
     if (value === null) return '—';
