@@ -578,6 +578,29 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
               )}
             </div>
 
+            {/* Sinalizadores */}
+            <div className="space-y-2 p-3 rounded-lg bg-muted/30 border border-border">
+              <Label className="text-xs">Sinalizadores</Label>
+              <p className="text-[11px] text-muted-foreground">Aparecem sempre no card do paciente. Podem ser editados depois.</p>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" checked={clinicallySensitive} onChange={(e) => setClinicallySensitive(e.target.checked)} className="h-4 w-4" />
+                <span className="font-bold text-destructive">*</span>
+                <span>Clinicamente sensível</span>
+              </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" checked={highRisk} onChange={(e) => setHighRisk(e.target.checked)} className="h-4 w-4" />
+                <span className="font-bold text-destructive">**</span>
+                <span>Altíssimo risco</span>
+              </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" checked={highTicket} onChange={(e) => setHighTicket(e.target.checked)} className="h-4 w-4" />
+                <span className="text-pipeline-amber">★</span>
+                <span>Alto ticket</span>
+              </label>
+            </div>
+
+
+
             {/* Alerts */}
             <div className="space-y-2">
               <Label>Alertas</Label>
