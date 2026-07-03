@@ -102,6 +102,10 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
   const [alerts, setAlerts] = useState('');
   const [notes, setNotes] = useState('');
   const [indicationDate, setIndicationDate] = useState(new Date().toISOString().split('T')[0]);
+  const [clinicallySensitive, setClinicallySensitive] = useState(false);
+  const [highRisk, setHighRisk] = useState(false);
+  const [highTicket, setHighTicket] = useState(false);
+
 
   // CBHPM codes (optional at registration)
   const [mainCbhpm, setMainCbhpm] = useState<{ code: string; label: string }>({ code: '', label: '' });
