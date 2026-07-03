@@ -106,6 +106,11 @@ function mapDbToPatient(db: DbPatient): Patient {
       : { main: null, extras: [] },
     surgeryDate: (db as any).surgery_date ?? null,
     surgeryTime: (db as any).surgery_time ? String((db as any).surgery_time).substring(0, 5) : null,
+    clinicallySensitive: !!(db as any).clinically_sensitive,
+    highRisk: !!(db as any).high_risk,
+    highTicket: !!(db as any).high_ticket,
+    updatedAt: (db as any).updated_at ?? null,
+
   };
 }
 
