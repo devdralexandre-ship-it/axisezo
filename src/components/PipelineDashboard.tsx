@@ -133,6 +133,16 @@ export function PipelineDashboard() {
       if (procedureFilter !== 'all' && p.procedure !== procedureFilter) return false;
       if (patientTypeFilter !== 'all' && p.patientType !== patientTypeFilter) return false;
       if (surgicalApproachFilter !== 'all' && p.surgicalApproach !== surgicalApproachFilter) return false;
+      if (payerFilter !== 'all' && p.payer !== payerFilter) return false;
+      if (billingTypeFilter !== 'all' && p.billingType !== billingTypeFilter) return false;
+      if (hospitalFilter !== 'all' && p.desiredHospital !== hospitalFilter) return false;
+      if (indicationSourceFilter !== 'all' && p.indicationLocation !== indicationSourceFilter) return false;
+      if (indicationFrom || indicationTo) {
+        const ref = p.indicationDate || p.createdAt;
+        if (!ref) return false;
+        if (indicationFrom && ref < indicationFrom) return false;
+        if (indicationTo && ref > indicationTo) return false;
+      }
       if (slaFilter !== 'all') {
         const states = p.tasks.filter(t => !t.completed).map(getTaskSlaState);
         if (slaFilter === 'breached' && !states.some(s => s === 'breached' || s === 'escalated')) return false;
@@ -140,7 +150,8 @@ export function PipelineDashboard() {
       }
       return true;
     });
-  }, [patients, search, surgeonFilter, conciergeFilter, procedureFilter, patientTypeFilter, surgicalApproachFilter, slaFilter]);
+  }, [patients, search, surgeonFilter, conciergeFilter, procedureFilter, patientTypeFilter, surgicalApproachFilter, payerFilter, billingTypeFilter, hospitalFilter, indicationSourceFilter, indicationFrom, indicationTo, slaFilter]);
+
 
   const activeFiltered = filtered.filter((p) => p.stage !== 'lost');
   // BUG 1 FIX: Use estimatedValue OR medicalFees as fallback for pipeline total
