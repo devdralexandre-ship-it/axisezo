@@ -65,7 +65,14 @@ export function PipelineDashboard() {
   const [procedureFilter, setProcedureFilter] = useState('all');
   const [patientTypeFilter, setPatientTypeFilter] = useState('all');
   const [surgicalApproachFilter, setSurgicalApproachFilter] = useState('all');
+  const [payerFilter, setPayerFilter] = useState('all');
+  const [billingTypeFilter, setBillingTypeFilter] = useState('all');
+  const [hospitalFilter, setHospitalFilter] = useState('all');
+  const [indicationSourceFilter, setIndicationSourceFilter] = useState('all');
+  const [indicationFrom, setIndicationFrom] = useState('');
+  const [indicationTo, setIndicationTo] = useState('');
   const [slaFilter, setSlaFilter] = useState<'all' | 'breached' | 'escalated'>('all');
+
   const [readNotifications, setReadNotifications] = useState<Set<string>>(new Set());
 
   const [lossDialogOpen, setLossDialogOpen] = useState(false);
