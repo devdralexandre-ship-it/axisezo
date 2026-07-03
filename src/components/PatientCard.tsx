@@ -216,3 +216,21 @@ export function PatientCard({ patient, onClick, onCompleteTask, onDelete }: Pati
     </Card>
   );
 }
+
+export function PatientFlags({ patient, size = 'sm' }: { patient: Patient; size?: 'sm' | 'md' }) {
+  if (!patient.clinicallySensitive && !patient.highRisk && !patient.highTicket) return null;
+  const base = size === 'md' ? 'text-sm' : 'text-xs';
+  return (
+    <span className="flex items-center gap-0.5 shrink-0 leading-none">
+      {patient.highRisk ? (
+        <span title="Altíssimo risco clínico" className={`${base} font-bold text-destructive`}>**</span>
+      ) : patient.clinicallySensitive ? (
+        <span title="Clinicamente sensível" className={`${base} font-bold text-destructive`}>*</span>
+      ) : null}
+      {patient.highTicket && (
+        <span title="Alto ticket" className={`${base} text-pipeline-amber`}>★</span>
+      )}
+    </span>
+  );
+}
+
