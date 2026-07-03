@@ -212,7 +212,11 @@ export function useAddPatient() {
         surgical_approach: p.surgicalApproach,
         laterality: (p as any).laterality || null,
         procedure_codes: p.procedureCodes ?? { main: null, extras: [] },
+        clinically_sensitive: !!(p as any).clinicallySensitive,
+        high_risk: !!(p as any).highRisk,
+        high_ticket: !!(p as any).highTicket,
       };
+
 
       if (userIdSnapshot) insertPayload.assigned_user_ids = [userIdSnapshot];
 
