@@ -85,7 +85,9 @@ export function PatientCard({ patient, onClick, onCompleteTask, onDelete }: Pati
               </AvatarFallback>
             </Avatar>
             <h4 className="font-semibold text-sm text-foreground leading-tight truncate">{patient.name}</h4>
+            <PatientFlags patient={patient} />
           </div>
+
           <div className="flex items-center gap-1 shrink-0">
             {onDelete && (
               <DropdownMenu>
