@@ -644,7 +644,26 @@ export function PipelineDashboard() {
           procedure={procedureFilter} onProcedureChange={setProcedureFilter}
           patientType={patientTypeFilter} onPatientTypeChange={setPatientTypeFilter}
           surgicalApproach={surgicalApproachFilter} onSurgicalApproachChange={setSurgicalApproachFilter}
+          payer={payerFilter} onPayerChange={setPayerFilter}
+          billingType={billingTypeFilter} onBillingTypeChange={setBillingTypeFilter}
+          hospital={hospitalFilter} onHospitalChange={setHospitalFilter}
+          indicationSource={indicationSourceFilter} onIndicationSourceChange={setIndicationSourceFilter}
+          indicationFrom={indicationFrom} onIndicationFromChange={setIndicationFrom}
+          indicationTo={indicationTo} onIndicationToChange={setIndicationTo}
+          hasActiveFilters={
+            !!search || surgeonFilter !== 'all' || conciergeFilter !== 'all' || procedureFilter !== 'all' ||
+            patientTypeFilter !== 'all' || surgicalApproachFilter !== 'all' || payerFilter !== 'all' ||
+            billingTypeFilter !== 'all' || hospitalFilter !== 'all' || indicationSourceFilter !== 'all' ||
+            !!indicationFrom || !!indicationTo
+          }
+          onClearAll={() => {
+            setSearch(''); setSurgeonFilter('all'); setConciergeFilter('all'); setProcedureFilter('all');
+            setPatientTypeFilter('all'); setSurgicalApproachFilter('all'); setPayerFilter('all');
+            setBillingTypeFilter('all'); setHospitalFilter('all'); setIndicationSourceFilter('all');
+            setIndicationFrom(''); setIndicationTo('');
+          }}
         />
+
       </header>
 
       {/* Mobile briefing banner — replaces the auto-open dialog on phones */}
