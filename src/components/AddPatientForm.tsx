@@ -245,7 +245,11 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
           main: (mainCbhpm.code || mainCbhpm.label) ? mainCbhpm : null,
           extras: extraCbhpm.filter((e) => e.code || e.label),
         },
+        clinicallySensitive,
+        highRisk,
+        highTicket,
       } as any);
+
     } catch {
       // mutation toast already fires
       setSubmitting(false);
