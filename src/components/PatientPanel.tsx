@@ -96,9 +96,13 @@ export function PatientPanel({ patient, open, onClose, onCompleteTask, onAddTask
       custom_indication: isKnownIndication(indVal) ? '' : indVal,
       notes: patient.notes || '',
       alerts: patient.alerts || '',
+      clinically_sensitive: patient.clinicallySensitive,
+      high_risk: patient.highRisk,
+      high_ticket: patient.highTicket,
     });
     setEditing(true);
   };
+
 
   const saveEditing = () => {
     const fields: Record<string, any> = { ...editData };
