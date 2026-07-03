@@ -177,9 +177,13 @@ export function PatientPanel({ patient, open, onClose, onCompleteTask, onAddTask
         <SheetHeader className="p-6 pb-4 border-b border-border">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <SheetTitle className="text-lg">{patient.name}</SheetTitle>
+              <SheetTitle className="text-lg flex items-center gap-2">
+                <span className="truncate">{patient.name}</span>
+                <PatientFlags patient={patient} size="md" />
+              </SheetTitle>
               <div className="flex items-center gap-2 mt-1">
                 <p className="text-sm text-muted-foreground">{patient.procedure}</p>
+
                 {patient.surgicalApproach && (
                   <Badge variant="outline" className="text-[10px]">{patient.surgicalApproach}</Badge>
                 )}
