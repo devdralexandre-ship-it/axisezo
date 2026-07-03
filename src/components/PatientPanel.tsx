@@ -12,7 +12,9 @@ import { PatientDocuments } from './PatientDocuments';
 import { PatientUploads } from './PatientUploads';
 import { PatientOrientations } from './PatientOrientations';
 import { ProcedureCombobox } from './ProcedureCombobox';
+import { PatientFlags } from './PatientCard';
 import { Calendar, UserRound, Stethoscope, DollarSign, Clock, Plus, CheckCircle2, Circle, Building2, CreditCard, MapPin, Pencil, Save, X, AlertTriangle, Baby, User, Phone, Mail, FileText, Contact, ArrowRightLeft } from 'lucide-react';
+
 
 const OTHER_PROCEDURE = '__outro__';
 
