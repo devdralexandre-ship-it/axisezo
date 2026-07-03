@@ -65,7 +65,14 @@ export function PipelineDashboard() {
   const [procedureFilter, setProcedureFilter] = useState('all');
   const [patientTypeFilter, setPatientTypeFilter] = useState('all');
   const [surgicalApproachFilter, setSurgicalApproachFilter] = useState('all');
+  const [payerFilter, setPayerFilter] = useState('all');
+  const [billingTypeFilter, setBillingTypeFilter] = useState('all');
+  const [hospitalFilter, setHospitalFilter] = useState('all');
+  const [indicationSourceFilter, setIndicationSourceFilter] = useState('all');
+  const [indicationFrom, setIndicationFrom] = useState('');
+  const [indicationTo, setIndicationTo] = useState('');
   const [slaFilter, setSlaFilter] = useState<'all' | 'breached' | 'escalated'>('all');
+
   const [readNotifications, setReadNotifications] = useState<Set<string>>(new Set());
 
   const [lossDialogOpen, setLossDialogOpen] = useState(false);
@@ -126,6 +133,16 @@ export function PipelineDashboard() {
       if (procedureFilter !== 'all' && p.procedure !== procedureFilter) return false;
       if (patientTypeFilter !== 'all' && p.patientType !== patientTypeFilter) return false;
       if (surgicalApproachFilter !== 'all' && p.surgicalApproach !== surgicalApproachFilter) return false;
+      if (payerFilter !== 'all' && p.payer !== payerFilter) return false;
+      if (billingTypeFilter !== 'all' && p.billingType !== billingTypeFilter) return false;
+      if (hospitalFilter !== 'all' && p.desiredHospital !== hospitalFilter) return false;
+      if (indicationSourceFilter !== 'all' && p.indicationLocation !== indicationSourceFilter) return false;
+      if (indicationFrom || indicationTo) {
+        const ref = p.indicationDate || p.createdAt;
+        if (!ref) return false;
+        if (indicationFrom && ref < indicationFrom) return false;
+        if (indicationTo && ref > indicationTo) return false;
+      }
       if (slaFilter !== 'all') {
         const states = p.tasks.filter(t => !t.completed).map(getTaskSlaState);
         if (slaFilter === 'breached' && !states.some(s => s === 'breached' || s === 'escalated')) return false;
@@ -133,7 +150,8 @@ export function PipelineDashboard() {
       }
       return true;
     });
-  }, [patients, search, surgeonFilter, conciergeFilter, procedureFilter, patientTypeFilter, surgicalApproachFilter, slaFilter]);
+  }, [patients, search, surgeonFilter, conciergeFilter, procedureFilter, patientTypeFilter, surgicalApproachFilter, payerFilter, billingTypeFilter, hospitalFilter, indicationSourceFilter, indicationFrom, indicationTo, slaFilter]);
+
 
   const activeFiltered = filtered.filter((p) => p.stage !== 'lost');
   // BUG 1 FIX: Use estimatedValue OR medicalFees as fallback for pipeline total
@@ -626,7 +644,26 @@ export function PipelineDashboard() {
           procedure={procedureFilter} onProcedureChange={setProcedureFilter}
           patientType={patientTypeFilter} onPatientTypeChange={setPatientTypeFilter}
           surgicalApproach={surgicalApproachFilter} onSurgicalApproachChange={setSurgicalApproachFilter}
+          payer={payerFilter} onPayerChange={setPayerFilter}
+          billingType={billingTypeFilter} onBillingTypeChange={setBillingTypeFilter}
+          hospital={hospitalFilter} onHospitalChange={setHospitalFilter}
+          indicationSource={indicationSourceFilter} onIndicationSourceChange={setIndicationSourceFilter}
+          indicationFrom={indicationFrom} onIndicationFromChange={setIndicationFrom}
+          indicationTo={indicationTo} onIndicationToChange={setIndicationTo}
+          hasActiveFilters={
+            !!search || surgeonFilter !== 'all' || conciergeFilter !== 'all' || procedureFilter !== 'all' ||
+            patientTypeFilter !== 'all' || surgicalApproachFilter !== 'all' || payerFilter !== 'all' ||
+            billingTypeFilter !== 'all' || hospitalFilter !== 'all' || indicationSourceFilter !== 'all' ||
+            !!indicationFrom || !!indicationTo
+          }
+          onClearAll={() => {
+            setSearch(''); setSurgeonFilter('all'); setConciergeFilter('all'); setProcedureFilter('all');
+            setPatientTypeFilter('all'); setSurgicalApproachFilter('all'); setPayerFilter('all');
+            setBillingTypeFilter('all'); setHospitalFilter('all'); setIndicationSourceFilter('all');
+            setIndicationFrom(''); setIndicationTo('');
+          }}
         />
+
       </header>
 
       {/* Mobile briefing banner — replaces the auto-open dialog on phones */}

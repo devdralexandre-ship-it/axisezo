@@ -12,7 +12,9 @@ import { PatientDocuments } from './PatientDocuments';
 import { PatientUploads } from './PatientUploads';
 import { PatientOrientations } from './PatientOrientations';
 import { ProcedureCombobox } from './ProcedureCombobox';
+import { PatientFlags } from './PatientCard';
 import { Calendar, UserRound, Stethoscope, DollarSign, Clock, Plus, CheckCircle2, Circle, Building2, CreditCard, MapPin, Pencil, Save, X, AlertTriangle, Baby, User, Phone, Mail, FileText, Contact, ArrowRightLeft } from 'lucide-react';
+
 
 const OTHER_PROCEDURE = '__outro__';
 
@@ -94,9 +96,13 @@ export function PatientPanel({ patient, open, onClose, onCompleteTask, onAddTask
       custom_indication: isKnownIndication(indVal) ? '' : indVal,
       notes: patient.notes || '',
       alerts: patient.alerts || '',
+      clinically_sensitive: patient.clinicallySensitive,
+      high_risk: patient.highRisk,
+      high_ticket: patient.highTicket,
     });
     setEditing(true);
   };
+
 
   const saveEditing = () => {
     const fields: Record<string, any> = { ...editData };
@@ -171,9 +177,13 @@ export function PatientPanel({ patient, open, onClose, onCompleteTask, onAddTask
         <SheetHeader className="p-6 pb-4 border-b border-border">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <SheetTitle className="text-lg">{patient.name}</SheetTitle>
+              <SheetTitle className="text-lg flex items-center gap-2">
+                <span className="truncate">{patient.name}</span>
+                <PatientFlags patient={patient} size="md" />
+              </SheetTitle>
               <div className="flex items-center gap-2 mt-1">
                 <p className="text-sm text-muted-foreground">{patient.procedure}</p>
+
                 {patient.surgicalApproach && (
                   <Badge variant="outline" className="text-[10px]">{patient.surgicalApproach}</Badge>
                 )}
@@ -512,7 +522,27 @@ export function PatientPanel({ patient, open, onClose, onCompleteTask, onAddTask
                 <label className="text-xs font-semibold text-muted-foreground">Observações</label>
                 <Textarea value={editData.notes} onChange={(e) => setEditData({ ...editData, notes: e.target.value })} rows={3} />
               </div>
+              <div className="space-y-2 p-3 rounded-lg bg-muted/30 border border-border">
+
+                <label className="text-xs font-semibold text-muted-foreground">Sinalizadores</label>
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input type="checkbox" checked={!!editData.clinically_sensitive} onChange={(e) => setEditData({ ...editData, clinically_sensitive: e.target.checked })} className="h-4 w-4" />
+                  <span className="font-bold text-destructive">*</span>
+                  <span>Clinicamente sensível</span>
+                </label>
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input type="checkbox" checked={!!editData.high_risk} onChange={(e) => setEditData({ ...editData, high_risk: e.target.checked })} className="h-4 w-4" />
+                  <span className="font-bold text-destructive">**</span>
+                  <span>Altíssimo risco</span>
+                </label>
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input type="checkbox" checked={!!editData.high_ticket} onChange={(e) => setEditData({ ...editData, high_ticket: e.target.checked })} className="h-4 w-4" />
+                  <span className="text-pipeline-amber">★</span>
+                  <span>Alto ticket</span>
+                </label>
+              </div>
             </div>
+
           ) : (
             <>
               {/* Info Grid */}

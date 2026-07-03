@@ -224,7 +224,12 @@ export interface Patient {
   procedureCodes: { main: { code: string; label: string } | null; extras: { code: string; label: string }[] };
   surgeryDate: string | null;
   surgeryTime: string | null;
+  clinicallySensitive: boolean;
+  highRisk: boolean;
+  highTicket: boolean;
+  updatedAt: string | null;
 }
+
 
 export function getDaysSinceIndication(p: Patient): number {
   const ref = p.indicationDate || p.createdAt;

@@ -106,6 +106,11 @@ function mapDbToPatient(db: DbPatient): Patient {
       : { main: null, extras: [] },
     surgeryDate: (db as any).surgery_date ?? null,
     surgeryTime: (db as any).surgery_time ? String((db as any).surgery_time).substring(0, 5) : null,
+    clinicallySensitive: !!(db as any).clinically_sensitive,
+    highRisk: !!(db as any).high_risk,
+    highTicket: !!(db as any).high_ticket,
+    updatedAt: (db as any).updated_at ?? null,
+
   };
 }
 
@@ -207,7 +212,11 @@ export function useAddPatient() {
         surgical_approach: p.surgicalApproach,
         laterality: (p as any).laterality || null,
         procedure_codes: p.procedureCodes ?? { main: null, extras: [] },
+        clinically_sensitive: !!(p as any).clinicallySensitive,
+        high_risk: !!(p as any).highRisk,
+        high_ticket: !!(p as any).highTicket,
       };
+
 
       if (userIdSnapshot) insertPayload.assigned_user_ids = [userIdSnapshot];
 

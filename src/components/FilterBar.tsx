@@ -1,9 +1,10 @@
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Search, X } from 'lucide-react';
 import { PROCEDURES } from '@/data/constants';
 import { PATIENT_TYPE_LABELS } from '@/data/constants';
-import { SURGICAL_APPROACHES, SURGEONS, CONCIERGES } from '@/data/constants';
+import { SURGICAL_APPROACHES, SURGEONS, CONCIERGES, PAYERS, BILLING_TYPES, HOSPITALS, INDICATION_SOURCES } from '@/data/constants';
 
 interface FilterBarProps {
   search: string;
@@ -18,6 +19,20 @@ interface FilterBarProps {
   onPatientTypeChange: (v: string) => void;
   surgicalApproach: string;
   onSurgicalApproachChange: (v: string) => void;
+  payer: string;
+  onPayerChange: (v: string) => void;
+  billingType: string;
+  onBillingTypeChange: (v: string) => void;
+  hospital: string;
+  onHospitalChange: (v: string) => void;
+  indicationSource: string;
+  onIndicationSourceChange: (v: string) => void;
+  indicationFrom: string;
+  onIndicationFromChange: (v: string) => void;
+  indicationTo: string;
+  onIndicationToChange: (v: string) => void;
+  onClearAll: () => void;
+  hasActiveFilters: boolean;
 }
 
 export function FilterBar({
@@ -27,72 +42,116 @@ export function FilterBar({
   procedure, onProcedureChange,
   patientType, onPatientTypeChange,
   surgicalApproach, onSurgicalApproachChange,
+  payer, onPayerChange,
+  billingType, onBillingTypeChange,
+  hospital, onHospitalChange,
+  indicationSource, onIndicationSourceChange,
+  indicationFrom, onIndicationFromChange,
+  indicationTo, onIndicationToChange,
+  onClearAll, hasActiveFilters,
 }: FilterBarProps) {
   return (
-    <div className="flex flex-wrap items-center gap-3">
-      <div className="relative flex-1 min-w-[200px] max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Buscar paciente..."
-          value={search}
-          onChange={(e) => onSearchChange(e.target.value)}
-          className="pl-9"
-        />
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative flex-1 min-w-[200px] max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar paciente..."
+            value={search}
+            onChange={(e) => onSearchChange(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <Select value={surgeon} onValueChange={onSurgeonChange}>
+          <SelectTrigger className="w-[170px]"><SelectValue placeholder="Cirurgião" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos cirurgiões</SelectItem>
+            {SURGEONS.map((s) => (<SelectItem key={s} value={s}>{s}</SelectItem>))}
+          </SelectContent>
+        </Select>
+        <Select value={concierge} onValueChange={onConciergeChange}>
+          <SelectTrigger className="w-[130px]"><SelectValue placeholder="Concierge" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos</SelectItem>
+            {CONCIERGES.map((c) => (<SelectItem key={c} value={c}>{c}</SelectItem>))}
+          </SelectContent>
+        </Select>
+        <Select value={procedure} onValueChange={onProcedureChange}>
+          <SelectTrigger className="w-[190px]"><SelectValue placeholder="Procedimento" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos procedimentos</SelectItem>
+            {PROCEDURES.map((p) => (<SelectItem key={p} value={p}>{p}</SelectItem>))}
+          </SelectContent>
+        </Select>
+        <Select value={patientType} onValueChange={onPatientTypeChange}>
+          <SelectTrigger className="w-[120px]"><SelectValue placeholder="Tipo" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos tipos</SelectItem>
+            <SelectItem value="adult">{PATIENT_TYPE_LABELS.adult}</SelectItem>
+            <SelectItem value="pediatric">{PATIENT_TYPE_LABELS.pediatric}</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={surgicalApproach} onValueChange={onSurgicalApproachChange}>
+          <SelectTrigger className="w-[140px]"><SelectValue placeholder="Via cirúrgica" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas vias</SelectItem>
+            {SURGICAL_APPROACHES.map((a) => (<SelectItem key={a} value={a}>{a}</SelectItem>))}
+          </SelectContent>
+        </Select>
       </div>
-      <Select value={surgeon} onValueChange={onSurgeonChange}>
-        <SelectTrigger className="w-[180px]">
-          <SelectValue placeholder="Cirurgião" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Todos cirurgiões</SelectItem>
-          {SURGEONS.map((s) => (
-            <SelectItem key={s} value={s}>{s}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <Select value={concierge} onValueChange={onConciergeChange}>
-        <SelectTrigger className="w-[140px]">
-          <SelectValue placeholder="Concierge" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Todos</SelectItem>
-          {CONCIERGES.map((c) => (
-            <SelectItem key={c} value={c}>{c}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <Select value={procedure} onValueChange={onProcedureChange}>
-        <SelectTrigger className="w-[200px]">
-          <SelectValue placeholder="Procedimento" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Todos procedimentos</SelectItem>
-          {PROCEDURES.map((p) => (
-            <SelectItem key={p} value={p}>{p}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <Select value={patientType} onValueChange={onPatientTypeChange}>
-        <SelectTrigger className="w-[130px]">
-          <SelectValue placeholder="Tipo" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Todos tipos</SelectItem>
-          <SelectItem value="adult">{PATIENT_TYPE_LABELS.adult}</SelectItem>
-          <SelectItem value="pediatric">{PATIENT_TYPE_LABELS.pediatric}</SelectItem>
-        </SelectContent>
-      </Select>
-      <Select value={surgicalApproach} onValueChange={onSurgicalApproachChange}>
-        <SelectTrigger className="w-[150px]">
-          <SelectValue placeholder="Via cirúrgica" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Todas vias</SelectItem>
-          {SURGICAL_APPROACHES.map((a) => (
-            <SelectItem key={a} value={a}>{a}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <div className="flex flex-wrap items-center gap-2">
+        <Select value={payer} onValueChange={onPayerChange}>
+          <SelectTrigger className="w-[160px]"><SelectValue placeholder="Convênio" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos convênios</SelectItem>
+            {PAYERS.map((p) => (<SelectItem key={p} value={p}>{p}</SelectItem>))}
+          </SelectContent>
+        </Select>
+        <Select value={billingType} onValueChange={onBillingTypeChange}>
+          <SelectTrigger className="w-[200px]"><SelectValue placeholder="Faturamento" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos faturamentos</SelectItem>
+            {BILLING_TYPES.map((b) => (<SelectItem key={b} value={b}>{b}</SelectItem>))}
+          </SelectContent>
+        </Select>
+        <Select value={hospital} onValueChange={onHospitalChange}>
+          <SelectTrigger className="w-[180px]"><SelectValue placeholder="Hospital" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos hospitais</SelectItem>
+            {HOSPITALS.map((h) => (<SelectItem key={h} value={h}>{h}</SelectItem>))}
+          </SelectContent>
+        </Select>
+        <Select value={indicationSource} onValueChange={onIndicationSourceChange}>
+          <SelectTrigger className="w-[170px]"><SelectValue placeholder="Origem" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas origens</SelectItem>
+            {INDICATION_SOURCES.map((s) => (<SelectItem key={s} value={s}>{s}</SelectItem>))}
+          </SelectContent>
+        </Select>
+        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+          <span>Indicação:</span>
+          <Input
+            type="date"
+            value={indicationFrom}
+            onChange={(e) => onIndicationFromChange(e.target.value)}
+            className="h-9 w-[140px]"
+            title="Data de indicação — de"
+          />
+          <span>até</span>
+          <Input
+            type="date"
+            value={indicationTo}
+            onChange={(e) => onIndicationToChange(e.target.value)}
+            className="h-9 w-[140px]"
+            title="Data de indicação — até"
+          />
+        </div>
+        {hasActiveFilters && (
+          <Button variant="ghost" size="sm" className="h-9 text-xs" onClick={onClearAll}>
+            <X className="h-3.5 w-3.5 mr-1" /> Limpar filtros
+          </Button>
+        )}
+      </div>
     </div>
   );
 }

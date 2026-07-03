@@ -23,11 +23,11 @@ interface PatientCardProps {
   onClick: (patient: Patient) => void;
   onCompleteTask: (patientId: string, taskId: string) => void;
   onDelete?: (patientId: string) => void;
-  /** ISO timestamp — patients created after this are flagged "Novo" */
+  /** Kept for backward compat; the "Novo" badge now derives from updatedAt vs createdAt. */
   newSinceIso?: string | null;
 }
 
-export function PatientCard({ patient, onClick, onCompleteTask, onDelete, newSinceIso }: PatientCardProps) {
+export function PatientCard({ patient, onClick, onCompleteTask, onDelete }: PatientCardProps) {
   const nextTask = getNextPendingTask(patient);
   const urgency = getTaskUrgency(nextTask);
   const daysInStage = getDaysInStage(patient.stageEnteredAt);
@@ -40,10 +40,14 @@ export function PatientCard({ patient, onClick, onCompleteTask, onDelete, newSin
     return s === 'breached' || s === 'escalated' ? n + 1 : n;
   }, 0);
 
-  // "Novo" badge: patient created after the user's reference timestamp
+  // "Novo": stays until the patient record is modified for the first time.
+  // We compare updated_at vs created_at (with a 5s tolerance to absorb the
+  // trigger firing during the initial INSERT+related-rows workflow).
   const createdMs = patient.createdAt ? new Date(patient.createdAt + 'T00:00:00').getTime() : 0;
-  const sinceMs = newSinceIso ? new Date(newSinceIso).getTime() : Date.now() - 24 * 3600 * 1000;
-  const isNew = createdMs > 0 && createdMs >= sinceMs;
+  const updatedMs = patient.updatedAt ? new Date(patient.updatedAt).getTime() : 0;
+  const createdIsoMs = (patient as any).createdAt ? new Date((patient as any).createdAt).getTime() : createdMs;
+  const isNew = createdMs > 0 && (!updatedMs || Math.abs(updatedMs - Math.max(createdMs, createdIsoMs)) < 5000);
+
 
   const formatCurrency = (value: number | null) => {
     if (value === null) return '—';
@@ -81,7 +85,9 @@ export function PatientCard({ patient, onClick, onCompleteTask, onDelete, newSin
               </AvatarFallback>
             </Avatar>
             <h4 className="font-semibold text-sm text-foreground leading-tight truncate">{patient.name}</h4>
+            <PatientFlags patient={patient} />
           </div>
+
           <div className="flex items-center gap-1 shrink-0">
             {onDelete && (
               <DropdownMenu>
@@ -210,3 +216,21 @@ export function PatientCard({ patient, onClick, onCompleteTask, onDelete, newSin
     </Card>
   );
 }
+
+export function PatientFlags({ patient, size = 'sm' }: { patient: Patient; size?: 'sm' | 'md' }) {
+  if (!patient.clinicallySensitive && !patient.highRisk && !patient.highTicket) return null;
+  const base = size === 'md' ? 'text-sm' : 'text-xs';
+  return (
+    <span className="flex items-center gap-0.5 shrink-0 leading-none">
+      {patient.highRisk ? (
+        <span title="Altíssimo risco clínico" className={`${base} font-bold text-destructive`}>**</span>
+      ) : patient.clinicallySensitive ? (
+        <span title="Clinicamente sensível" className={`${base} font-bold text-destructive`}>*</span>
+      ) : null}
+      {patient.highTicket && (
+        <span title="Alto ticket" className={`${base} text-pipeline-amber`}>★</span>
+      )}
+    </span>
+  );
+}
+

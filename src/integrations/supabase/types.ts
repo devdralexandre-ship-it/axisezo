@@ -427,12 +427,15 @@ export type Database = {
           anesthesia_fees: number | null
           assigned_user_ids: string[]
           billing_type: string | null
+          clinically_sensitive: boolean
           concierge: string
           created_at: string
           decision_status: Database["public"]["Enums"]["decision_status"]
           desired_hospital: string | null
           email: string | null
           estimated_value: number | null
+          high_risk: boolean
+          high_ticket: boolean
           hospital_budget: number | null
           id: string
           indication_date: string | null
@@ -468,12 +471,15 @@ export type Database = {
           anesthesia_fees?: number | null
           assigned_user_ids?: string[]
           billing_type?: string | null
+          clinically_sensitive?: boolean
           concierge?: string
           created_at?: string
           decision_status?: Database["public"]["Enums"]["decision_status"]
           desired_hospital?: string | null
           email?: string | null
           estimated_value?: number | null
+          high_risk?: boolean
+          high_ticket?: boolean
           hospital_budget?: number | null
           id?: string
           indication_date?: string | null
@@ -509,12 +515,15 @@ export type Database = {
           anesthesia_fees?: number | null
           assigned_user_ids?: string[]
           billing_type?: string | null
+          clinically_sensitive?: boolean
           concierge?: string
           created_at?: string
           decision_status?: Database["public"]["Enums"]["decision_status"]
           desired_hospital?: string | null
           email?: string | null
           estimated_value?: number | null
+          high_risk?: boolean
+          high_ticket?: boolean
           hospital_budget?: number | null
           id?: string
           indication_date?: string | null
