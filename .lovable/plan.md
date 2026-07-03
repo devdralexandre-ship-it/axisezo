@@ -1,34 +1,82 @@
-# Busca insensível a acentos
+# Novos filtros, badges e sinalizador "Novo"
 
-Hoje "Joao" não encontra "João" (e vice-versa) porque os filtros usam apenas `toLowerCase().includes()`, sem normalizar diacríticos.
+## 1. Novos filtros no Kanban
 
-## Correção
+Adicionar 5 novos filtros na `FilterBar`, ao lado dos existentes:
 
-Criar helper `normalizeText(s)` em `src/lib/utils.ts`:
+- **Convênio** (`payer`)
+- **Tipo de faturamento** (`billingType`)
+- **Hospital desejado** (`desiredHospital`)
+- **Origem/Indicação** (reutiliza `indicationLocation`)
+- **Data de indicação** (`indicationDate`) — range com dois date pickers ("De" / "Até")
 
-```ts
-export function normalizeText(s: string | null | undefined) {
-  return (s ?? '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .trim();
-}
+Todos como `Select` (exceto data) com opção "Todos". Listas vindas de `src/data/constants.ts` (adicionar `PAYERS`, `BILLING_TYPES`, `HOSPITALS`, `INDICATION_SOURCES` se ainda não existirem — verificar e reutilizar).
+
+Integração em `PipelineDashboard.tsx`: novos estados + predicados no `useMemo` de filtragem. Filtros compactados em segunda linha para não estourar largura; considerar botão "Limpar filtros" quando qualquer filtro estiver ativo.
+
+## 2. Badges de sinalização no paciente
+
+Três flags booleanas independentes, editáveis:
+
+| Campo | Ícone | Cor | Tooltip |
+|---|---|---|---|
+| `clinicallySensitive` | `*` | vermelho (destructive) | "Clinicamente sensível" |
+| `highRisk` | `**` | vermelho intenso | "Altíssimo risco" |
+| `highTicket` | `★` | âmbar/gold | "Alto ticket" |
+
+**Onde editar:**
+- `AddPatientForm.tsx` — nova seção "Sinalizadores" com 3 checkboxes.
+- `PatientPanel.tsx` — mesmos 3 checkboxes no cabeçalho ou aba principal, editáveis a qualquer momento.
+
+**Onde exibir:**
+- `PatientCard.tsx` — sempre visíveis ao lado do nome (linha de badges compacta).
+- `PatientPanel.tsx` — badges destacados no topo.
+
+## 3. Badge "Novo" persistente
+
+Mudar a regra atual (24h) para: **o badge permanece até qualquer edição do registro do paciente**.
+
+Implementação: comparar `patient.updatedAt` com `patient.createdAt`. Se forem iguais (ou diferença < X segundos para tolerar o insert inicial), mostrar "✨ Novo". Qualquer save/mutation atualiza `updatedAt` e o badge some.
+
+- Remover a lógica `newSinceIso` de `PatientCard`.
+- Garantir que todas as mutations (mudança de stage, edição de campos, conclusão de tarefa, adição de contato, etc.) atualizem `updatedAt` — trigger no banco ou no hook `usePatients`.
+
+## Detalhes técnicos
+
+### Banco (migration)
+
+```sql
+ALTER TABLE public.patients
+  ADD COLUMN IF NOT EXISTS clinically_sensitive boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS high_risk boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS high_ticket boolean NOT NULL DEFAULT false;
+
+-- Trigger update_updated_at_column já existe; garantir que está attachada a public.patients
 ```
 
-Aplicar em todos os pontos de busca por digitação:
+### Tipos
 
-1. **`src/components/PipelineDashboard.tsx`** (linha 119) — filtro do Kanban por nome/procedimento.
-2. **`src/components/TaskFormFields.tsx`** (linha 92) — sugestões de título de ação.
-3. **`src/components/CodeAutocomplete.tsx`** (linhas 69–72) — sugestões CBHPM/TUSS por código e rótulo.
-4. **`src/components/ProcedureCombobox.tsx`** — passar `keywords={[normalizeText(p)]}` em cada `CommandItem` para que o filtro interno do `cmdk` também ignore acentos ao buscar procedimentos.
-5. **`src/pages/AdminDuplicates.tsx`** — normalizar nomes ao agrupar duplicatas (opcional mas coerente: "João" e "Joao" viram o mesmo grupo). Confirmar com o usuário se quer isso ou apenas na busca.
+Adicionar ao `Patient` em `src/data/types.ts`:
+```ts
+clinicallySensitive: boolean;
+highRisk: boolean;
+highTicket: boolean;
+updatedAt: string; // já vem do banco
+```
 
-## Fora de escopo
+### Arquivos afetados
 
-- Buscas server-side no Supabase (não há nenhuma dependendo de acento hoje).
-- Alterações em labels/UI.
+- `supabase/migrations/*` (novo) — 3 colunas booleanas
+- `src/data/types.ts` — novos campos
+- `src/data/constants.ts` — listas fixas de payer/billing/hospital/origem (verificar existentes)
+- `src/hooks/usePatients.ts` — mapear novos campos, garantir touch em `updatedAt`
+- `src/components/FilterBar.tsx` — 5 novos filtros
+- `src/components/PipelineDashboard.tsx` — estados + predicados + reset
+- `src/components/AddPatientForm.tsx` — checkboxes de sinalizadores
+- `src/components/PatientPanel.tsx` — checkboxes editáveis + badges no header
+- `src/components/PatientCard.tsx` — renderizar badges (*, **, ★) e nova lógica do "Novo"
 
-## Pergunta ao usuário
+## Fora do escopo
 
-Aplicar a normalização também na detecção de duplicatas (item 5) ou apenas nos campos de busca?
+- Cálculo automático de "alto ticket" por valor (usuário optou por manual).
+- Novos campos de origem além do `indicationLocation`.
