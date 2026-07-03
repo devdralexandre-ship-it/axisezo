@@ -187,7 +187,9 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
     setMainCbhpm({ code: '', label: '' });
     setExtraCbhpm([]);
     setPendingUploads([]); setUploadCategory('exame');
+    setClinicallySensitive(false); setHighRisk(false); setHighTicket(false);
   };
+
 
   const handleSubmit = async () => {
     const trimmedName = name.trim();
