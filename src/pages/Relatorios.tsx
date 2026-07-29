@@ -481,26 +481,26 @@ export default function Relatorios() {
                 </Button>
               </div>
               {convenioList.length === 0 ? (
-                <div className="text-sm text-muted-foreground py-4 text-center">Sem convênios no recorte</div>
+                <div className="text-sm text-muted-foreground py-4 text-center">Nenhum paciente de convênio no filtro atual</div>
               ) : (
                 <>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <div className="rounded border border-border p-3">
-                      <div className="text-xs text-muted-foreground">Conversão</div>
+                      <div className="text-xs text-muted-foreground">% que viraram cirurgia</div>
                       <div className="text-2xl font-bold">{convAll.pct}%</div>
-                      <div className="text-[10px] text-muted-foreground mt-1">{convAll.realizadas}/{convAll.denom} realizadas</div>
+                      <div className="text-[10px] text-muted-foreground mt-1">{convAll.realizadas} operados de {convAll.denom} casos fechados</div>
                     </div>
                     <div className="rounded border border-border p-3">
-                      <div className="text-xs text-muted-foreground">Em andamento</div>
+                      <div className="text-xs text-muted-foreground">Ainda em acompanhamento</div>
                       <div className="text-2xl font-bold">{convAll.emAndamento}</div>
                     </div>
                     <div className="rounded border border-border p-3">
-                      <div className="text-xs text-muted-foreground">Realizadas</div>
+                      <div className="text-xs text-muted-foreground">Operados</div>
                       <div className="text-2xl font-bold text-[hsl(var(--pipeline-green))]">{convAll.realizadas}</div>
                     </div>
                     {canSeeFinancials && (
                       <div className="rounded border border-border p-3">
-                        <div className="text-xs text-muted-foreground">Ticket realizado</div>
+                        <div className="text-xs text-muted-foreground">Valor médio por cirurgia</div>
                         <div className="text-2xl font-bold">{fmtCurrency(convAll.ticketRealizadas)}</div>
                       </div>
                     )}
@@ -512,17 +512,17 @@ export default function Relatorios() {
                           <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
                           <XAxis type="number" fontSize={11} />
                           <YAxis dataKey="name" type="category" fontSize={11} width={140} />
-                          <Tooltip contentStyle={{ fontSize: 12 }} formatter={(v: any, k: any) => k === 'pct' ? [`${v}%`, 'Conversão'] : [v, k]} />
+                          <Tooltip contentStyle={{ fontSize: 12 }} formatter={(v: any, k: any) => k === 'pct' ? [`${v}%`, '% viraram cirurgia'] : [v, k]} />
                           <Legend wrapperStyle={{ fontSize: 11 }} />
-                          <Bar dataKey="total" fill="hsl(var(--primary))" name="Total" />
-                          <Bar dataKey="pct" fill="hsl(var(--pipeline-green))" name="Conversão (%)" />
+                          <Bar dataKey="total" fill="hsl(var(--primary))" name="Total de pacientes" />
+                          <Bar dataKey="pct" fill="hsl(var(--pipeline-green))" name="% viraram cirurgia" />
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
                   )}
                   {convLossReasons.length > 0 && (
                     <div className="mt-3 border-t border-border pt-3">
-                      <div className="text-xs font-medium mb-2">Principais motivos de perda</div>
+                      <div className="text-xs font-medium mb-2">Por que perdemos esses pacientes</div>
                       <ul className="text-xs space-y-1">
                         {convLossReasons.sort((a, b) => b.value - a.value).slice(0, 5).map(r => (
                           <li key={r.name} className="flex items-center justify-between">
@@ -541,41 +541,42 @@ export default function Relatorios() {
             <Card className="p-4">
               <div className="flex items-center justify-between mb-3">
                 <div>
-                  <h3 className="text-sm font-semibold">SLA orçamento — Particulares (24h)</h3>
+                  <h3 className="text-sm font-semibold">Orçamento enviado em até 24h — Particulares</h3>
                   <p className="text-[11px] text-muted-foreground">
-                    Considera o primeiro orçamento (preliminar) anexado no Axis, independentemente de quantos hospitais foram selecionados.
+                    Conta se o primeiro orçamento (preliminar) foi anexado no Axis em menos de 24h após o cadastro. Não importa quantos hospitais foram escolhidos.
                   </p>
                 </div>
-                <Button variant="ghost" size="sm" onClick={exportSla}>
-                  <Download className="h-3.5 w-3.5" />CSV
+                <Button variant="ghost" size="sm" onClick={exportSla} title="Baixar este bloco em planilha">
+                  <Download className="h-3.5 w-3.5" />Planilha
                 </Button>
               </div>
               {particularesTotal === 0 ? (
-                <div className="text-sm text-muted-foreground py-4 text-center">Sem pacientes particulares no período</div>
+                <div className="text-sm text-muted-foreground py-4 text-center">Nenhum paciente particular no período</div>
               ) : (
                 <>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <div className="rounded border border-border p-3">
-                      <div className="text-xs text-muted-foreground">Aderência</div>
+                      <div className="text-xs text-muted-foreground">% enviados no prazo</div>
                       <div className="text-2xl font-bold">{particularesSlaPct}%</div>
-                      <div className="text-[10px] text-muted-foreground mt-1">{particularesOnTime}/{particularesResolved} anexados a tempo</div>
+                      <div className="text-[10px] text-muted-foreground mt-1">{particularesOnTime} de {particularesResolved} entregues em até 24h</div>
                     </div>
                     <div className="rounded border border-border p-3">
-                      <div className="text-xs text-muted-foreground">No prazo</div>
+                      <div className="text-xs text-muted-foreground">Dentro do prazo</div>
                       <div className="text-2xl font-bold text-[hsl(var(--pipeline-green))]">{particularesOnTime}</div>
                     </div>
                     <div className="rounded border border-border p-3">
-                      <div className="text-xs text-muted-foreground">Estourados</div>
+                      <div className="text-xs text-muted-foreground">Atrasados</div>
                       <div className="text-2xl font-bold text-destructive">{particularesBreached}</div>
                     </div>
                     <div className="rounded border border-border p-3">
-                      <div className="text-xs text-muted-foreground">Pendentes (dentro)</div>
+                      <div className="text-xs text-muted-foreground">Ainda dentro do prazo</div>
                       <div className="text-2xl font-bold">{particularesPendingOk}</div>
+                      <div className="text-[10px] text-muted-foreground mt-1">Sem orçamento, mas as 24h não venceram</div>
                     </div>
                   </div>
                   {particularesBreached > 0 && (
                     <div className="mt-3 border-t border-border pt-3">
-                      <div className="text-xs font-medium mb-2">Pacientes com SLA estourado</div>
+                      <div className="text-xs font-medium mb-2">Pacientes com orçamento atrasado</div>
                       <ul className="space-y-1 max-h-48 overflow-auto">
                         {budgetSla
                           .filter(b => b.status === 'late' || b.status === 'pending_breached')
@@ -584,11 +585,11 @@ export default function Relatorios() {
                               <Link to={`/?patient=${b.patient.id}`} className="hover:underline truncate">
                                 {b.patient.name}
                                 {b.hoursToFirst != null && (
-                                  <span className="ml-2 text-muted-foreground">— anexado em {b.hoursToFirst.toFixed(1)}h</span>
+                                  <span className="ml-2 text-muted-foreground">— enviado em {b.hoursToFirst.toFixed(1)}h</span>
                                 )}
                               </Link>
                               <Badge variant={b.status === 'late' ? 'secondary' : 'destructive'} className="text-[10px]">
-                                {b.status === 'late' ? 'Anexado fora do prazo' : 'Sem orçamento'}
+                                {b.status === 'late' ? 'Enviado fora do prazo' : 'Sem orçamento'}
                               </Badge>
                             </li>
                           ))}
@@ -602,9 +603,12 @@ export default function Relatorios() {
             {/* Funnel */}
             <Card className="p-4">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold">Funil de conversão por estágio</h3>
-                <Button variant="ghost" size="sm" onClick={exportFunil}>
-                  <Download className="h-3.5 w-3.5" />CSV
+                <div>
+                  <h3 className="text-sm font-semibold">Onde estão os pacientes hoje</h3>
+                  <p className="text-[11px] text-muted-foreground">Quantos pacientes existem em cada etapa do processo.</p>
+                </div>
+                <Button variant="ghost" size="sm" onClick={exportFunil} title="Baixar este bloco em planilha">
+                  <Download className="h-3.5 w-3.5" />Planilha
                 </Button>
               </div>
               <div className="h-[360px]">
