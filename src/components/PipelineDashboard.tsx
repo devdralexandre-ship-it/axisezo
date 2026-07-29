@@ -770,7 +770,9 @@ export function PipelineDashboard() {
         );
       })()}
 
-      {isMobile ? (
+      {viewMode === 'table' ? (
+        <PatientsTable patients={filtered} onPatientClick={handlePatientClick} canSeeFinancials={canSeeFinancials} />
+      ) : isMobile ? (
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Stage tabs */}
           <div className="shrink-0 border-b border-border bg-background">
