@@ -319,7 +319,10 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
               </div>
               <div className="space-y-2">
                 <Label>Idade</Label>
-                <Input type="number" inputMode="numeric" value={age} onChange={(e) => setAge(e.target.value)} placeholder="0" className="focus-visible:ring-offset-0" />
+                <div className="flex gap-1.5">
+                  <Input type="number" inputMode="numeric" value={age} onChange={(e) => setAge(e.target.value)} placeholder="anos" className="focus-visible:ring-offset-0" />
+                  <Input type="number" inputMode="numeric" min={0} max={11} value={ageMonths} onChange={(e) => setAgeMonths(e.target.value)} placeholder="meses" className="focus-visible:ring-offset-0 w-20" />
+                </div>
               </div>
             </div>
             {duplicateMatches.length > 0 && (
