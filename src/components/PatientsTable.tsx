@@ -53,7 +53,7 @@ const COLUMNS: Col[] = [
   { key: 'patientType', label: 'Tipo', width: 'w-24', get: (p) => p.patientType || '' },
   { key: 'billingType', label: 'Faturamento', width: 'w-32', get: (p) => p.billingType || '' },
   { key: 'payer', label: 'Convênio', width: 'w-36', get: (p) => p.payer || '' },
-  { key: 'hospital', label: 'Hospital', width: 'w-40', get: (p) => p.desiredHospital || '' },
+  { key: 'hospital', label: 'Hospital', width: 'w-40', get: (p) => (p.desiredHospitals && p.desiredHospitals.length > 0) ? p.desiredHospitals.join(' · ') : (p.desiredHospital || '') },
   { key: 'indicationDate', label: 'Indicação', width: 'w-28', get: (p) => p.indicationDate || '', render: (p) => fmtDate(p.indicationDate) },
   { key: 'daysSinceIndication', label: 'Dias', width: 'w-16', align: 'right', get: (p) => getDaysSinceIndication(p) },
   { key: 'age', label: 'Idade', width: 'w-20', get: () => '', render: ageLabel },

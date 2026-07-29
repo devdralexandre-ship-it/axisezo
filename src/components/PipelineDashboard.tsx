@@ -168,7 +168,12 @@ export function PipelineDashboard() {
       if (surgicalApproachFilter !== 'all' && p.surgicalApproach !== surgicalApproachFilter) return false;
       if (payerFilter !== 'all' && p.payer !== payerFilter) return false;
       if (billingTypeFilter !== 'all' && p.billingType !== billingTypeFilter) return false;
-      if (hospitalFilter !== 'all' && p.desiredHospital !== hospitalFilter) return false;
+      if (hospitalFilter !== 'all') {
+        const list = (p.desiredHospitals && p.desiredHospitals.length > 0)
+          ? p.desiredHospitals
+          : (p.desiredHospital ? [p.desiredHospital] : []);
+        if (!list.includes(hospitalFilter)) return false;
+      }
       if (indicationSourceFilter !== 'all' && p.indicationLocation !== indicationSourceFilter) return false;
       if (indicationFrom || indicationTo) {
         const ref = p.indicationDate || p.createdAt;
