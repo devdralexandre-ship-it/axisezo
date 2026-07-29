@@ -192,6 +192,7 @@ export interface Patient {
   id: string;
   name: string;
   age: number | null;
+  ageMonths?: number | null;
   patientType: string; // 'adult' | 'pediatric'
   procedure: string;
   procedureCategory: string;
