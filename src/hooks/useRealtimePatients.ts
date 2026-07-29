@@ -25,6 +25,8 @@ export function useRealtimePatients() {
   const qc = useQueryClient();
 
   useEffect(() => {
+    let cancelled = false;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
     const pending = new Set<string>();
     let timer: ReturnType<typeof setTimeout> | null = null;
 
