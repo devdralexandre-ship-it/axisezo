@@ -140,7 +140,7 @@ export default function Relatorios() {
 
 
   // Funnel by stage
-  const funnelData = PIPELINE_STAGES.filter(s => s !== 'lost').map((s) => {
+  const funnelData = PIPELINE_STAGES.filter(s => s !== 'lost' && s !== 'surgical_potential').map((s) => {
     const list = inRange.filter(p => p.stage === s);
     return {
       stage: STAGE_LABELS[s],
