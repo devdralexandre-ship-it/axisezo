@@ -628,13 +628,16 @@ export default function Relatorios() {
             <div className="grid md:grid-cols-2 gap-3">
               <Card className="p-4">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-semibold">Perdidos por motivo</h3>
-                  <Button variant="ghost" size="sm" onClick={exportPerdidos}>
-                    <Download className="h-3.5 w-3.5" />CSV
+                  <div>
+                    <h3 className="text-sm font-semibold">Motivos das perdas</h3>
+                    <p className="text-[11px] text-muted-foreground">Por que pacientes deixaram de fazer a cirurgia.</p>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={exportPerdidos} title="Baixar em planilha">
+                    <Download className="h-3.5 w-3.5" />Planilha
                   </Button>
                 </div>
                 {lossData.length === 0 ? (
-                  <div className="text-sm text-muted-foreground py-8 text-center">Sem perdidos no período</div>
+                  <div className="text-sm text-muted-foreground py-8 text-center">Nenhum paciente perdido no período</div>
                 ) : (
                   <div className="h-[260px]">
                     <ResponsiveContainer>
@@ -653,9 +656,12 @@ export default function Relatorios() {
               {canSeeFinancials && (
                 <Card className="p-4">
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-semibold">Receita por convênio</h3>
-                    <Button variant="ghost" size="sm" onClick={exportConveniosReceita}>
-                      <Download className="h-3.5 w-3.5" />CSV
+                    <div>
+                      <h3 className="text-sm font-semibold">Receita por convênio</h3>
+                      <p className="text-[11px] text-muted-foreground">Quanto cada convênio representa em valor.</p>
+                    </div>
+                    <Button variant="ghost" size="sm" onClick={exportConveniosReceita} title="Baixar em planilha">
+                      <Download className="h-3.5 w-3.5" />Planilha
                     </Button>
                   </div>
                   {payerData.length === 0 ? (
@@ -680,9 +686,14 @@ export default function Relatorios() {
             {/* Productivity */}
             <Card className="p-4">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold">Produtividade por concierge</h3>
-                <Button variant="ghost" size="sm" onClick={exportProdutividade}>
-                  <Download className="h-3.5 w-3.5" />CSV
+                <div>
+                  <h3 className="text-sm font-semibold">Trabalho das concierges</h3>
+                  <p className="text-[11px] text-muted-foreground">
+                    Quantos pacientes cada concierge acompanha, quantas ações concluíram e a % de ações no prazo.
+                  </p>
+                </div>
+                <Button variant="ghost" size="sm" onClick={exportProdutividade} title="Baixar em planilha">
+                  <Download className="h-3.5 w-3.5" />Planilha
                 </Button>
               </div>
               {productivityData.length === 0 ? (
@@ -693,13 +704,13 @@ export default function Relatorios() {
                     <BarChart data={productivityData} margin={{ top: 8, right: 12, left: 0, bottom: 4 }}>
                       <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
                       <XAxis dataKey="name" fontSize={11} />
-                      <YAxis yAxisId="count" fontSize={11} label={{ value: 'Volume', angle: -90, position: 'insideLeft', style: { fontSize: 10, fill: 'hsl(var(--muted-foreground))' } }} />
+                      <YAxis yAxisId="count" fontSize={11} label={{ value: 'Quantidade', angle: -90, position: 'insideLeft', style: { fontSize: 10, fill: 'hsl(var(--muted-foreground))' } }} />
                       <YAxis yAxisId="pct" orientation="right" domain={[0, 100]} unit="%" fontSize={11} />
-                      <Tooltip contentStyle={{ fontSize: 12 }} formatter={(v: any, name: any) => name === 'SLA (%)' ? [`${v}%`, name] : [v, name]} />
+                      <Tooltip contentStyle={{ fontSize: 12 }} formatter={(v: any, name: any) => name === '% ações no prazo' ? [`${v}%`, name] : [v, name]} />
                       <Legend wrapperStyle={{ fontSize: 11 }} />
-                      <Bar yAxisId="count" dataKey="pacientes" fill="hsl(var(--primary))" name="Pacientes" radius={[3,3,0,0]} />
+                      <Bar yAxisId="count" dataKey="pacientes" fill="hsl(var(--primary))" name="Pacientes acompanhados" radius={[3,3,0,0]} />
                       <Bar yAxisId="count" dataKey="concluidas" fill="hsl(var(--pipeline-green))" name="Ações concluídas" radius={[3,3,0,0]} />
-                      <Bar yAxisId="pct" dataKey="sla" fill="hsl(var(--pipeline-amber))" name="SLA (%)" radius={[3,3,0,0]} />
+                      <Bar yAxisId="pct" dataKey="sla" fill="hsl(var(--pipeline-amber))" name="% ações no prazo" radius={[3,3,0,0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
