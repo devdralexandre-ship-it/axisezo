@@ -75,6 +75,7 @@ export function PatientPanel({ patient, open, onClose, onCompleteTask, onAddTask
     setEditData({
       name: patient.name,
       age: patient.age,
+      age_months: patient.ageMonths ?? null,
       patient_type: patient.patientType,
       procedure_name: patient.procedure,
       surgical_approach: patient.surgicalApproach,
