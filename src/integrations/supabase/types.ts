@@ -1303,6 +1303,10 @@ export type Database = {
         }
         Returns: string
       }
+      merge_patients: {
+        Args: { _keep: string; _remove: string[] }
+        Returns: undefined
+      }
       set_delegation_mode: { Args: { _mode: string }; Returns: undefined }
       set_signing_certificate:
         | {
