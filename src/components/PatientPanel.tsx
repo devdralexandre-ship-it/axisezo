@@ -75,6 +75,7 @@ export function PatientPanel({ patient, open, onClose, onCompleteTask, onAddTask
     setEditData({
       name: patient.name,
       age: patient.age,
+      age_months: patient.ageMonths ?? null,
       patient_type: patient.patientType,
       procedure_name: patient.procedure,
       surgical_approach: patient.surgicalApproach,
@@ -192,7 +193,14 @@ export function PatientPanel({ patient, open, onClose, onCompleteTask, onAddTask
                 )}
               </div>
               <div className="flex items-center gap-2 mt-1">
-                {patient.age && <span className="text-xs text-muted-foreground">{patient.age} anos</span>}
+                {(patient.age != null || patient.ageMonths != null) && (
+                  <span className="text-xs text-muted-foreground">
+                    {[
+                      patient.age != null ? `${patient.age}a` : null,
+                      patient.ageMonths ? `${patient.ageMonths}m` : null,
+                    ].filter(Boolean).join(' ')}
+                  </span>
+                )}
                 <Badge variant="outline" className="text-[10px]">
                   {patient.patientType === 'pediatric' ? <><Baby className="h-2.5 w-2.5 mr-1" />Pediátrico</> : <><User className="h-2.5 w-2.5 mr-1" />Adulto</>}
                 </Badge>
@@ -355,7 +363,10 @@ export function PatientPanel({ patient, open, onClose, onCompleteTask, onAddTask
             <div className="space-y-4">
               <EditField label="Nome" value={editData.name} onChange={(v) => setEditData({ ...editData, name: v })} />
               <div className="grid grid-cols-2 gap-3">
-                <EditField label="Idade" type="number" value={editData.age || ''} onChange={(v) => setEditData({ ...editData, age: v ? parseInt(v) : null })} />
+                <div className="grid grid-cols-2 gap-2">
+                  <EditField label="Idade (anos)" type="number" value={editData.age || ''} onChange={(v) => setEditData({ ...editData, age: v ? parseInt(v) : null })} />
+                  <EditField label="Meses" type="number" value={editData.age_months || ''} onChange={(v) => setEditData({ ...editData, age_months: v ? parseInt(v) : null })} />
+                </div>
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-muted-foreground">Tipo</label>
                   <Select value={editData.patient_type} onValueChange={(v) => setEditData({ ...editData, patient_type: v })}>

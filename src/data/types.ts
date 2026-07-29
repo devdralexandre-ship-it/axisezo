@@ -47,6 +47,7 @@ export const LOSS_REASONS = [
   'delay',
   'clinical_contraindication',
   'chose_another',
+  'ghost',
   'other',
 ] as const;
 
@@ -57,6 +58,7 @@ export const LOSS_REASON_LABELS: Record<LossReason, string> = {
   delay: 'Demora / Falta de urgência',
   clinical_contraindication: 'Contraindicação clínica',
   chose_another: 'Escolheu outro prestador',
+  ghost: 'Ghost — parou de responder',
   other: 'Outro',
 };
 
@@ -190,6 +192,7 @@ export interface Patient {
   id: string;
   name: string;
   age: number | null;
+  ageMonths?: number | null;
   patientType: string; // 'adult' | 'pediatric'
   procedure: string;
   procedureCategory: string;

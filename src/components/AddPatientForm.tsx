@@ -51,6 +51,7 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
 
   const [name, setName] = useState('');
   const [age, setAge] = useState('');
+  const [ageMonths, setAgeMonths] = useState('');
   const [patientType, setPatientType] = useState('adult');
   const duplicateMatches = useMemo(() => {
     const n = normalizeName(name);
@@ -172,7 +173,7 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
   };
 
   const resetForm = () => {
-    setName(''); setAge(''); setPatientType('adult'); setProcedure(''); setCustomProcedure('');
+    setName(''); setAge(''); setAgeMonths(''); setPatientType('adult'); setProcedure(''); setCustomProcedure('');
     setSurgicalApproach(''); setLaterality('');
     setSurgeon(lockSurgeon ? surgeonName! : '');
     setConcierge(lockConcierge ? conciergeName! : '');
@@ -209,6 +210,7 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
       created = await onAdd({
         name: trimmedName,
         age: age ? parseInt(age) : null,
+        ageMonths: ageMonths ? parseInt(ageMonths) : null,
         patientType,
         procedure: effectiveProcedure,
         procedureCategory: '',
@@ -318,7 +320,10 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
               </div>
               <div className="space-y-2">
                 <Label>Idade</Label>
-                <Input type="number" inputMode="numeric" value={age} onChange={(e) => setAge(e.target.value)} placeholder="0" className="focus-visible:ring-offset-0" />
+                <div className="flex gap-1.5">
+                  <Input type="number" inputMode="numeric" value={age} onChange={(e) => setAge(e.target.value)} placeholder="anos" className="focus-visible:ring-offset-0" />
+                  <Input type="number" inputMode="numeric" min={0} max={11} value={ageMonths} onChange={(e) => setAgeMonths(e.target.value)} placeholder="meses" className="focus-visible:ring-offset-0 w-20" />
+                </div>
               </div>
             </div>
             {duplicateMatches.length > 0 && (

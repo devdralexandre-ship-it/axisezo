@@ -423,6 +423,7 @@ export type Database = {
       patients: {
         Row: {
           age: number | null
+          age_months: number | null
           alerts: string | null
           anesthesia_fees: number | null
           assigned_user_ids: string[]
@@ -467,6 +468,7 @@ export type Database = {
         }
         Insert: {
           age?: number | null
+          age_months?: number | null
           alerts?: string | null
           anesthesia_fees?: number | null
           assigned_user_ids?: string[]
@@ -511,6 +513,7 @@ export type Database = {
         }
         Update: {
           age?: number | null
+          age_months?: number | null
           alerts?: string | null
           anesthesia_fees?: number | null
           assigned_user_ids?: string[]
@@ -1341,6 +1344,7 @@ export type Database = {
         | "clinical_contraindication"
         | "chose_another"
         | "other"
+        | "ghost"
       pipeline_stage:
         | "surgical_potential"
         | "indication"
@@ -1497,6 +1501,7 @@ export const Constants = {
         "clinical_contraindication",
         "chose_another",
         "other",
+        "ghost",
       ],
       pipeline_stage: [
         "surgical_potential",

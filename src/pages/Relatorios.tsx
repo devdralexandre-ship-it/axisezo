@@ -420,15 +420,16 @@ export default function Relatorios() {
               ) : (
                 <div className="h-[300px]">
                   <ResponsiveContainer>
-                    <BarChart data={productivityData}>
+                    <BarChart data={productivityData} margin={{ top: 8, right: 12, left: 0, bottom: 4 }}>
                       <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
                       <XAxis dataKey="name" fontSize={11} />
-                      <YAxis fontSize={11} />
-                      <Tooltip contentStyle={{ fontSize: 12 }} />
+                      <YAxis yAxisId="count" fontSize={11} label={{ value: 'Volume', angle: -90, position: 'insideLeft', style: { fontSize: 10, fill: 'hsl(var(--muted-foreground))' } }} />
+                      <YAxis yAxisId="pct" orientation="right" domain={[0, 100]} unit="%" fontSize={11} />
+                      <Tooltip contentStyle={{ fontSize: 12 }} formatter={(v: any, name: any) => name === 'SLA (%)' ? [`${v}%`, name] : [v, name]} />
                       <Legend wrapperStyle={{ fontSize: 11 }} />
-                      <Bar dataKey="pacientes" fill="hsl(var(--primary))" name="Pacientes" />
-                      <Bar dataKey="concluidas" fill="hsl(var(--pipeline-green))" name="Ações concluídas" />
-                      <Bar dataKey="sla" fill="hsl(var(--pipeline-amber))" name="SLA (%)" />
+                      <Bar yAxisId="count" dataKey="pacientes" fill="hsl(var(--primary))" name="Pacientes" radius={[3,3,0,0]} />
+                      <Bar yAxisId="count" dataKey="concluidas" fill="hsl(var(--pipeline-green))" name="Ações concluídas" radius={[3,3,0,0]} />
+                      <Bar yAxisId="pct" dataKey="sla" fill="hsl(var(--pipeline-amber))" name="SLA (%)" radius={[3,3,0,0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
