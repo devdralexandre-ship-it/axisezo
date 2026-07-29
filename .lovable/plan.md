@@ -1,73 +1,51 @@
-## Objetivo
+## Problema
 
-Em `AdminDuplicates`, adicionar ação **"Unificar no principal"** que reatribui todos os dados relacionados de registros duplicados para um paciente escolhido como principal e depois exclui os duplicados. Os campos do paciente principal permanecem inalterados.
+Ao unificar pacientes, o erro `duplicate key value violates unique constraint "preop_checklist_items_patient_id_item_key_key"` ocorre porque a função `merge_patients` faz `UPDATE ... SET patient_id = _keep` em `preop_checklist_items`, mas existe constraint única em `(patient_id, item_key)`. Se o paciente principal e o duplicado têm o mesmo `item_key`, o UPDATE colide.
 
-## Fluxo de UI
+O mesmo risco existe em outras tabelas com constraints únicas por paciente — no schema atual, `preop_checklist_items` é a única com esse padrão, mas vou tratar defensivamente.
 
-Em `src/pages/AdminDuplicates.tsx`, no card de cada grupo:
+## Correção
 
-1. Adicionar um botão **"Manter este"** (ou radio) por linha para escolher o principal.
-2. Um botão **"Unificar no principal"** no header do card abre um dialog de prévia.
-3. Prévia mostra:
-   - Registro principal (nome, procedimento, estágio, cirurgião, telefone, e-mail).
-   - Lista de duplicados que serão excluídos.
-   - Contadores do que será reatribuído: documentos, uploads, tarefas, contatos, ações pendentes, checklist pré-op, materiais enviados.
-   - Aviso: "Campos do paciente principal serão mantidos. Nenhum valor será sobrescrito."
-4. Confirmar dispara a operação; sucesso mostra toast e refetch das queries.
+Migração alterando `public.merge_patients(_keep uuid, _remove uuid[])` para, **antes** dos UPDATEs de reatribuição:
 
-## Backend
+1. **`preop_checklist_items`**: para cada `item_key` já presente no `_keep`, deletar as linhas correspondentes nos `_remove` (mantém o valor do principal, conforme regra "campos do principal não são sobrescritos"). Depois fazer o `UPDATE` normal das restantes.
 
-Criar migration com função `SECURITY DEFINER`:
+2. Manter o restante da função inalterado (contact_records, patient_documents, patient_uploads, patient_sent_materials, pending_items, tasks, signature_audit_log, DELETE final dos pacientes).
+
+Sem mudanças no frontend — a mensagem de erro já é exibida pelo `AdminDuplicates.tsx` via toast. Após a correção, a unificação do caso ALBERTO ABREU CABUS (6 itens de checklist no duplicado) deve concluir sem erro.
+
+## Detalhes técnicos
 
 ```sql
 CREATE OR REPLACE FUNCTION public.merge_patients(_keep uuid, _remove uuid[])
-RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public'
+AS $$
 BEGIN
-  -- Só admin pode unificar
-  IF NOT has_role(auth.uid(), 'admin') THEN
+  IF NOT public.has_role(auth.uid(), 'admin') THEN
     RAISE EXCEPTION 'only admin can merge patients';
+  END IF;
+  IF _keep IS NULL OR _remove IS NULL OR array_length(_remove,1) IS NULL THEN
+    RAISE EXCEPTION 'invalid arguments';
   END IF;
   IF _keep = ANY(_remove) THEN
     RAISE EXCEPTION 'keep id cannot be in remove list';
   END IF;
 
-  -- Reatribuir todas as tabelas com patient_id
-  UPDATE public.contact_records         SET patient_id = _keep WHERE patient_id = ANY(_remove);
-  UPDATE public.patient_documents       SET patient_id = _keep WHERE patient_id = ANY(_remove);
-  UPDATE public.patient_uploads         SET patient_id = _keep WHERE patient_id = ANY(_remove);
-  UPDATE public.patient_sent_materials  SET patient_id = _keep WHERE patient_id = ANY(_remove);
-  UPDATE public.pending_items           SET patient_id = _keep WHERE patient_id = ANY(_remove);
-  UPDATE public.preop_checklist_items   SET patient_id = _keep WHERE patient_id = ANY(_remove);
-  UPDATE public.tasks                   SET patient_id = _keep WHERE patient_id = ANY(_remove);
+  -- Dedupe preop_checklist_items: keep principal's row when item_key collides
+  DELETE FROM public.preop_checklist_items
+   WHERE patient_id = ANY(_remove)
+     AND item_key IN (SELECT item_key FROM public.preop_checklist_items WHERE patient_id = _keep);
 
-  -- signature_audit_log e signature_verifications guardam patient_id só como snapshot histórico:
-  -- manter aponta para o duplicado excluído quebraria FK se houvesse; hoje são apenas colunas
-  -- informativas sem FK, então reatribuímos também por consistência de consulta.
-  UPDATE public.signature_audit_log     SET patient_id = _keep WHERE patient_id = ANY(_remove);
-  UPDATE public.signature_verifications SET document_id = document_id WHERE false; -- no-op, mantido para leitura
+  UPDATE public.contact_records        SET patient_id = _keep WHERE patient_id = ANY(_remove);
+  UPDATE public.patient_documents      SET patient_id = _keep WHERE patient_id = ANY(_remove);
+  UPDATE public.patient_uploads        SET patient_id = _keep WHERE patient_id = ANY(_remove);
+  UPDATE public.patient_sent_materials SET patient_id = _keep WHERE patient_id = ANY(_remove);
+  UPDATE public.pending_items          SET patient_id = _keep WHERE patient_id = ANY(_remove);
+  UPDATE public.preop_checklist_items  SET patient_id = _keep WHERE patient_id = ANY(_remove);
+  UPDATE public.tasks                  SET patient_id = _keep WHERE patient_id = ANY(_remove);
+  UPDATE public.signature_audit_log    SET patient_id = _keep WHERE patient_id = ANY(_remove);
 
-  -- Excluir duplicados (patients já tem cascade nas tabelas próprias, mas aqui já esvaziamos)
   DELETE FROM public.patients WHERE id = ANY(_remove);
 END;
 $$;
-
-GRANT EXECUTE ON FUNCTION public.merge_patients(uuid, uuid[]) TO authenticated;
 ```
-
-## Frontend
-
-- Novo hook `useMergePatients` em `src/hooks/usePatients.ts` que chama `supabase.rpc('merge_patients', { _keep, _remove })` e invalida as queries de pacientes, documentos, tarefas, uploads.
-- Novo componente inline `MergePreviewDialog` dentro de `AdminDuplicates.tsx` (ou extraído se passar de ~80 linhas). Busca contagens via `supabase.from('<tabela>').select('id', { count: 'exact', head: true }).in('patient_id', removeIds)` em paralelo para as 7 tabelas.
-- Estado local por grupo: `keepId: string | null`. Botão "Unificar" fica desabilitado até escolher o principal.
-- Após sucesso, o grupo some naturalmente (só sobra 1 registro com aquele nome).
-
-## Detalhes técnicos
-
-- Somente admin acessa a página, e a função também valida `admin` no server.
-- Não há alteração de RLS nas tabelas envolvidas — o `UPDATE`/`DELETE` roda como `SECURITY DEFINER`.
-- Nenhuma mudança nos formulários de paciente, Kanban ou relatórios.
-
-## Fora de escopo
-
-- Merge campo a campo (rejeitado — mantemos campos do principal).
-- Undo/histórico de merges — irreversível, coberto pela prévia obrigatória.
