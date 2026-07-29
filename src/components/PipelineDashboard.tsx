@@ -696,6 +696,7 @@ export function PipelineDashboard() {
                 />
               </div>
               <FilterSheet {...filterProps} />
+              <ViewToggle mode={viewMode} onChange={setViewMode} />
               <SortControl sortKey={sortKey} sortDir={sortDir} onKeyChange={setSortKey} onDirChange={setSortDir} compact />
             </div>
           ) : (
@@ -703,6 +704,7 @@ export function PipelineDashboard() {
               <FilterBar {...filterProps} />
               <div className="flex items-center gap-2">
                 <SortControl sortKey={sortKey} sortDir={sortDir} onKeyChange={setSortKey} onDirChange={setSortDir} />
+                <ViewToggle mode={viewMode} onChange={setViewMode} />
               </div>
             </div>
           );
