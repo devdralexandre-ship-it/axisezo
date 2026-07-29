@@ -369,26 +369,26 @@ export default function Relatorios() {
             {/* KPI cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <Card className="p-3">
-                <div className="text-xs text-muted-foreground">No pipeline</div>
+                <div className="text-xs text-muted-foreground">Pacientes ativos</div>
                 <div className="text-2xl font-bold">{active.length}</div>
-                <div className="text-[10px] text-muted-foreground mt-1">{lost} perdidos · {completed} realizadas</div>
+                <div className="text-[10px] text-muted-foreground mt-1">{completed} operados · {lost} perdidos</div>
               </Card>
               <Card className="p-3">
-                <div className="text-xs text-muted-foreground">Conversão</div>
+                <div className="text-xs text-muted-foreground">% que viraram cirurgia</div>
                 <div className="text-2xl font-bold">{conversion}%</div>
-                <div className="text-[10px] text-muted-foreground mt-1">realizadas / (realizadas + perdidos)</div>
+                <div className="text-[10px] text-muted-foreground mt-1">De cada 100 casos fechados, quantos foram operados</div>
               </Card>
               {canSeeFinancials && (
                 <>
                   <Card className="p-3">
-                    <div className="text-xs text-muted-foreground">Ticket médio</div>
+                    <div className="text-xs text-muted-foreground">Valor médio por paciente</div>
                     <div className="text-2xl font-bold">{fmtCurrency(avgTicket)}</div>
-                    <div className="text-[10px] text-muted-foreground mt-1">Total: {fmtCurrency(totalValue)}</div>
+                    <div className="text-[10px] text-muted-foreground mt-1">Soma no pipeline: {fmtCurrency(totalValue)}</div>
                   </Card>
                   <Card className="p-3">
-                    <div className="text-xs text-muted-foreground">Receita projetada</div>
+                    <div className="text-xs text-muted-foreground">Receita prevista</div>
                     <div className="text-2xl font-bold">{fmtCurrency(projectedRevenue)}</div>
-                    <div className="text-[10px] text-muted-foreground mt-1">Agendadas + aptas</div>
+                    <div className="text-[10px] text-muted-foreground mt-1">Cirurgias já agendadas ou prontas</div>
                   </Card>
                 </>
               )}
