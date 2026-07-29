@@ -33,11 +33,35 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useRealtimePatients } from '@/hooks/useRealtimePatients';
 import { ConciergeLoginBriefing, useConciergeBriefing } from './ConciergeLoginBriefing';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { AlertTriangle, ChevronLeft, ChevronRight, ListTodo, BarChart3 } from 'lucide-react';
+import { AlertTriangle, ChevronLeft, ChevronRight, ListTodo, BarChart3, LayoutGrid, Table as TableIcon } from 'lucide-react';
 import { SortControl, SortKey, SortDir, sortPatients } from './SortControl';
 import { FilterSheet } from './FilterSheet';
+import { PatientsTable } from './PatientsTable';
 
 const ACTIVE_STAGES = PIPELINE_STAGES.filter((s) => s !== 'lost') as PipelineStage[];
+
+function ViewToggle({ mode, onChange }: { mode: 'kanban' | 'table'; onChange: (m: 'kanban' | 'table') => void }) {
+  return (
+    <div className="inline-flex items-center rounded-md border border-input bg-background overflow-hidden h-8">
+      <button
+        type="button"
+        onClick={() => onChange('kanban')}
+        className={`px-2 h-full flex items-center gap-1 text-xs ${mode === 'kanban' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}
+        title="Visualizar como Kanban"
+      >
+        <LayoutGrid className="h-3.5 w-3.5" /> Kanban
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange('table')}
+        className={`px-2 h-full flex items-center gap-1 text-xs border-l border-input ${mode === 'table' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}
+        title="Visualizar como planilha"
+      >
+        <TableIcon className="h-3.5 w-3.5" /> Planilha
+      </button>
+    </div>
+  );
+}
 
 export function PipelineDashboard() {
   useRealtimePatients();
@@ -92,8 +116,10 @@ export function PipelineDashboard() {
   const [mobileStage, setMobileStage] = useState<PipelineStage>(ACTIVE_STAGES[0]);
   const [sortKey, setSortKey] = useState<SortKey>(() => (localStorage.getItem('kanban_sort_key') as SortKey) || 'indication');
   const [sortDir, setSortDir] = useState<SortDir>(() => (localStorage.getItem('kanban_sort_dir') as SortDir) || 'asc');
+  const [viewMode, setViewMode] = useState<'kanban' | 'table'>(() => (localStorage.getItem('view_mode') as any) || 'kanban');
   useEffect(() => { localStorage.setItem('kanban_sort_key', sortKey); }, [sortKey]);
   useEffect(() => { localStorage.setItem('kanban_sort_dir', sortDir); }, [sortDir]);
+  useEffect(() => { localStorage.setItem('view_mode', viewMode); }, [viewMode]);
 
 
 
@@ -693,6 +719,7 @@ export function PipelineDashboard() {
                 />
               </div>
               <FilterSheet {...filterProps} />
+              <ViewToggle mode={viewMode} onChange={setViewMode} />
               <SortControl sortKey={sortKey} sortDir={sortDir} onKeyChange={setSortKey} onDirChange={setSortDir} compact />
             </div>
           ) : (
@@ -700,6 +727,7 @@ export function PipelineDashboard() {
               <FilterBar {...filterProps} />
               <div className="flex items-center gap-2">
                 <SortControl sortKey={sortKey} sortDir={sortDir} onKeyChange={setSortKey} onDirChange={setSortDir} />
+                <ViewToggle mode={viewMode} onChange={setViewMode} />
               </div>
             </div>
           );
@@ -742,7 +770,9 @@ export function PipelineDashboard() {
         );
       })()}
 
-      {isMobile ? (
+      {viewMode === 'table' ? (
+        <PatientsTable patients={filtered} onPatientClick={handlePatientClick} canSeeFinancials={canSeeFinancials} />
+      ) : isMobile ? (
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Stage tabs */}
           <div className="shrink-0 border-b border-border bg-background">
