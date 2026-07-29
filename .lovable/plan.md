@@ -1,82 +1,73 @@
-# Novos filtros, badges e sinalizador "Novo"
 
-## 1. Novos filtros no Kanban
+## 1. Mobile: mais espaço para o Kanban
 
-Adicionar 5 novos filtros na `FilterBar`, ao lado dos existentes:
+- **Filtros colapsáveis**: `FilterBar` vira um botão único no mobile ("Filtros") que abre um `Sheet` lateral com todos os campos. Chips resumindo filtros ativos ficam abaixo do header, com "×" individual.
+- **Busca compacta**: campo de busca permanece visível (input pequeno) — é o mais usado.
+- **Header enxuto**: mover ações secundárias (perfil, admin, templates) para o menu hambúrguer já existente. Manter apenas: logo, busca, filtros, notificações.
+- **Tabs de estágio**: reduzir altura das Tabs e permitir swipe horizontal entre colunas (usando a estrutura atual de tabs). Adicionar contador ao lado do nome do estágio.
+- **Ordenação**: novo botão de ordenação (ícone) ao lado dos filtros, também disponível no mobile.
 
-- **Convênio** (`payer`)
-- **Tipo de faturamento** (`billingType`)
-- **Hospital desejado** (`desiredHospital`)
-- **Origem/Indicação** (reutiliza `indicationLocation`)
-- **Data de indicação** (`indicationDate`) — range com dois date pickers ("De" / "Até")
+## 2. Ordenação por coluna do Kanban
 
-Todos como `Select` (exceto data) com opção "Todos". Listas vindas de `src/data/constants.ts` (adicionar `PAYERS`, `BILLING_TYPES`, `HOSPITALS`, `INDICATION_SOURCES` se ainda não existirem — verificar e reutilizar).
+Novo controle global de ordenação (aplicado a todas as colunas) com 4 modos:
+- Dias no estágio (padrão, mais antigos no topo)
+- Urgência da próxima ação (estouradas → hoje → futuras)
+- Valor estimado (maior primeiro — soma dos honorários)
+- Data de indicação (mais recentes ou mais antigos, toggle asc/desc)
 
-Integração em `PipelineDashboard.tsx`: novos estados + predicados no `useMemo` de filtragem. Filtros compactados em segunda linha para não estourar largura; considerar botão "Limpar filtros" quando qualquer filtro estiver ativo.
+Toggle de direção (↑/↓) ao lado do seletor. Estado salvo em `localStorage`.
 
-## 2. Badges de sinalização no paciente
+## 3. Nova rota `/pendencias` — Central de Ações da Concierge
 
-Três flags booleanas independentes, editáveis:
+Lista unificada de todas as **ações abertas** dos pacientes visíveis ao usuário, agrupadas por urgência:
+- **Estouradas** (SLA breached / escalated) — topo, vermelho
+- **Hoje** — amarelo
+- **Esta semana**
+- **Futuras**
 
-| Campo | Ícone | Cor | Tooltip |
-|---|---|---|---|
-| `clinicallySensitive` | `*` | vermelho (destructive) | "Clinicamente sensível" |
-| `highRisk` | `**` | vermelho intenso | "Altíssimo risco" |
-| `highTicket` | `★` | âmbar/gold | "Alto ticket" |
+Cada linha mostra: paciente, título da ação, responsável, prazo, chip de SLA, badges do paciente (sensível/risco/ticket), estágio atual.
 
-**Onde editar:**
-- `AddPatientForm.tsx` — nova seção "Sinalizadores" com 3 checkboxes.
-- `PatientPanel.tsx` — mesmos 3 checkboxes no cabeçalho ou aba principal, editáveis a qualquer momento.
+**Edições inline** (sem abrir painel):
+- Concluir ação → dialog rápido para criar a próxima (obrigatório)
+- Botão de contato rápido (WhatsApp/telefone/nota) — cria `contact_record`
+- Dropdown para mudar estágio do pipeline
+- Toggle rápido dos badges (sensível/risco/ticket)
 
-**Onde exibir:**
-- `PatientCard.tsx` — sempre visíveis ao lado do nome (linha de badges compacta).
-- `PatientPanel.tsx` — badges destacados no topo.
+**Sincronia**: usa os mesmos hooks (`usePatients`, realtime) — qualquer mudança feita no Kanban ou no painel reflete aqui e vice-versa (React Query invalida as mesmas queries).
 
-## 3. Badge "Novo" persistente
+Filtros locais: concierge, cirurgião, estágio.
 
-Mudar a regra atual (24h) para: **o badge permanece até qualquer edição do registro do paciente**.
+## 4. Nova rota `/relatorios` — Dashboard Analítico
 
-Implementação: comparar `patient.updatedAt` com `patient.createdAt`. Se forem iguais (ou diferença < X segundos para tolerar o insert inicial), mostrar "✨ Novo". Qualquer save/mutation atualiza `updatedAt` e o badge some.
+Filtros no topo (reaproveitam `FilterBar` + intervalo de datas: 7d / 30d / 90d / mês atual / customizado). Filtros mantidos entre abas.
 
-- Remover a lógica `newSinceIso` de `PatientCard`.
-- Garantir que todas as mutations (mudança de stage, edição de campos, conclusão de tarefa, adição de contato, etc.) atualizem `updatedAt` — trigger no banco ou no hook `usePatients`.
+**Cards de KPI** (topo): total no pipeline, taxa de conversão, ticket médio, tempo médio até cirurgia.
+
+**Visualizações** (usando `recharts`):
+1. **Funil de conversão por estágio** — barra horizontal com contagem + valor por estágio. Toggle "filtrar pelo mês de indicação" (agrupa pacientes cuja `indication_date` está no período, mostrando onde estão hoje).
+2. **Perdidos por motivo** — pizza + tabela com `loss_reason`.
+3. **Produtividade** — barras agrupadas por concierge e por cirurgião: pacientes movidos, ações concluídas, % SLA cumprido.
+4. **Financeiro** — soma de honorários por período, ticket médio, receita projetada (pacientes em `surgery_scheduled` + `preop_preparation`), quebra por convênio e hospital.
+
+Botão "Exportar CSV" por seção.
 
 ## Detalhes técnicos
 
-### Banco (migration)
+### Arquivos novos
+- `src/components/FilterSheet.tsx` — wrapper mobile de `FilterBar` em `Sheet`
+- `src/components/SortControl.tsx` — seletor de ordenação
+- `src/pages/Pendencias.tsx` + `src/components/PendingActionRow.tsx`
+- `src/pages/Relatorios.tsx` + `src/components/reports/*` (FunnelChart, LossReasonsChart, ProductivityChart, FinancialChart)
+- `src/hooks/useReportData.ts` — agrega dados client-side a partir do cache de `usePatients`
 
-```sql
-ALTER TABLE public.patients
-  ADD COLUMN IF NOT EXISTS clinically_sensitive boolean NOT NULL DEFAULT false,
-  ADD COLUMN IF NOT EXISTS high_risk boolean NOT NULL DEFAULT false,
-  ADD COLUMN IF NOT EXISTS high_ticket boolean NOT NULL DEFAULT false;
+### Arquivos alterados
+- `src/App.tsx` — registrar `/pendencias` e `/relatorios`
+- `src/components/PipelineDashboard.tsx` — integrar `FilterSheet` (mobile), `SortControl`, aplicar ordenação
+- `src/components/PipelineColumn.tsx` — aceitar lista já ordenada
+- `src/components/NavLink.tsx` — adicionar links "Pendências" e "Relatórios"
 
--- Trigger update_updated_at_column já existe; garantir que está attachada a public.patients
-```
+### Sem alterações de backend
+Todos os agregados são calculados no cliente a partir dos dados já em cache (`usePatients` traz tudo). Ordenação é puramente client-side. Nenhuma migração SQL, nenhuma nova policy.
 
-### Tipos
-
-Adicionar ao `Patient` em `src/data/types.ts`:
-```ts
-clinicallySensitive: boolean;
-highRisk: boolean;
-highTicket: boolean;
-updatedAt: string; // já vem do banco
-```
-
-### Arquivos afetados
-
-- `supabase/migrations/*` (novo) — 3 colunas booleanas
-- `src/data/types.ts` — novos campos
-- `src/data/constants.ts` — listas fixas de payer/billing/hospital/origem (verificar existentes)
-- `src/hooks/usePatients.ts` — mapear novos campos, garantir touch em `updatedAt`
-- `src/components/FilterBar.tsx` — 5 novos filtros
-- `src/components/PipelineDashboard.tsx` — estados + predicados + reset
-- `src/components/AddPatientForm.tsx` — checkboxes de sinalizadores
-- `src/components/PatientPanel.tsx` — checkboxes editáveis + badges no header
-- `src/components/PatientCard.tsx` — renderizar badges (*, **, ★) e nova lógica do "Novo"
-
-## Fora do escopo
-
-- Cálculo automático de "alto ticket" por valor (usuário optou por manual).
-- Novos campos de origem além do `indicationLocation`.
+### Realtime / persistência
+Reaproveita `useRealtimePatients` — a tela de pendências e o dashboard consomem o mesmo cache do Kanban, então mutations em qualquer tela propagam automaticamente para as outras.
