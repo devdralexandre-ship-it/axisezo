@@ -4,6 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { useUserRole } from "@/hooks/useUserRole";
 import Index from "./pages/Index.tsx";
 import Auth from "./pages/Auth.tsx";
 import NotFound from "./pages/NotFound.tsx";
@@ -27,6 +28,19 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function IndexGate() {
+  const { user } = useAuth();
+  const { isConcierge, loading } = useUserRole();
+  if (loading) return <div className="flex items-center justify-center h-screen bg-background"><p className="text-muted-foreground">Carregando...</p></div>;
+  const flagKey = user ? `concierge-landed:${user.id}` : null;
+  if (isConcierge && flagKey && !sessionStorage.getItem(flagKey)) {
+    sessionStorage.setItem(flagKey, '1');
+    return <Navigate to="/pendencias" replace />;
+  }
+  return <Index />;
+}
+
+
 function AuthRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   if (loading) return null;
@@ -45,7 +59,7 @@ const App = () => (
             <Route path="/auth" element={<AuthRoute><Auth /></AuthRoute>} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/verify-document/:id" element={<VerifyDocument />} />
-            <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+            <Route path="/" element={<ProtectedRoute><IndexGate /></ProtectedRoute>} />
             <Route path="/templates" element={<ProtectedRoute><Templates /></ProtectedRoute>} />
             <Route path="/library" element={<ProtectedRoute><Library /></ProtectedRoute>} />
             <Route path="/admin/users" element={<ProtectedRoute><AdminUsers /></ProtectedRoute>} />

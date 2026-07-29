@@ -1,26 +1,26 @@
-# Nova coluna: Potencial de indicação cirúrgica
+## Objetivo
 
-Adicionar uma coluna no Kanban antes de "Indicação" para pacientes em acompanhamento (exames, laudos, patologias que podem virar cirurgia). Pacientes nessa coluna não entram em métricas até serem movidos para "Indicação".
+1. Desativar a abertura automática do modal de briefing da concierge (desktop e mobile).
+2. Redirecionar concierges automaticamente para `/pendencias` ao fazer login, tanto no desktop quanto no mobile.
 
-## O que muda para o usuário
+## Mudanças
 
-- Nova coluna à esquerda de "Indicação" no Kanban (desktop, mobile e Pendências).
-- Ao cadastrar paciente, é possível já colocá-lo nessa coluna.
-- Cards funcionam normalmente (ações, tolerância, anexos, documentos, badge "Novo").
-- Métricas que excluem esse estágio:
-  - Cabeçalho do Kanban: total no pipeline, valor total, conversão.
-  - **Relatórios**: KPIs (pipeline, conversão, ticket médio, receita projetada), funil, perdidos, receita por convênio, produtividade por concierge, SLA orçamento particulares.
-- Métricas que continuam contando esses pacientes:
-  - Notificação de "novo paciente" para a concierge (acompanhamento especial exige atenção imediata).
-  - Ações/tolerância desses pacientes na tela **Pendências**.
+### 1. `src/components/ConciergeLoginBriefing.tsx`
+No hook `useConciergeBriefing`, remover o `useEffect` que faz `setOpen(true)` automaticamente (linhas ~154-184) e o flag `autoopen` no localStorage. O modal continua existindo e pode ser aberto manualmente via `openManually()` (usado em algum botão do header, se houver) — apenas nunca abre sozinho.
 
-## Alterações técnicas
+### 2. Redirecionar concierge para `/pendencias` no login
 
-1. **Migração**: adicionar valor `surgical_potential` ao enum `pipeline_stage` (antes de `indication`).
-2. **`src/data/types.ts`**: incluir `'surgical_potential'` no início de `PIPELINE_STAGES` e rótulo `"Potencial de indicação"` em `STAGE_LABELS`.
-3. **`src/components/PipelineDashboard.tsx`**: novo helper `METRIC_STAGES` que exclui `lost` e `surgical_potential`; ajustar `totalValue`, `completedCount`, `conversionRate` para usar esse conjunto (mantendo `activeFiltered` para renderização de colunas).
-4. **`src/pages/Relatorios.tsx`**: filtrar `surgical_potential` de `active`, `funnelData`, `particulares` (SLA orçamento) e demais agregações. Excluir do funil (`PIPELINE_STAGES.filter(s => s !== 'lost' && s !== 'surgical_potential')`).
-5. **`src/components/CsvImporter.tsx`**: aceitar alias `potencial` → `surgical_potential` no mapa de estágios.
-6. **`src/hooks/useUserRole` / RLS**: nenhuma alteração — a política já cobre qualquer stage.
+Em `src/App.tsx`, na rota `/`, envolver `<Index />` num pequeno wrapper (ou ajustar `ProtectedRoute`) que:
+- Aguarda `useAuth` + `useUserRole` carregarem.
+- Se `role === 'concierge'` **e** for a primeira navegação da sessão (flag em `sessionStorage`, ex.: `concierge-landed:<userId>`), faz `<Navigate to="/pendencias" replace />` e grava o flag.
+- Caso contrário, renderiza `<Index />` normalmente.
 
-Não requer alteração em `PipelineColumn`, `PatientCard`, `PatientPanel` ou `AddPatientForm` além do enum expandido (eles já iteram `PIPELINE_STAGES`).
+Usar `sessionStorage` (não `localStorage`) para que:
+- O redirect ocorra uma vez por sessão de login (não fica preso — a concierge ainda pode navegar para `/` manualmente depois).
+- Vale igualmente no mobile, pois é o mesmo App/rota.
+
+Nenhuma mudança em Auth.tsx é necessária — o redirect já leva para `/`, e o wrapper decide o destino final.
+
+## Fora de escopo
+- Não mexer no conteúdo da tela `/pendencias` nem no `Index`/Kanban.
+- Não remover o componente `ConciergeLoginBriefing`; permanece disponível para abertura manual futura.
