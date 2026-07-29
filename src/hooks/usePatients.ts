@@ -94,6 +94,7 @@ function mapDbToPatient(db: DbPatient): Patient {
     medicalFees: (db as any).medical_fees != null ? Number((db as any).medical_fees) : null,
     responsibleContact: (db as any).responsible_contact || null,
     desiredHospital: db.desired_hospital,
+    desiredHospitals: Array.isArray((db as any).desired_hospitals) ? (db as any).desired_hospitals : [],
     notes: db.notes,
     alerts: (db as any).alerts || null,
     lossReason: db.loss_reason as LossReason | null,
@@ -200,7 +201,8 @@ export function useAddPatient() {
         indication_location: p.indicationLocation,
         payer: p.payer,
         responsible_contact: p.responsibleContact,
-        desired_hospital: p.desiredHospital,
+        desired_hospital: p.desiredHospital ?? (p.desiredHospitals?.[0] ?? null),
+        desired_hospitals: p.desiredHospitals ?? (p.desiredHospital ? [p.desiredHospital] : []),
         notes: p.notes,
         age: p.age,
         age_months: (p as any).ageMonths ?? null,
@@ -505,6 +507,7 @@ export function useImportPatients() {
           indication_location: p.indicationLocation || null,
           payer: p.payer || null,
           desired_hospital: p.desiredHospital || null,
+          desired_hospitals: p.desiredHospital ? [p.desiredHospital] : [],
           notes: p.notes || null,
         } as any).select().single();
         if (error) continue;

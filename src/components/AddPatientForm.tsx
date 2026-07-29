@@ -14,6 +14,7 @@ import { TaskFormFields, TaskDraft, emptyTaskDraft } from './TaskFormFields';
 import { CodeAutocomplete } from './CodeAutocomplete';
 import { uploadPatientFile, UPLOAD_CATEGORIES, UploadCategory } from '@/hooks/usePatientUploads';
 import { ProcedureCombobox } from './ProcedureCombobox';
+import { HospitalMultiSelect } from './HospitalMultiSelect';
 import { recordProcedureCodeSuggestions } from '@/hooks/useCodeSuggestions';
 import { toast } from 'sonner';
 
@@ -96,8 +97,7 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
   const [anesthesiaFees, setAnesthesiaFees] = useState('');
   const [hospitalBudget, setHospitalBudget] = useState('');
   const [materialsCost, setMaterialsCost] = useState('');
-  const [desiredHospital, setDesiredHospital] = useState('');
-  const [customHospital, setCustomHospital] = useState('');
+  const [desiredHospitals, setDesiredHospitals] = useState<string[]>([]);
   const [indicationLocation, setIndicationLocation] = useState('');
   const [customIndication, setCustomIndication] = useState('');
   const [alerts, setAlerts] = useState('');
@@ -142,7 +142,7 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
   const showApproach = procedureNeedsApproach(effectiveProcedure);
   const showLaterality = procedureNeedsLaterality(effectiveProcedure);
   const showPayerOther = payer === 'Outros';
-  const isCustomHospital = desiredHospital === 'Outro';
+  // (multi-hospital: no custom flag needed)
   const isCustomIndication = indicationLocation === 'Outro';
 
   const showMedicalFees = billingType === 'Honorários Médicos Particulares' || billingType === 'Custos Totais Particulares';
@@ -180,7 +180,7 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
     setStage(PIPELINE_STAGES[0]);
     setPhone(''); setEmail(''); setResponsibleContact(''); setPayer(''); setPayerOther('');
     setBillingType(''); setMedicalFees(''); setAnesthesiaFees(''); setHospitalBudget('');
-    setMaterialsCost(''); setDesiredHospital(''); setCustomHospital('');
+    setMaterialsCost(''); setDesiredHospitals([]);
     setIndicationLocation(''); setCustomIndication('');
     setAlerts(''); setNotes(''); setInitialTasks([]);
     setDraft(emptyTaskDraft((lockConcierge ? conciergeName! : '') as any));
@@ -197,7 +197,7 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
     if (!trimmedName || !effectiveProcedure || !surgeon || !hasValidTask || submitting) return;
     const today = new Date().toISOString().split('T')[0];
     const finalPayer = payer === 'Outros' ? payerOther : payer;
-    const finalHospital = isCustomHospital ? customHospital : desiredHospital;
+    const finalHospitals = desiredHospitals;
     const finalIndication = isCustomIndication ? customIndication : indicationLocation;
 
     const computedEstimatedValue = showFullFinancial && estimatedTotal > 0 ? estimatedTotal
@@ -238,7 +238,8 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
         hospitalBudget: showFullFinancial && hospitalBudget ? parseFloat(hospitalBudget) : null,
         materialsCost: showFullFinancial && materialsCost ? parseFloat(materialsCost) : null,
         responsibleContact: responsibleContact || null,
-        desiredHospital: finalHospital || null,
+        desiredHospital: finalHospitals[0] || null,
+        desiredHospitals: finalHospitals,
         notes: notes || null,
         alerts: alerts || null,
         lossReason: null,
@@ -555,18 +556,13 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
               </div>
             )}
 
-            {/* Desired Hospital */}
+            {/* Desired Hospitals (multi-select) */}
             <div className="space-y-2">
-              <Label>Hospital Desejado</Label>
-              <Select value={desiredHospital} onValueChange={(v) => { setDesiredHospital(v); if (v !== 'Outro') setCustomHospital(''); }}>
-                <SelectTrigger className="focus:ring-offset-0"><SelectValue placeholder="Selecione o hospital" /></SelectTrigger>
-                <SelectContent>
-                  {HOSPITALS.map((h) => <SelectItem key={h} value={h}>{h}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              {isCustomHospital && (
-                <Input value={customHospital} onChange={(e) => setCustomHospital(e.target.value)} placeholder="Informe o hospital" className="mt-2 focus-visible:ring-offset-0" />
-              )}
+              <Label>Hospitais Desejados</Label>
+              <HospitalMultiSelect value={desiredHospitals} onChange={setDesiredHospitals} />
+              <p className="text-[11px] text-muted-foreground">
+                Selecione um ou mais hospitais para obtenção de orçamento (particulares).
+              </p>
             </div>
 
             {/* Indication Source */}

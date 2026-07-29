@@ -87,47 +87,87 @@ export default function Relatorios() {
     .filter(p => p.stage === 'surgery_scheduled' || p.stage === 'preop_preparation')
     .reduce((s, p) => s + patientValue(p), 0);
 
-  // SLA: particular patients must have a budget document attached within 24h of creation.
+  // SLA: particular patients must have a budget document attached (in Axis)
+  // within 24h of creation FOR EACH selected desired hospital. Adherence is
+  // met only when every selected hospital has a corresponding budget document
+  // before the deadline.
   const particulares = useMemo(
     () => inRange.filter(p => (p.billingType || '').toLowerCase().includes('particular')),
     [inRange],
   );
-  const [budgetTimes, setBudgetTimes] = useState<Record<string, string>>({});
+  // Map<patientId, Array<{ hospital: string|null, created_at: string }>>
+  const [budgetDocs, setBudgetDocs] = useState<Record<string, Array<{ hospital: string | null; created_at: string }>>>({});
   useEffect(() => {
     const ids = particulares.map(p => p.id);
-    if (ids.length === 0) { setBudgetTimes({}); return; }
+    if (ids.length === 0) { setBudgetDocs({}); return; }
     let cancelled = false;
     (async () => {
       const { data } = await supabase
         .from('patient_documents')
-        .select('patient_id, created_at')
+        .select('patient_id, created_at, data')
         .eq('type', 'budget')
         .in('patient_id', ids)
         .order('created_at', { ascending: true });
       if (cancelled) return;
-      const map: Record<string, string> = {};
+      const map: Record<string, Array<{ hospital: string | null; created_at: string }>> = {};
       (data ?? []).forEach((d: any) => {
-        if (!map[d.patient_id]) map[d.patient_id] = d.created_at;
+        const arr = map[d.patient_id] || (map[d.patient_id] = []);
+        const h = (d.data && typeof d.data === 'object' && typeof d.data.hospital === 'string')
+          ? d.data.hospital.trim() || null
+          : null;
+        arr.push({ hospital: h, created_at: d.created_at });
       });
-      setBudgetTimes(map);
+      setBudgetDocs(map);
     })();
     return () => { cancelled = true; };
   }, [particulares]);
 
   const nowMs = Date.now();
+  const normalizeHosp = (s: string) => s.trim().toLowerCase();
   const budgetSla = particulares.map((p) => {
     const created = p.createdAt ? new Date(p.createdAt).getTime() : null;
-    const first = budgetTimes[p.id] ? new Date(budgetTimes[p.id]).getTime() : null;
     const deadlineMs = created != null ? created + 24 * 3600 * 1000 : null;
+    const docs = budgetDocs[p.id] || [];
+    // Required hospitals: prefer multi-select; fallback to legacy single field; if none defined, require at least one budget.
+    const required = (p.desiredHospitals && p.desiredHospitals.length > 0)
+      ? p.desiredHospitals
+      : (p.desiredHospital ? [p.desiredHospital] : []);
+
+    // Earliest doc timestamp per required hospital (or overall when unspecified).
+    let firstAllMs: number | null = null;
+    const perHospitalFirst: Array<{ hospital: string; ts: number | null }> = [];
+    if (required.length === 0) {
+      // Fallback: earliest of any budget doc
+      if (docs.length > 0) firstAllMs = new Date(docs[0].created_at).getTime();
+    } else {
+      let allCovered = true;
+      let maxTs = -Infinity;
+      for (const h of required) {
+        const match = docs.find(d => d.hospital && normalizeHosp(d.hospital) === normalizeHosp(h));
+        const ts = match ? new Date(match.created_at).getTime() : null;
+        perHospitalFirst.push({ hospital: h, ts });
+        if (ts == null) { allCovered = false; }
+        else if (ts > maxTs) { maxTs = ts; }
+      }
+      // Legacy fallback: if patient has no hospital-tagged docs but has any budget doc, count the earliest.
+      const untagged = docs.filter(d => !d.hospital);
+      if (!allCovered && required.length === 1 && untagged.length > 0) {
+        allCovered = true;
+        maxTs = Math.max(maxTs === -Infinity ? -Infinity : maxTs, new Date(untagged[0].created_at).getTime());
+      }
+      firstAllMs = allCovered ? maxTs : null;
+    }
+
     let status: 'on_time' | 'late' | 'pending_ok' | 'pending_breached';
-    if (first != null && created != null) {
-      status = (first - created) <= 24 * 3600 * 1000 ? 'on_time' : 'late';
+    if (firstAllMs != null && created != null) {
+      status = (firstAllMs - created) <= 24 * 3600 * 1000 ? 'on_time' : 'late';
     } else if (deadlineMs != null && nowMs <= deadlineMs) {
       status = 'pending_ok';
     } else {
       status = 'pending_breached';
     }
-    return { patient: p, first, status };
+    const missing = perHospitalFirst.filter(x => x.ts == null).map(x => x.hospital);
+    return { patient: p, first: firstAllMs, status, missing };
   });
   const particularesTotal = budgetSla.length;
   const particularesOnTime = budgetSla.filter(b => b.status === 'on_time').length;
@@ -273,10 +313,11 @@ export default function Relatorios() {
                   <p className="text-[11px] text-muted-foreground">Pacientes particulares devem ter orçamento anexado no Axis em até 24h do cadastro.</p>
                 </div>
                 <Button variant="ghost" size="sm" onClick={() => downloadCsv('sla-orcamento-particulares.csv',
-                  [['Paciente', 'Cadastro', 'Primeiro orçamento', 'Status'],
+                  [['Paciente', 'Cadastro', 'Hospitais faltantes', 'Cobertura completa em', 'Status'],
                    ...budgetSla.map(b => [
                      b.patient.name,
                      b.patient.createdAt,
+                     b.missing.join(' | '),
                      b.first ? new Date(b.first).toISOString() : '',
                      b.status === 'on_time' ? 'No prazo' : b.status === 'late' ? 'Fora do prazo' : b.status === 'pending_ok' ? 'Pendente (dentro)' : 'Pendente (estourado)',
                    ])])}>
@@ -313,8 +354,13 @@ export default function Relatorios() {
                         {budgetSla
                           .filter(b => b.status === 'late' || b.status === 'pending_breached')
                           .map(b => (
-                            <li key={b.patient.id} className="flex items-center justify-between text-xs">
-                              <Link to={`/?patient=${b.patient.id}`} className="hover:underline truncate">{b.patient.name}</Link>
+                            <li key={b.patient.id} className="flex items-center justify-between gap-2 text-xs">
+                              <Link to={`/?patient=${b.patient.id}`} className="hover:underline truncate">
+                                {b.patient.name}
+                                {b.missing.length > 0 && (
+                                  <span className="ml-2 text-muted-foreground">— falta: {b.missing.join(', ')}</span>
+                                )}
+                              </Link>
                               <Badge variant={b.status === 'late' ? 'secondary' : 'destructive'} className="text-[10px]">
                                 {b.status === 'late' ? 'Anexado fora do prazo' : 'Sem orçamento'}
                               </Badge>

@@ -221,6 +221,7 @@ export interface Patient {
   medicalFees: number | null;
   responsibleContact: string | null;
   desiredHospital: string | null;
+  desiredHospitals: string[];
   notes: string | null;
   alerts: string | null;
   lossReason: LossReason | null;

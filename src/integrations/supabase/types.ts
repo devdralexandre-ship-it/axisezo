@@ -433,6 +433,7 @@ export type Database = {
           created_at: string
           decision_status: Database["public"]["Enums"]["decision_status"]
           desired_hospital: string | null
+          desired_hospitals: string[]
           email: string | null
           estimated_value: number | null
           high_risk: boolean
@@ -478,6 +479,7 @@ export type Database = {
           created_at?: string
           decision_status?: Database["public"]["Enums"]["decision_status"]
           desired_hospital?: string | null
+          desired_hospitals?: string[]
           email?: string | null
           estimated_value?: number | null
           high_risk?: boolean
@@ -523,6 +525,7 @@ export type Database = {
           created_at?: string
           decision_status?: Database["public"]["Enums"]["decision_status"]
           desired_hospital?: string | null
+          desired_hospitals?: string[]
           email?: string | null
           estimated_value?: number | null
           high_risk?: boolean
