@@ -293,12 +293,15 @@ export default function Relatorios() {
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-10 border-b border-border bg-background/95 backdrop-blur px-4 md:px-6 py-3">
-        <div className="flex items-center gap-3 mb-3">
+        <div className="flex items-center gap-3 mb-2">
           <Button asChild variant="ghost" size="sm"><Link to="/"><ArrowLeft className="h-4 w-4" />Kanban</Link></Button>
-          <h1 className="text-lg font-semibold">Relatórios</h1>
+          <div>
+            <h1 className="text-lg font-semibold leading-tight">Relatórios</h1>
+            <p className="text-[11px] text-muted-foreground">Como está a conversão dos pacientes em cirurgia.</p>
+          </div>
           <div className="ml-auto">
-            <Button variant="outline" size="sm" className="h-8 text-xs" onClick={exportAll}>
-              <Download className="h-3.5 w-3.5" />Exportar tudo (CSV)
+            <Button variant="outline" size="sm" className="h-8 text-xs" onClick={exportAll} title="Baixa uma planilha (CSV) para cada bloco desta tela">
+              <Download className="h-3.5 w-3.5" />Baixar tudo em planilha
             </Button>
           </div>
         </div>
@@ -317,7 +320,7 @@ export default function Relatorios() {
             ))}
           </div>
           <div className="flex items-center gap-1 text-xs text-muted-foreground">
-            <span className="font-medium text-foreground">Indicação:</span>
+            <span className="font-medium text-foreground">Período de indicação:</span>
             <span>de</span>
             <input type="date" value={from} onChange={(e) => { setFrom(e.target.value); setPreset('custom'); }} className="h-8 rounded border border-input bg-background px-2 text-xs" />
             <span>até</span>
@@ -338,11 +341,11 @@ export default function Relatorios() {
             </SelectContent>
           </Select>
           <Select value={financialCut} onValueChange={(v) => setFinancialCut(v as FinancialCut)}>
-            <SelectTrigger className="h-8 w-[160px] text-xs"><SelectValue placeholder="Financeiro" /></SelectTrigger>
+            <SelectTrigger className="h-8 w-[170px] text-xs"><SelectValue placeholder="Tipo de pagamento" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todos financeiros</SelectItem>
-              <SelectItem value="particular">Particulares</SelectItem>
-              <SelectItem value="convenio">Convênio</SelectItem>
+              <SelectItem value="all">Todos os pagamentos</SelectItem>
+              <SelectItem value="particular">Só particulares</SelectItem>
+              <SelectItem value="convenio">Só convênio</SelectItem>
             </SelectContent>
           </Select>
           <Select value={payerFilter} onValueChange={setPayerFilter}>
@@ -354,7 +357,7 @@ export default function Relatorios() {
           </Select>
         </div>
         <div className="mt-2 text-[11px] text-muted-foreground">
-          Filtros se combinam (E lógico). Cada bloco abaixo pode ser exportado em CSV com os filtros atuais aplicados.
+          Os filtros funcionam somados — quanto mais você marca, mais específico fica o resultado. Cada bloco tem um botão para baixar só aquele bloco em planilha.
         </div>
       </header>
 
@@ -366,26 +369,26 @@ export default function Relatorios() {
             {/* KPI cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <Card className="p-3">
-                <div className="text-xs text-muted-foreground">No pipeline</div>
+                <div className="text-xs text-muted-foreground">Pacientes ativos</div>
                 <div className="text-2xl font-bold">{active.length}</div>
-                <div className="text-[10px] text-muted-foreground mt-1">{lost} perdidos · {completed} realizadas</div>
+                <div className="text-[10px] text-muted-foreground mt-1">{completed} operados · {lost} perdidos</div>
               </Card>
               <Card className="p-3">
-                <div className="text-xs text-muted-foreground">Conversão</div>
+                <div className="text-xs text-muted-foreground">% que viraram cirurgia</div>
                 <div className="text-2xl font-bold">{conversion}%</div>
-                <div className="text-[10px] text-muted-foreground mt-1">realizadas / (realizadas + perdidos)</div>
+                <div className="text-[10px] text-muted-foreground mt-1">De cada 100 casos fechados, quantos foram operados</div>
               </Card>
               {canSeeFinancials && (
                 <>
                   <Card className="p-3">
-                    <div className="text-xs text-muted-foreground">Ticket médio</div>
+                    <div className="text-xs text-muted-foreground">Valor médio por paciente</div>
                     <div className="text-2xl font-bold">{fmtCurrency(avgTicket)}</div>
-                    <div className="text-[10px] text-muted-foreground mt-1">Total: {fmtCurrency(totalValue)}</div>
+                    <div className="text-[10px] text-muted-foreground mt-1">Soma no pipeline: {fmtCurrency(totalValue)}</div>
                   </Card>
                   <Card className="p-3">
-                    <div className="text-xs text-muted-foreground">Receita projetada</div>
+                    <div className="text-xs text-muted-foreground">Receita prevista</div>
                     <div className="text-2xl font-bold">{fmtCurrency(projectedRevenue)}</div>
-                    <div className="text-[10px] text-muted-foreground mt-1">Agendadas + aptas</div>
+                    <div className="text-[10px] text-muted-foreground mt-1">Cirurgias já agendadas ou prontas</div>
                   </Card>
                 </>
               )}
@@ -395,36 +398,36 @@ export default function Relatorios() {
             <Card className="p-4">
               <div className="flex items-center justify-between mb-3">
                 <div>
-                  <h3 className="text-sm font-semibold">Conversão — Particulares</h3>
+                  <h3 className="text-sm font-semibold">Pacientes particulares — quantos viraram cirurgia</h3>
                   <p className="text-[11px] text-muted-foreground">
-                    Inclui "Honorários Médicos Particulares" e "Custos Totais Particulares".
+                    Inclui quem paga só honorários médicos e quem paga o pacote completo (custos totais).
                   </p>
                 </div>
-                <Button variant="ghost" size="sm" onClick={exportParticulares}>
-                  <Download className="h-3.5 w-3.5" />CSV
+                <Button variant="ghost" size="sm" onClick={exportParticulares} title="Baixar este bloco em planilha">
+                  <Download className="h-3.5 w-3.5" />Planilha
                 </Button>
               </div>
               {particularesList.length === 0 ? (
-                <div className="text-sm text-muted-foreground py-4 text-center">Sem particulares no recorte</div>
+                <div className="text-sm text-muted-foreground py-4 text-center">Nenhum paciente particular no filtro atual</div>
               ) : (
                 <>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <div className="rounded border border-border p-3">
-                      <div className="text-xs text-muted-foreground">Conversão</div>
+                      <div className="text-xs text-muted-foreground">% que viraram cirurgia</div>
                       <div className="text-2xl font-bold">{partAll.pct}%</div>
-                      <div className="text-[10px] text-muted-foreground mt-1">{partAll.realizadas}/{partAll.denom} realizadas</div>
+                      <div className="text-[10px] text-muted-foreground mt-1">{partAll.realizadas} operados de {partAll.denom} casos fechados</div>
                     </div>
                     <div className="rounded border border-border p-3">
-                      <div className="text-xs text-muted-foreground">Em andamento</div>
+                      <div className="text-xs text-muted-foreground">Ainda em acompanhamento</div>
                       <div className="text-2xl font-bold">{partAll.emAndamento}</div>
                     </div>
                     <div className="rounded border border-border p-3">
-                      <div className="text-xs text-muted-foreground">Realizadas</div>
+                      <div className="text-xs text-muted-foreground">Operados</div>
                       <div className="text-2xl font-bold text-[hsl(var(--pipeline-green))]">{partAll.realizadas}</div>
                     </div>
                     {canSeeFinancials && (
                       <div className="rounded border border-border p-3">
-                        <div className="text-xs text-muted-foreground">Ticket realizado</div>
+                        <div className="text-xs text-muted-foreground">Valor médio por cirurgia</div>
                         <div className="text-2xl font-bold">{fmtCurrency(partAll.ticketRealizadas)}</div>
                       </div>
                     )}
@@ -433,8 +436,8 @@ export default function Relatorios() {
                     <ResponsiveContainer>
                       <BarChart
                         data={[
-                          { name: 'Honorários Médicos Particulares', Conversao: partHonStats.pct, Total: partHonorarios.length },
-                          { name: 'Custos Totais Particulares', Conversao: partCustosStats.pct, Total: partCustos.length },
+                          { name: 'Só honorários médicos', Conversao: partHonStats.pct, Total: partHonorarios.length },
+                          { name: 'Pacote completo (custos totais)', Conversao: partCustosStats.pct, Total: partCustos.length },
                         ]}
                         layout="vertical"
                         margin={{ left: 12, right: 12 }}
@@ -442,16 +445,16 @@ export default function Relatorios() {
                         <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
                         <XAxis type="number" fontSize={11} />
                         <YAxis dataKey="name" type="category" fontSize={11} width={220} />
-                        <Tooltip contentStyle={{ fontSize: 12 }} formatter={(v: any, k: any) => k === 'Conversao' ? [`${v}%`, 'Conversão'] : [v, k]} />
+                        <Tooltip contentStyle={{ fontSize: 12 }} formatter={(v: any, k: any) => k === 'Conversao' ? [`${v}%`, '% viraram cirurgia'] : [v, k]} />
                         <Legend wrapperStyle={{ fontSize: 11 }} />
-                        <Bar dataKey="Total" fill="hsl(var(--primary))" name="Total pacientes" />
-                        <Bar dataKey="Conversao" fill="hsl(var(--pipeline-green))" name="Conversão (%)" />
+                        <Bar dataKey="Total" fill="hsl(var(--primary))" name="Total de pacientes" />
+                        <Bar dataKey="Conversao" fill="hsl(var(--pipeline-green))" name="% viraram cirurgia" />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
                   {partLossReasons.length > 0 && (
                     <div className="mt-3 border-t border-border pt-3">
-                      <div className="text-xs font-medium mb-2">Principais motivos de perda</div>
+                      <div className="text-xs font-medium mb-2">Por que perdemos esses pacientes</div>
                       <ul className="text-xs space-y-1">
                         {partLossReasons.sort((a, b) => b.value - a.value).slice(0, 5).map(r => (
                           <li key={r.name} className="flex items-center justify-between">
@@ -470,34 +473,34 @@ export default function Relatorios() {
             <Card className="p-4">
               <div className="flex items-center justify-between mb-3">
                 <div>
-                  <h3 className="text-sm font-semibold">Conversão — Convênio</h3>
-                  <p className="text-[11px] text-muted-foreground">Pacientes com faturamento por convênio (não-particular).</p>
+                  <h3 className="text-sm font-semibold">Pacientes de convênio — quantos viraram cirurgia</h3>
+                  <p className="text-[11px] text-muted-foreground">Pacientes cujo pagamento vem por plano de saúde (não particular).</p>
                 </div>
-                <Button variant="ghost" size="sm" onClick={exportConvenio}>
-                  <Download className="h-3.5 w-3.5" />CSV
+                <Button variant="ghost" size="sm" onClick={exportConvenio} title="Baixar este bloco em planilha">
+                  <Download className="h-3.5 w-3.5" />Planilha
                 </Button>
               </div>
               {convenioList.length === 0 ? (
-                <div className="text-sm text-muted-foreground py-4 text-center">Sem convênios no recorte</div>
+                <div className="text-sm text-muted-foreground py-4 text-center">Nenhum paciente de convênio no filtro atual</div>
               ) : (
                 <>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <div className="rounded border border-border p-3">
-                      <div className="text-xs text-muted-foreground">Conversão</div>
+                      <div className="text-xs text-muted-foreground">% que viraram cirurgia</div>
                       <div className="text-2xl font-bold">{convAll.pct}%</div>
-                      <div className="text-[10px] text-muted-foreground mt-1">{convAll.realizadas}/{convAll.denom} realizadas</div>
+                      <div className="text-[10px] text-muted-foreground mt-1">{convAll.realizadas} operados de {convAll.denom} casos fechados</div>
                     </div>
                     <div className="rounded border border-border p-3">
-                      <div className="text-xs text-muted-foreground">Em andamento</div>
+                      <div className="text-xs text-muted-foreground">Ainda em acompanhamento</div>
                       <div className="text-2xl font-bold">{convAll.emAndamento}</div>
                     </div>
                     <div className="rounded border border-border p-3">
-                      <div className="text-xs text-muted-foreground">Realizadas</div>
+                      <div className="text-xs text-muted-foreground">Operados</div>
                       <div className="text-2xl font-bold text-[hsl(var(--pipeline-green))]">{convAll.realizadas}</div>
                     </div>
                     {canSeeFinancials && (
                       <div className="rounded border border-border p-3">
-                        <div className="text-xs text-muted-foreground">Ticket realizado</div>
+                        <div className="text-xs text-muted-foreground">Valor médio por cirurgia</div>
                         <div className="text-2xl font-bold">{fmtCurrency(convAll.ticketRealizadas)}</div>
                       </div>
                     )}
@@ -509,17 +512,17 @@ export default function Relatorios() {
                           <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
                           <XAxis type="number" fontSize={11} />
                           <YAxis dataKey="name" type="category" fontSize={11} width={140} />
-                          <Tooltip contentStyle={{ fontSize: 12 }} formatter={(v: any, k: any) => k === 'pct' ? [`${v}%`, 'Conversão'] : [v, k]} />
+                          <Tooltip contentStyle={{ fontSize: 12 }} formatter={(v: any, k: any) => k === 'pct' ? [`${v}%`, '% viraram cirurgia'] : [v, k]} />
                           <Legend wrapperStyle={{ fontSize: 11 }} />
-                          <Bar dataKey="total" fill="hsl(var(--primary))" name="Total" />
-                          <Bar dataKey="pct" fill="hsl(var(--pipeline-green))" name="Conversão (%)" />
+                          <Bar dataKey="total" fill="hsl(var(--primary))" name="Total de pacientes" />
+                          <Bar dataKey="pct" fill="hsl(var(--pipeline-green))" name="% viraram cirurgia" />
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
                   )}
                   {convLossReasons.length > 0 && (
                     <div className="mt-3 border-t border-border pt-3">
-                      <div className="text-xs font-medium mb-2">Principais motivos de perda</div>
+                      <div className="text-xs font-medium mb-2">Por que perdemos esses pacientes</div>
                       <ul className="text-xs space-y-1">
                         {convLossReasons.sort((a, b) => b.value - a.value).slice(0, 5).map(r => (
                           <li key={r.name} className="flex items-center justify-between">
@@ -538,41 +541,42 @@ export default function Relatorios() {
             <Card className="p-4">
               <div className="flex items-center justify-between mb-3">
                 <div>
-                  <h3 className="text-sm font-semibold">SLA orçamento — Particulares (24h)</h3>
+                  <h3 className="text-sm font-semibold">Orçamento enviado em até 24h — Particulares</h3>
                   <p className="text-[11px] text-muted-foreground">
-                    Considera o primeiro orçamento (preliminar) anexado no Axis, independentemente de quantos hospitais foram selecionados.
+                    Conta se o primeiro orçamento (preliminar) foi anexado no Axis em menos de 24h após o cadastro. Não importa quantos hospitais foram escolhidos.
                   </p>
                 </div>
-                <Button variant="ghost" size="sm" onClick={exportSla}>
-                  <Download className="h-3.5 w-3.5" />CSV
+                <Button variant="ghost" size="sm" onClick={exportSla} title="Baixar este bloco em planilha">
+                  <Download className="h-3.5 w-3.5" />Planilha
                 </Button>
               </div>
               {particularesTotal === 0 ? (
-                <div className="text-sm text-muted-foreground py-4 text-center">Sem pacientes particulares no período</div>
+                <div className="text-sm text-muted-foreground py-4 text-center">Nenhum paciente particular no período</div>
               ) : (
                 <>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <div className="rounded border border-border p-3">
-                      <div className="text-xs text-muted-foreground">Aderência</div>
+                      <div className="text-xs text-muted-foreground">% enviados no prazo</div>
                       <div className="text-2xl font-bold">{particularesSlaPct}%</div>
-                      <div className="text-[10px] text-muted-foreground mt-1">{particularesOnTime}/{particularesResolved} anexados a tempo</div>
+                      <div className="text-[10px] text-muted-foreground mt-1">{particularesOnTime} de {particularesResolved} entregues em até 24h</div>
                     </div>
                     <div className="rounded border border-border p-3">
-                      <div className="text-xs text-muted-foreground">No prazo</div>
+                      <div className="text-xs text-muted-foreground">Dentro do prazo</div>
                       <div className="text-2xl font-bold text-[hsl(var(--pipeline-green))]">{particularesOnTime}</div>
                     </div>
                     <div className="rounded border border-border p-3">
-                      <div className="text-xs text-muted-foreground">Estourados</div>
+                      <div className="text-xs text-muted-foreground">Atrasados</div>
                       <div className="text-2xl font-bold text-destructive">{particularesBreached}</div>
                     </div>
                     <div className="rounded border border-border p-3">
-                      <div className="text-xs text-muted-foreground">Pendentes (dentro)</div>
+                      <div className="text-xs text-muted-foreground">Ainda dentro do prazo</div>
                       <div className="text-2xl font-bold">{particularesPendingOk}</div>
+                      <div className="text-[10px] text-muted-foreground mt-1">Sem orçamento, mas as 24h não venceram</div>
                     </div>
                   </div>
                   {particularesBreached > 0 && (
                     <div className="mt-3 border-t border-border pt-3">
-                      <div className="text-xs font-medium mb-2">Pacientes com SLA estourado</div>
+                      <div className="text-xs font-medium mb-2">Pacientes com orçamento atrasado</div>
                       <ul className="space-y-1 max-h-48 overflow-auto">
                         {budgetSla
                           .filter(b => b.status === 'late' || b.status === 'pending_breached')
@@ -581,11 +585,11 @@ export default function Relatorios() {
                               <Link to={`/?patient=${b.patient.id}`} className="hover:underline truncate">
                                 {b.patient.name}
                                 {b.hoursToFirst != null && (
-                                  <span className="ml-2 text-muted-foreground">— anexado em {b.hoursToFirst.toFixed(1)}h</span>
+                                  <span className="ml-2 text-muted-foreground">— enviado em {b.hoursToFirst.toFixed(1)}h</span>
                                 )}
                               </Link>
                               <Badge variant={b.status === 'late' ? 'secondary' : 'destructive'} className="text-[10px]">
-                                {b.status === 'late' ? 'Anexado fora do prazo' : 'Sem orçamento'}
+                                {b.status === 'late' ? 'Enviado fora do prazo' : 'Sem orçamento'}
                               </Badge>
                             </li>
                           ))}
@@ -599,9 +603,12 @@ export default function Relatorios() {
             {/* Funnel */}
             <Card className="p-4">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold">Funil de conversão por estágio</h3>
-                <Button variant="ghost" size="sm" onClick={exportFunil}>
-                  <Download className="h-3.5 w-3.5" />CSV
+                <div>
+                  <h3 className="text-sm font-semibold">Onde estão os pacientes hoje</h3>
+                  <p className="text-[11px] text-muted-foreground">Quantos pacientes existem em cada etapa do processo.</p>
+                </div>
+                <Button variant="ghost" size="sm" onClick={exportFunil} title="Baixar este bloco em planilha">
+                  <Download className="h-3.5 w-3.5" />Planilha
                 </Button>
               </div>
               <div className="h-[360px]">
@@ -621,13 +628,16 @@ export default function Relatorios() {
             <div className="grid md:grid-cols-2 gap-3">
               <Card className="p-4">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-semibold">Perdidos por motivo</h3>
-                  <Button variant="ghost" size="sm" onClick={exportPerdidos}>
-                    <Download className="h-3.5 w-3.5" />CSV
+                  <div>
+                    <h3 className="text-sm font-semibold">Motivos das perdas</h3>
+                    <p className="text-[11px] text-muted-foreground">Por que pacientes deixaram de fazer a cirurgia.</p>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={exportPerdidos} title="Baixar em planilha">
+                    <Download className="h-3.5 w-3.5" />Planilha
                   </Button>
                 </div>
                 {lossData.length === 0 ? (
-                  <div className="text-sm text-muted-foreground py-8 text-center">Sem perdidos no período</div>
+                  <div className="text-sm text-muted-foreground py-8 text-center">Nenhum paciente perdido no período</div>
                 ) : (
                   <div className="h-[260px]">
                     <ResponsiveContainer>
@@ -646,9 +656,12 @@ export default function Relatorios() {
               {canSeeFinancials && (
                 <Card className="p-4">
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-semibold">Receita por convênio</h3>
-                    <Button variant="ghost" size="sm" onClick={exportConveniosReceita}>
-                      <Download className="h-3.5 w-3.5" />CSV
+                    <div>
+                      <h3 className="text-sm font-semibold">Receita por convênio</h3>
+                      <p className="text-[11px] text-muted-foreground">Quanto cada convênio representa em valor.</p>
+                    </div>
+                    <Button variant="ghost" size="sm" onClick={exportConveniosReceita} title="Baixar em planilha">
+                      <Download className="h-3.5 w-3.5" />Planilha
                     </Button>
                   </div>
                   {payerData.length === 0 ? (
@@ -673,9 +686,14 @@ export default function Relatorios() {
             {/* Productivity */}
             <Card className="p-4">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold">Produtividade por concierge</h3>
-                <Button variant="ghost" size="sm" onClick={exportProdutividade}>
-                  <Download className="h-3.5 w-3.5" />CSV
+                <div>
+                  <h3 className="text-sm font-semibold">Trabalho das concierges</h3>
+                  <p className="text-[11px] text-muted-foreground">
+                    Quantos pacientes cada concierge acompanha, quantas ações concluíram e a % de ações no prazo.
+                  </p>
+                </div>
+                <Button variant="ghost" size="sm" onClick={exportProdutividade} title="Baixar em planilha">
+                  <Download className="h-3.5 w-3.5" />Planilha
                 </Button>
               </div>
               {productivityData.length === 0 ? (
@@ -686,13 +704,13 @@ export default function Relatorios() {
                     <BarChart data={productivityData} margin={{ top: 8, right: 12, left: 0, bottom: 4 }}>
                       <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
                       <XAxis dataKey="name" fontSize={11} />
-                      <YAxis yAxisId="count" fontSize={11} label={{ value: 'Volume', angle: -90, position: 'insideLeft', style: { fontSize: 10, fill: 'hsl(var(--muted-foreground))' } }} />
+                      <YAxis yAxisId="count" fontSize={11} label={{ value: 'Quantidade', angle: -90, position: 'insideLeft', style: { fontSize: 10, fill: 'hsl(var(--muted-foreground))' } }} />
                       <YAxis yAxisId="pct" orientation="right" domain={[0, 100]} unit="%" fontSize={11} />
-                      <Tooltip contentStyle={{ fontSize: 12 }} formatter={(v: any, name: any) => name === 'SLA (%)' ? [`${v}%`, name] : [v, name]} />
+                      <Tooltip contentStyle={{ fontSize: 12 }} formatter={(v: any, name: any) => name === '% ações no prazo' ? [`${v}%`, name] : [v, name]} />
                       <Legend wrapperStyle={{ fontSize: 11 }} />
-                      <Bar yAxisId="count" dataKey="pacientes" fill="hsl(var(--primary))" name="Pacientes" radius={[3,3,0,0]} />
+                      <Bar yAxisId="count" dataKey="pacientes" fill="hsl(var(--primary))" name="Pacientes acompanhados" radius={[3,3,0,0]} />
                       <Bar yAxisId="count" dataKey="concluidas" fill="hsl(var(--pipeline-green))" name="Ações concluídas" radius={[3,3,0,0]} />
-                      <Bar yAxisId="pct" dataKey="sla" fill="hsl(var(--pipeline-amber))" name="SLA (%)" radius={[3,3,0,0]} />
+                      <Bar yAxisId="pct" dataKey="sla" fill="hsl(var(--pipeline-amber))" name="% ações no prazo" radius={[3,3,0,0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
