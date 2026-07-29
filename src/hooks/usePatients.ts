@@ -507,6 +507,7 @@ export function useImportPatients() {
           indication_location: p.indicationLocation || null,
           payer: p.payer || null,
           desired_hospital: p.desiredHospital || null,
+          desired_hospitals: p.desiredHospital ? [p.desiredHospital] : [],
           notes: p.notes || null,
         } as any).select().single();
         if (error) continue;
