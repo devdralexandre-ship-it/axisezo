@@ -801,9 +801,7 @@ export function PipelineDashboard() {
           {/* Single column */}
           <div className="flex-1 overflow-y-auto px-3 pb-4">
             {(() => {
-              const stagePatients = filtered
-                .filter((p) => p.stage === mobileStage)
-                .sort((a, b) => new Date(a.indicationDate || a.createdAt || '9999-12-31').getTime() - new Date(b.indicationDate || b.createdAt || '9999-12-31').getTime());
+              const stagePatients = sortPatients(filtered.filter((p) => p.stage === mobileStage), sortKey, sortDir);
               return (
                 <PipelineColumn
                   stage={mobileStage}
@@ -826,14 +824,10 @@ export function PipelineDashboard() {
           <div className="flex-1 overflow-auto">
             <div className="flex gap-4 p-6 min-h-full min-w-max">
               {ACTIVE_STAGES.map((stage) => {
-                const stagePatients = filtered.filter((p) => p.stage === stage).sort((a, b) => {
-                  const dateA = new Date(a.indicationDate || a.createdAt || '9999-12-31').getTime();
-                  const dateB = new Date(b.indicationDate || b.createdAt || '9999-12-31').getTime();
-                  return dateA - dateB;
-                });
+                const stagePatients = sortPatients(filtered.filter((p) => p.stage === stage), sortKey, sortDir);
                 return <PipelineColumn key={stage} stage={stage} patients={stagePatients} onPatientClick={handlePatientClick} onCompleteTask={handleCompleteTask} onDeletePatient={can('delete_patients') ? handleDeletePatient : undefined} newSinceIso={briefing.lastSeenAt} />;
               })}
-              <PipelineColumn key="lost" stage="lost" patients={filtered.filter((p) => p.stage === 'lost').sort((a, b) => new Date(a.indicationDate || a.createdAt || '9999-12-31').getTime() - new Date(b.indicationDate || b.createdAt || '9999-12-31').getTime())} onPatientClick={handlePatientClick} onCompleteTask={handleCompleteTask} onDeletePatient={can('delete_patients') ? handleDeletePatient : undefined} variant="lost" newSinceIso={briefing.lastSeenAt} />
+              <PipelineColumn key="lost" stage="lost" patients={sortPatients(filtered.filter((p) => p.stage === 'lost'), sortKey, sortDir)} onPatientClick={handlePatientClick} onCompleteTask={handleCompleteTask} onDeletePatient={can('delete_patients') ? handleDeletePatient : undefined} variant="lost" newSinceIso={briefing.lastSeenAt} />
             </div>
           </div>
         </DragDropContext>
