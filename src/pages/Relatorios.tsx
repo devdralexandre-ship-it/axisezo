@@ -353,8 +353,13 @@ export default function Relatorios() {
                         {budgetSla
                           .filter(b => b.status === 'late' || b.status === 'pending_breached')
                           .map(b => (
-                            <li key={b.patient.id} className="flex items-center justify-between text-xs">
-                              <Link to={`/?patient=${b.patient.id}`} className="hover:underline truncate">{b.patient.name}</Link>
+                            <li key={b.patient.id} className="flex items-center justify-between gap-2 text-xs">
+                              <Link to={`/?patient=${b.patient.id}`} className="hover:underline truncate">
+                                {b.patient.name}
+                                {b.missing.length > 0 && (
+                                  <span className="ml-2 text-muted-foreground">— falta: {b.missing.join(', ')}</span>
+                                )}
+                              </Link>
                               <Badge variant={b.status === 'late' ? 'secondary' : 'destructive'} className="text-[10px]">
                                 {b.status === 'late' ? 'Anexado fora do prazo' : 'Sem orçamento'}
                               </Badge>
