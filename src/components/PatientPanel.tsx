@@ -193,7 +193,14 @@ export function PatientPanel({ patient, open, onClose, onCompleteTask, onAddTask
                 )}
               </div>
               <div className="flex items-center gap-2 mt-1">
-                {patient.age && <span className="text-xs text-muted-foreground">{patient.age} anos</span>}
+                {(patient.age != null || patient.ageMonths != null) && (
+                  <span className="text-xs text-muted-foreground">
+                    {[
+                      patient.age != null ? `${patient.age}a` : null,
+                      patient.ageMonths ? `${patient.ageMonths}m` : null,
+                    ].filter(Boolean).join(' ')}
+                  </span>
+                )}
                 <Badge variant="outline" className="text-[10px]">
                   {patient.patientType === 'pediatric' ? <><Baby className="h-2.5 w-2.5 mr-1" />Pediátrico</> : <><User className="h-2.5 w-2.5 mr-1" />Adulto</>}
                 </Badge>
