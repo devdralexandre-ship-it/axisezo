@@ -12,7 +12,8 @@ import { SurgeryDateDialog } from './SurgeryDateDialog';
 import { DeletePatientDialog } from './DeletePatientDialog';
 import { CsvImporter } from './CsvImporter';
 import { Button } from '@/components/ui/button';
-import { Plus, Users, DollarSign, TrendingUp, LogOut, Upload, FileText, Shield, UserCircle, BookOpen, Menu } from 'lucide-react';
+import { Plus, Users, DollarSign, TrendingUp, LogOut, Upload, FileText, Shield, UserCircle, BookOpen, Menu, Search } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -675,32 +676,6 @@ export function PipelineDashboard() {
               <span className="font-semibold text-destructive">{lostCount}</span>
             </div>
           )}
-          <div className="md:ml-auto flex items-center gap-1 flex-wrap w-full md:w-auto">
-            <Button
-              variant={slaFilter === 'all' ? 'secondary' : 'ghost'}
-              size="sm"
-              className="h-6 text-[11px] px-2"
-              onClick={() => setSlaFilter('all')}
-            >
-              Todos
-            </Button>
-            <Button
-              variant={slaFilter === 'breached' ? 'secondary' : 'ghost'}
-              size="sm"
-              className="h-6 text-[11px] px-2"
-              onClick={() => setSlaFilter('breached')}
-            >
-              ⏰ SLA estourado
-            </Button>
-            <Button
-              variant={slaFilter === 'escalated' ? 'secondary' : 'ghost'}
-              size="sm"
-              className="h-6 text-[11px] px-2"
-              onClick={() => setSlaFilter('escalated')}
-            >
-              🚨 Escaladas
-            </Button>
-          </div>
         </div>
 
         {(() => {
@@ -729,29 +704,46 @@ export function PipelineDashboard() {
               setIndicationFrom(''); setIndicationTo('');
             },
           };
-          return isMobile ? (
+          return (
             <div className="flex items-center gap-2 flex-wrap">
-              <div className="relative flex-1 min-w-[160px]">
-                <input
+              <div className="relative flex-1 min-w-[160px] max-w-xs">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
                   placeholder="Buscar paciente..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+                  className="pl-8 h-8 text-xs"
                 />
               </div>
               <FilterSheet {...filterProps} />
+              <div className="hidden md:flex items-center gap-1 flex-wrap">
+                <Button
+                  variant={slaFilter === 'all' ? 'secondary' : 'ghost'}
+                  size="sm"
+                  className="h-6 text-[11px] px-2"
+                  onClick={() => setSlaFilter('all')}
+                >
+                  Todos
+                </Button>
+                <Button
+                  variant={slaFilter === 'breached' ? 'secondary' : 'ghost'}
+                  size="sm"
+                  className="h-6 text-[11px] px-2"
+                  onClick={() => setSlaFilter('breached')}
+                >
+                  ⏰ SLA estourado
+                </Button>
+                <Button
+                  variant={slaFilter === 'escalated' ? 'secondary' : 'ghost'}
+                  size="sm"
+                  className="h-6 text-[11px] px-2"
+                  onClick={() => setSlaFilter('escalated')}
+                >
+                  🚨 Escaladas
+                </Button>
+              </div>
               <ViewToggle mode={viewMode} onChange={setViewMode} />
               <SortControl sortKey={sortKey} sortDir={sortDir} onKeyChange={setSortKey} onDirChange={setSortDir} compact />
-            </div>
-          ) : (
-            <div className="flex items-start gap-2">
-              <div className="flex-1 min-w-0">
-                <FilterBar {...filterProps} />
-              </div>
-              <div className="flex flex-col gap-1.5 shrink-0 pt-0.5">
-                <ViewToggle mode={viewMode} onChange={setViewMode} />
-                <SortControl sortKey={sortKey} sortDir={sortDir} onKeyChange={setSortKey} onDirChange={setSortDir} />
-              </div>
             </div>
           );
         })()}
