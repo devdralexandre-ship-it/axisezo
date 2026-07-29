@@ -398,36 +398,36 @@ export default function Relatorios() {
             <Card className="p-4">
               <div className="flex items-center justify-between mb-3">
                 <div>
-                  <h3 className="text-sm font-semibold">Conversão — Particulares</h3>
+                  <h3 className="text-sm font-semibold">Pacientes particulares — quantos viraram cirurgia</h3>
                   <p className="text-[11px] text-muted-foreground">
-                    Inclui "Honorários Médicos Particulares" e "Custos Totais Particulares".
+                    Inclui quem paga só honorários médicos e quem paga o pacote completo (custos totais).
                   </p>
                 </div>
-                <Button variant="ghost" size="sm" onClick={exportParticulares}>
-                  <Download className="h-3.5 w-3.5" />CSV
+                <Button variant="ghost" size="sm" onClick={exportParticulares} title="Baixar este bloco em planilha">
+                  <Download className="h-3.5 w-3.5" />Planilha
                 </Button>
               </div>
               {particularesList.length === 0 ? (
-                <div className="text-sm text-muted-foreground py-4 text-center">Sem particulares no recorte</div>
+                <div className="text-sm text-muted-foreground py-4 text-center">Nenhum paciente particular no filtro atual</div>
               ) : (
                 <>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <div className="rounded border border-border p-3">
-                      <div className="text-xs text-muted-foreground">Conversão</div>
+                      <div className="text-xs text-muted-foreground">% que viraram cirurgia</div>
                       <div className="text-2xl font-bold">{partAll.pct}%</div>
-                      <div className="text-[10px] text-muted-foreground mt-1">{partAll.realizadas}/{partAll.denom} realizadas</div>
+                      <div className="text-[10px] text-muted-foreground mt-1">{partAll.realizadas} operados de {partAll.denom} casos fechados</div>
                     </div>
                     <div className="rounded border border-border p-3">
-                      <div className="text-xs text-muted-foreground">Em andamento</div>
+                      <div className="text-xs text-muted-foreground">Ainda em acompanhamento</div>
                       <div className="text-2xl font-bold">{partAll.emAndamento}</div>
                     </div>
                     <div className="rounded border border-border p-3">
-                      <div className="text-xs text-muted-foreground">Realizadas</div>
+                      <div className="text-xs text-muted-foreground">Operados</div>
                       <div className="text-2xl font-bold text-[hsl(var(--pipeline-green))]">{partAll.realizadas}</div>
                     </div>
                     {canSeeFinancials && (
                       <div className="rounded border border-border p-3">
-                        <div className="text-xs text-muted-foreground">Ticket realizado</div>
+                        <div className="text-xs text-muted-foreground">Valor médio por cirurgia</div>
                         <div className="text-2xl font-bold">{fmtCurrency(partAll.ticketRealizadas)}</div>
                       </div>
                     )}
