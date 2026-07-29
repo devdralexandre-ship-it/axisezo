@@ -313,10 +313,11 @@ export default function Relatorios() {
                   <p className="text-[11px] text-muted-foreground">Pacientes particulares devem ter orçamento anexado no Axis em até 24h do cadastro.</p>
                 </div>
                 <Button variant="ghost" size="sm" onClick={() => downloadCsv('sla-orcamento-particulares.csv',
-                  [['Paciente', 'Cadastro', 'Primeiro orçamento', 'Status'],
+                  [['Paciente', 'Cadastro', 'Hospitais faltantes', 'Cobertura completa em', 'Status'],
                    ...budgetSla.map(b => [
                      b.patient.name,
                      b.patient.createdAt,
+                     b.missing.join(' | '),
                      b.first ? new Date(b.first).toISOString() : '',
                      b.status === 'on_time' ? 'No prazo' : b.status === 'late' ? 'Fora do prazo' : b.status === 'pending_ok' ? 'Pendente (dentro)' : 'Pendente (estourado)',
                    ])])}>
