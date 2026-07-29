@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 import { usePatients } from '@/hooks/usePatients';
 import { useRealtimePatients } from '@/hooks/useRealtimePatients';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -84,6 +85,58 @@ export default function Relatorios() {
   const projectedRevenue = inRange
     .filter(p => p.stage === 'surgery_scheduled' || p.stage === 'preop_preparation')
     .reduce((s, p) => s + patientValue(p), 0);
+
+  // SLA: particular patients must have a budget document attached within 24h of creation.
+  const particulares = useMemo(
+    () => inRange.filter(p => (p.billingType || '').toLowerCase().includes('particular')),
+    [inRange],
+  );
+  const [budgetTimes, setBudgetTimes] = useState<Record<string, string>>({});
+  useEffect(() => {
+    const ids = particulares.map(p => p.id);
+    if (ids.length === 0) { setBudgetTimes({}); return; }
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('patient_documents')
+        .select('patient_id, created_at')
+        .eq('type', 'budget')
+        .in('patient_id', ids)
+        .order('created_at', { ascending: true });
+      if (cancelled) return;
+      const map: Record<string, string> = {};
+      (data ?? []).forEach((d: any) => {
+        if (!map[d.patient_id]) map[d.patient_id] = d.created_at;
+      });
+      setBudgetTimes(map);
+    })();
+    return () => { cancelled = true; };
+  }, [particulares]);
+
+  const nowMs = Date.now();
+  const budgetSla = particulares.map((p) => {
+    const created = p.createdAt ? new Date(p.createdAt).getTime() : null;
+    const first = budgetTimes[p.id] ? new Date(budgetTimes[p.id]).getTime() : null;
+    const deadlineMs = created != null ? created + 24 * 3600 * 1000 : null;
+    let status: 'on_time' | 'late' | 'pending_ok' | 'pending_breached';
+    if (first != null && created != null) {
+      status = (first - created) <= 24 * 3600 * 1000 ? 'on_time' : 'late';
+    } else if (deadlineMs != null && nowMs <= deadlineMs) {
+      status = 'pending_ok';
+    } else {
+      status = 'pending_breached';
+    }
+    return { patient: p, first, status };
+  });
+  const particularesTotal = budgetSla.length;
+  const particularesOnTime = budgetSla.filter(b => b.status === 'on_time').length;
+  const particularesPendingOk = budgetSla.filter(b => b.status === 'pending_ok').length;
+  const particularesBreached = budgetSla.filter(b => b.status === 'late' || b.status === 'pending_breached').length;
+  const particularesResolved = budgetSla.filter(b => b.status === 'on_time' || b.status === 'late').length;
+  const particularesSlaPct = particularesResolved > 0
+    ? Math.round((particularesOnTime / particularesResolved) * 100)
+    : 100;
+
 
   // Funnel by stage
   const funnelData = PIPELINE_STAGES.filter(s => s !== 'lost').map((s) => {
@@ -210,6 +263,70 @@ export default function Relatorios() {
                 </>
               )}
             </div>
+
+            {/* SLA orçamento particulares (24h) */}
+            <Card className="p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h3 className="text-sm font-semibold">SLA orçamento — Particulares (24h)</h3>
+                  <p className="text-[11px] text-muted-foreground">Pacientes particulares devem ter orçamento anexado no Axis em até 24h do cadastro.</p>
+                </div>
+                <Button variant="ghost" size="sm" onClick={() => downloadCsv('sla-orcamento-particulares.csv',
+                  [['Paciente', 'Cadastro', 'Primeiro orçamento', 'Status'],
+                   ...budgetSla.map(b => [
+                     b.patient.name,
+                     b.patient.createdAt,
+                     b.first ? new Date(b.first).toISOString() : '',
+                     b.status === 'on_time' ? 'No prazo' : b.status === 'late' ? 'Fora do prazo' : b.status === 'pending_ok' ? 'Pendente (dentro)' : 'Pendente (estourado)',
+                   ])])}>
+                  <Download className="h-3.5 w-3.5" />CSV
+                </Button>
+              </div>
+              {particularesTotal === 0 ? (
+                <div className="text-sm text-muted-foreground py-4 text-center">Sem pacientes particulares no período</div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="rounded border border-border p-3">
+                      <div className="text-xs text-muted-foreground">Aderência</div>
+                      <div className="text-2xl font-bold">{particularesSlaPct}%</div>
+                      <div className="text-[10px] text-muted-foreground mt-1">{particularesOnTime}/{particularesResolved} anexados a tempo</div>
+                    </div>
+                    <div className="rounded border border-border p-3">
+                      <div className="text-xs text-muted-foreground">No prazo</div>
+                      <div className="text-2xl font-bold text-[hsl(var(--pipeline-green))]">{particularesOnTime}</div>
+                    </div>
+                    <div className="rounded border border-border p-3">
+                      <div className="text-xs text-muted-foreground">Estourados</div>
+                      <div className="text-2xl font-bold text-destructive">{particularesBreached}</div>
+                    </div>
+                    <div className="rounded border border-border p-3">
+                      <div className="text-xs text-muted-foreground">Pendentes (dentro)</div>
+                      <div className="text-2xl font-bold">{particularesPendingOk}</div>
+                    </div>
+                  </div>
+                  {particularesBreached > 0 && (
+                    <div className="mt-3 border-t border-border pt-3">
+                      <div className="text-xs font-medium mb-2">Pacientes com SLA estourado</div>
+                      <ul className="space-y-1 max-h-48 overflow-auto">
+                        {budgetSla
+                          .filter(b => b.status === 'late' || b.status === 'pending_breached')
+                          .map(b => (
+                            <li key={b.patient.id} className="flex items-center justify-between text-xs">
+                              <Link to={`/?patient=${b.patient.id}`} className="hover:underline truncate">{b.patient.name}</Link>
+                              <Badge variant={b.status === 'late' ? 'secondary' : 'destructive'} className="text-[10px]">
+                                {b.status === 'late' ? 'Anexado fora do prazo' : 'Sem orçamento'}
+                              </Badge>
+                            </li>
+                          ))}
+                      </ul>
+                    </div>
+                  )}
+                </>
+              )}
+            </Card>
+
+
 
             {/* Funnel */}
             <Card className="p-4">
