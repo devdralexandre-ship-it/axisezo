@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { usePatients } from '@/hooks/usePatients';
 import { useRealtimePatients } from '@/hooks/useRealtimePatients';
 import { useUserRole } from '@/hooks/useUserRole';
-import { Patient, PIPELINE_STAGES, PipelineStage, STAGE_LABELS, LOSS_REASONS, LOSS_REASON_LABELS, LossReason, getTaskSlaState } from '@/data/types';
+import { Patient, PIPELINE_STAGES, STAGE_LABELS, LOSS_REASONS, LOSS_REASON_LABELS, getTaskSlaState } from '@/data/types';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -16,6 +16,7 @@ import {
 } from 'recharts';
 
 type PresetRange = '7d' | '30d' | '90d' | 'month' | 'all' | 'custom';
+type FinancialCut = 'all' | 'particular' | 'convenio';
 
 function toIso(d: Date) { return d.toISOString().split('T')[0]; }
 function daysAgo(n: number) { const d = new Date(); d.setDate(d.getDate() - n); return toIso(d); }
@@ -25,6 +26,14 @@ const CHART_COLORS = ['hsl(var(--primary))', 'hsl(var(--pipeline-green))', 'hsl(
 
 function patientValue(p: Patient) {
   return (p.medicalFees ?? 0) + (p.anesthesiaFees ?? 0) + (p.hospitalBudget ?? 0) + (p.materialsCost ?? 0);
+}
+
+function isParticular(p: Patient) {
+  return (p.billingType || '').toLowerCase().includes('particular');
+}
+function isConvenio(p: Patient) {
+  const bt = (p.billingType || '').trim();
+  return !!bt && !bt.toLowerCase().includes('particular');
 }
 
 function downloadCsv(name: string, rows: (string | number)[][]) {
@@ -39,6 +48,18 @@ function downloadCsv(name: string, rows: (string | number)[][]) {
   URL.revokeObjectURL(url);
 }
 
+function conversionStats(list: Patient[]) {
+  const realizadas = list.filter(p => p.stage === 'surgery_completed').length;
+  const perdidas = list.filter(p => p.stage === 'lost').length;
+  const emAndamento = list.filter(p => p.stage !== 'surgery_completed' && p.stage !== 'lost').length;
+  const denom = realizadas + perdidas;
+  const pct = denom > 0 ? Math.round((realizadas / denom) * 100) : 0;
+  const ticketRealizadas = realizadas > 0
+    ? list.filter(p => p.stage === 'surgery_completed').reduce((s, p) => s + patientValue(p), 0) / realizadas
+    : 0;
+  return { realizadas, perdidas, emAndamento, pct, denom, ticketRealizadas };
+}
+
 export default function Relatorios() {
   useRealtimePatients();
   const { data: patients = [], isLoading } = usePatients();
@@ -49,6 +70,8 @@ export default function Relatorios() {
   const [to, setTo] = useState<string>(toIso(new Date()));
   const [conciergeFilter, setConciergeFilter] = useState('all');
   const [surgeonFilter, setSurgeonFilter] = useState('all');
+  const [financialCut, setFinancialCut] = useState<FinancialCut>('all');
+  const [payerFilter, setPayerFilter] = useState('all');
 
   const applyPreset = (p: PresetRange) => {
     setPreset(p);
@@ -61,12 +84,19 @@ export default function Relatorios() {
 
   const surgeons = useMemo(() => [...new Set(patients.map(p => p.surgeon).filter(Boolean))].sort(), [patients]);
   const concierges = useMemo(() => [...new Set(patients.map(p => p.concierge).filter(Boolean))].sort(), [patients]);
+  const payers = useMemo(
+    () => [...new Set(patients.map(p => (p.payer || '').trim()).filter(Boolean))].sort(),
+    [patients],
+  );
 
-  // Filter by indication date + role filters. Exclude 'surgical_potential' from all metrics.
+  // Filter by INDICATION DATE + role/financial filters. Exclude 'surgical_potential' from all metrics.
   const inRange = useMemo(() => patients.filter((p) => {
     if (p.stage === 'surgical_potential') return false;
     if (conciergeFilter !== 'all' && p.concierge !== conciergeFilter) return false;
     if (surgeonFilter !== 'all' && p.surgeon !== surgeonFilter) return false;
+    if (financialCut === 'particular' && !isParticular(p)) return false;
+    if (financialCut === 'convenio' && !isConvenio(p)) return false;
+    if (payerFilter !== 'all' && (p.payer || '') !== payerFilter) return false;
     if (from || to) {
       const ref = p.indicationDate || p.createdAt;
       if (!ref) return false;
@@ -74,7 +104,7 @@ export default function Relatorios() {
       if (to && ref > to) return false;
     }
     return true;
-  }), [patients, conciergeFilter, surgeonFilter, from, to]);
+  }), [patients, conciergeFilter, surgeonFilter, financialCut, payerFilter, from, to]);
 
   // KPIs
   const active = inRange.filter(p => p.stage !== 'lost');
@@ -87,87 +117,75 @@ export default function Relatorios() {
     .filter(p => p.stage === 'surgery_scheduled' || p.stage === 'preop_preparation')
     .reduce((s, p) => s + patientValue(p), 0);
 
-  // SLA: particular patients must have a budget document attached (in Axis)
-  // within 24h of creation FOR EACH selected desired hospital. Adherence is
-  // met only when every selected hospital has a corresponding budget document
-  // before the deadline.
-  const particulares = useMemo(
-    () => inRange.filter(p => (p.billingType || '').toLowerCase().includes('particular')),
-    [inRange],
-  );
-  // Map<patientId, Array<{ hospital: string|null, created_at: string }>>
-  const [budgetDocs, setBudgetDocs] = useState<Record<string, Array<{ hospital: string | null; created_at: string }>>>({});
+  // === Conversão — Particulares ===
+  const particularesList = useMemo(() => inRange.filter(isParticular), [inRange]);
+  const partAll = conversionStats(particularesList);
+  const partHonorarios = particularesList.filter(p => (p.billingType || '').toLowerCase().includes('honorários'));
+  const partCustos = particularesList.filter(p => (p.billingType || '').toLowerCase().includes('custos'));
+  const partHonStats = conversionStats(partHonorarios);
+  const partCustosStats = conversionStats(partCustos);
+  const partLossReasons = LOSS_REASONS.map((r) => ({
+    name: LOSS_REASON_LABELS[r],
+    value: particularesList.filter(p => p.stage === 'lost' && p.lossReason === r).length,
+  })).filter(d => d.value > 0);
+
+  // === Conversão — Convênio ===
+  const convenioList = useMemo(() => inRange.filter(isConvenio), [inRange]);
+  const convAll = conversionStats(convenioList);
+  const convByPayerMap: Record<string, Patient[]> = {};
+  convenioList.forEach(p => {
+    const k = p.payer || 'Sem convênio';
+    (convByPayerMap[k] || (convByPayerMap[k] = [])).push(p);
+  });
+  const convByPayerRows = Object.entries(convByPayerMap)
+    .map(([name, list]) => ({ name, ...conversionStats(list), total: list.length }))
+    .sort((a, b) => b.total - a.total);
+  const convLossReasons = LOSS_REASONS.map((r) => ({
+    name: LOSS_REASON_LABELS[r],
+    value: convenioList.filter(p => p.stage === 'lost' && p.lossReason === r).length,
+  })).filter(d => d.value > 0);
+
+  // === SLA orçamento — Particulares (24h) — PRIMEIRO ORÇAMENTO PRELIMINAR ===
+  // Considera o primeiro documento do tipo 'budget' anexado no Axis,
+  // independentemente do hospital / da quantidade de hospitais desejados.
+  const [budgetFirstByPatient, setBudgetFirstByPatient] = useState<Record<string, string>>({});
   useEffect(() => {
-    const ids = particulares.map(p => p.id);
-    if (ids.length === 0) { setBudgetDocs({}); return; }
+    const ids = particularesList.map(p => p.id);
+    if (ids.length === 0) { setBudgetFirstByPatient({}); return; }
     let cancelled = false;
     (async () => {
       const { data } = await supabase
         .from('patient_documents')
-        .select('patient_id, created_at, data')
+        .select('patient_id, created_at')
         .eq('type', 'budget')
         .in('patient_id', ids)
         .order('created_at', { ascending: true });
       if (cancelled) return;
-      const map: Record<string, Array<{ hospital: string | null; created_at: string }>> = {};
+      const map: Record<string, string> = {};
       (data ?? []).forEach((d: any) => {
-        const arr = map[d.patient_id] || (map[d.patient_id] = []);
-        const h = (d.data && typeof d.data === 'object' && typeof d.data.hospital === 'string')
-          ? d.data.hospital.trim() || null
-          : null;
-        arr.push({ hospital: h, created_at: d.created_at });
+        if (!map[d.patient_id]) map[d.patient_id] = d.created_at;
       });
-      setBudgetDocs(map);
+      setBudgetFirstByPatient(map);
     })();
     return () => { cancelled = true; };
-  }, [particulares]);
+  }, [particularesList]);
 
   const nowMs = Date.now();
-  const normalizeHosp = (s: string) => s.trim().toLowerCase();
-  const budgetSla = particulares.map((p) => {
+  const budgetSla = particularesList.map((p) => {
     const created = p.createdAt ? new Date(p.createdAt).getTime() : null;
     const deadlineMs = created != null ? created + 24 * 3600 * 1000 : null;
-    const docs = budgetDocs[p.id] || [];
-    // Required hospitals: prefer multi-select; fallback to legacy single field; if none defined, require at least one budget.
-    const required = (p.desiredHospitals && p.desiredHospitals.length > 0)
-      ? p.desiredHospitals
-      : (p.desiredHospital ? [p.desiredHospital] : []);
-
-    // Earliest doc timestamp per required hospital (or overall when unspecified).
-    let firstAllMs: number | null = null;
-    const perHospitalFirst: Array<{ hospital: string; ts: number | null }> = [];
-    if (required.length === 0) {
-      // Fallback: earliest of any budget doc
-      if (docs.length > 0) firstAllMs = new Date(docs[0].created_at).getTime();
-    } else {
-      let allCovered = true;
-      let maxTs = -Infinity;
-      for (const h of required) {
-        const match = docs.find(d => d.hospital && normalizeHosp(d.hospital) === normalizeHosp(h));
-        const ts = match ? new Date(match.created_at).getTime() : null;
-        perHospitalFirst.push({ hospital: h, ts });
-        if (ts == null) { allCovered = false; }
-        else if (ts > maxTs) { maxTs = ts; }
-      }
-      // Legacy fallback: if patient has no hospital-tagged docs but has any budget doc, count the earliest.
-      const untagged = docs.filter(d => !d.hospital);
-      if (!allCovered && required.length === 1 && untagged.length > 0) {
-        allCovered = true;
-        maxTs = Math.max(maxTs === -Infinity ? -Infinity : maxTs, new Date(untagged[0].created_at).getTime());
-      }
-      firstAllMs = allCovered ? maxTs : null;
-    }
-
+    const firstIso = budgetFirstByPatient[p.id];
+    const firstMs = firstIso ? new Date(firstIso).getTime() : null;
     let status: 'on_time' | 'late' | 'pending_ok' | 'pending_breached';
-    if (firstAllMs != null && created != null) {
-      status = (firstAllMs - created) <= 24 * 3600 * 1000 ? 'on_time' : 'late';
+    if (firstMs != null && created != null) {
+      status = (firstMs - created) <= 24 * 3600 * 1000 ? 'on_time' : 'late';
     } else if (deadlineMs != null && nowMs <= deadlineMs) {
       status = 'pending_ok';
     } else {
       status = 'pending_breached';
     }
-    const missing = perHospitalFirst.filter(x => x.ts == null).map(x => x.hospital);
-    return { patient: p, first: firstAllMs, status, missing };
+    const hoursToFirst = firstMs != null && created != null ? (firstMs - created) / 3600000 : null;
+    return { patient: p, first: firstMs, hoursToFirst, status };
   });
   const particularesTotal = budgetSla.length;
   const particularesOnTime = budgetSla.filter(b => b.status === 'on_time').length;
@@ -177,7 +195,6 @@ export default function Relatorios() {
   const particularesSlaPct = particularesResolved > 0
     ? Math.round((particularesOnTime / particularesResolved) * 100)
     : 100;
-
 
   // Funnel by stage
   const funnelData = PIPELINE_STAGES.filter(s => s !== 'lost' && s !== 'surgical_potential').map((s) => {
@@ -189,7 +206,7 @@ export default function Relatorios() {
     };
   });
 
-  // Loss reasons
+  // Loss reasons (global)
   const lossData = LOSS_REASONS.map((r) => ({
     name: LOSS_REASON_LABELS[r],
     value: inRange.filter(p => p.stage === 'lost' && p.lossReason === r).length,
@@ -208,12 +225,7 @@ export default function Relatorios() {
       return st === 'breached' || st === 'escalated';
     }).length;
     const slaHealth = openTasks.length > 0 ? Math.round(((openTasks.length - breached) / openTasks.length) * 100) : 100;
-    return {
-      name: c,
-      pacientes: list.length,
-      concluidas: completedTasks,
-      sla: slaHealth,
-    };
+    return { name: c, pacientes: list.length, concluidas: completedTasks, sla: slaHealth };
   }).filter(d => d.pacientes > 0);
 
   // Financial by payer
@@ -229,12 +241,66 @@ export default function Relatorios() {
 
   const fmtCurrency = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(v);
 
+  // === CSV exports ===
+  const exportRaw = () => downloadCsv('pacientes-filtrados.csv', [
+    ['Paciente', 'Estágio', 'Concierge', 'Cirurgião', 'Faturamento', 'Convênio', 'Indicação', 'Cadastro', 'Valor estimado'],
+    ...inRange.map(p => [
+      p.name, STAGE_LABELS[p.stage] || p.stage, p.concierge || '', p.surgeon || '',
+      p.billingType || '', p.payer || '', p.indicationDate || '', p.createdAt || '', patientValue(p),
+    ]),
+  ]);
+  const exportParticulares = () => downloadCsv('conversao-particulares.csv', [
+    ['Recorte', 'Total', 'Realizadas', 'Perdidas', 'Em andamento', 'Conversão %', 'Ticket médio realizadas'],
+    ['Todos particulares', particularesList.length, partAll.realizadas, partAll.perdidas, partAll.emAndamento, partAll.pct, Math.round(partAll.ticketRealizadas)],
+    ['Honorários Médicos Particulares', partHonorarios.length, partHonStats.realizadas, partHonStats.perdidas, partHonStats.emAndamento, partHonStats.pct, Math.round(partHonStats.ticketRealizadas)],
+    ['Custos Totais Particulares', partCustos.length, partCustosStats.realizadas, partCustosStats.perdidas, partCustosStats.emAndamento, partCustosStats.pct, Math.round(partCustosStats.ticketRealizadas)],
+    [],
+    ['Paciente', 'Sub-tipo', 'Estágio', 'Concierge', 'Cirurgião', 'Indicação', 'Valor'],
+    ...particularesList.map(p => [p.name, p.billingType || '', STAGE_LABELS[p.stage] || p.stage, p.concierge || '', p.surgeon || '', p.indicationDate || '', patientValue(p)]),
+  ]);
+  const exportConvenio = () => downloadCsv('conversao-convenio.csv', [
+    ['Convênio', 'Total', 'Realizadas', 'Perdidas', 'Em andamento', 'Conversão %', 'Ticket médio realizadas'],
+    ['(Todos convênios)', convenioList.length, convAll.realizadas, convAll.perdidas, convAll.emAndamento, convAll.pct, Math.round(convAll.ticketRealizadas)],
+    ...convByPayerRows.map(r => [r.name, r.total, r.realizadas, r.perdidas, r.emAndamento, r.pct, Math.round(r.ticketRealizadas)]),
+    [],
+    ['Paciente', 'Convênio', 'Estágio', 'Concierge', 'Cirurgião', 'Indicação', 'Valor'],
+    ...convenioList.map(p => [p.name, p.payer || '', STAGE_LABELS[p.stage] || p.stage, p.concierge || '', p.surgeon || '', p.indicationDate || '', patientValue(p)]),
+  ]);
+  const exportSla = () => downloadCsv('sla-orcamento-particulares.csv', [
+    ['Paciente', 'Cadastro', 'Primeiro orçamento em', 'Primeiro orçamento (h)', 'Status'],
+    ...budgetSla.map(b => [
+      b.patient.name,
+      b.patient.createdAt,
+      b.first ? new Date(b.first).toISOString() : '',
+      b.hoursToFirst != null ? b.hoursToFirst.toFixed(1) : '',
+      b.status === 'on_time' ? 'No prazo' : b.status === 'late' ? 'Fora do prazo' : b.status === 'pending_ok' ? 'Pendente (dentro)' : 'Pendente (estourado)',
+    ]),
+  ]);
+  const exportFunil = () => downloadCsv('funil.csv',
+    [['Estágio', 'Pacientes', 'Valor'], ...funnelData.map(d => [d.stage, d.count, d.value])]);
+  const exportPerdidos = () => downloadCsv('perdidos.csv',
+    [['Motivo', 'Qtde'], ...lossData.map(d => [d.name, d.value])]);
+  const exportProdutividade = () => downloadCsv('produtividade.csv',
+    [['Concierge', 'Pacientes', 'Ações concluídas', 'SLA %'], ...productivityData.map(d => [d.name, d.pacientes, d.concluidas, d.sla])]);
+  const exportConveniosReceita = () => downloadCsv('convenios-receita.csv',
+    [['Convênio', 'Valor'], ...payerData.map(d => [d.name, d.value])]);
+  const exportAll = () => {
+    exportRaw(); exportParticulares(); exportConvenio(); exportSla();
+    exportFunil(); exportPerdidos(); exportProdutividade();
+    if (canSeeFinancials) exportConveniosReceita();
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-10 border-b border-border bg-background/95 backdrop-blur px-4 md:px-6 py-3">
         <div className="flex items-center gap-3 mb-3">
           <Button asChild variant="ghost" size="sm"><Link to="/"><ArrowLeft className="h-4 w-4" />Kanban</Link></Button>
           <h1 className="text-lg font-semibold">Relatórios</h1>
+          <div className="ml-auto">
+            <Button variant="outline" size="sm" className="h-8 text-xs" onClick={exportAll}>
+              <Download className="h-3.5 w-3.5" />Exportar tudo (CSV)
+            </Button>
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex gap-1">
@@ -251,6 +317,8 @@ export default function Relatorios() {
             ))}
           </div>
           <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <span className="font-medium text-foreground">Indicação:</span>
+            <span>de</span>
             <input type="date" value={from} onChange={(e) => { setFrom(e.target.value); setPreset('custom'); }} className="h-8 rounded border border-input bg-background px-2 text-xs" />
             <span>até</span>
             <input type="date" value={to} onChange={(e) => { setTo(e.target.value); setPreset('custom'); }} className="h-8 rounded border border-input bg-background px-2 text-xs" />
@@ -269,6 +337,24 @@ export default function Relatorios() {
               {surgeons.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
             </SelectContent>
           </Select>
+          <Select value={financialCut} onValueChange={(v) => setFinancialCut(v as FinancialCut)}>
+            <SelectTrigger className="h-8 w-[160px] text-xs"><SelectValue placeholder="Financeiro" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos financeiros</SelectItem>
+              <SelectItem value="particular">Particulares</SelectItem>
+              <SelectItem value="convenio">Convênio</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={payerFilter} onValueChange={setPayerFilter}>
+            <SelectTrigger className="h-8 w-[170px] text-xs"><SelectValue placeholder="Convênio" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos convênios</SelectItem>
+              {payers.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="mt-2 text-[11px] text-muted-foreground">
+          Filtros se combinam (E lógico). Cada bloco abaixo pode ser exportado em CSV com os filtros atuais aplicados.
         </div>
       </header>
 
@@ -305,22 +391,159 @@ export default function Relatorios() {
               )}
             </div>
 
+            {/* Conversão — Particulares */}
+            <Card className="p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h3 className="text-sm font-semibold">Conversão — Particulares</h3>
+                  <p className="text-[11px] text-muted-foreground">
+                    Inclui "Honorários Médicos Particulares" e "Custos Totais Particulares".
+                  </p>
+                </div>
+                <Button variant="ghost" size="sm" onClick={exportParticulares}>
+                  <Download className="h-3.5 w-3.5" />CSV
+                </Button>
+              </div>
+              {particularesList.length === 0 ? (
+                <div className="text-sm text-muted-foreground py-4 text-center">Sem particulares no recorte</div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="rounded border border-border p-3">
+                      <div className="text-xs text-muted-foreground">Conversão</div>
+                      <div className="text-2xl font-bold">{partAll.pct}%</div>
+                      <div className="text-[10px] text-muted-foreground mt-1">{partAll.realizadas}/{partAll.denom} realizadas</div>
+                    </div>
+                    <div className="rounded border border-border p-3">
+                      <div className="text-xs text-muted-foreground">Em andamento</div>
+                      <div className="text-2xl font-bold">{partAll.emAndamento}</div>
+                    </div>
+                    <div className="rounded border border-border p-3">
+                      <div className="text-xs text-muted-foreground">Realizadas</div>
+                      <div className="text-2xl font-bold text-[hsl(var(--pipeline-green))]">{partAll.realizadas}</div>
+                    </div>
+                    {canSeeFinancials && (
+                      <div className="rounded border border-border p-3">
+                        <div className="text-xs text-muted-foreground">Ticket realizado</div>
+                        <div className="text-2xl font-bold">{fmtCurrency(partAll.ticketRealizadas)}</div>
+                      </div>
+                    )}
+                  </div>
+                  <div className="mt-4 h-[220px]">
+                    <ResponsiveContainer>
+                      <BarChart
+                        data={[
+                          { name: 'Honorários Médicos Particulares', Conversao: partHonStats.pct, Total: partHonorarios.length },
+                          { name: 'Custos Totais Particulares', Conversao: partCustosStats.pct, Total: partCustos.length },
+                        ]}
+                        layout="vertical"
+                        margin={{ left: 12, right: 12 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                        <XAxis type="number" fontSize={11} />
+                        <YAxis dataKey="name" type="category" fontSize={11} width={220} />
+                        <Tooltip contentStyle={{ fontSize: 12 }} formatter={(v: any, k: any) => k === 'Conversao' ? [`${v}%`, 'Conversão'] : [v, k]} />
+                        <Legend wrapperStyle={{ fontSize: 11 }} />
+                        <Bar dataKey="Total" fill="hsl(var(--primary))" name="Total pacientes" />
+                        <Bar dataKey="Conversao" fill="hsl(var(--pipeline-green))" name="Conversão (%)" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                  {partLossReasons.length > 0 && (
+                    <div className="mt-3 border-t border-border pt-3">
+                      <div className="text-xs font-medium mb-2">Principais motivos de perda</div>
+                      <ul className="text-xs space-y-1">
+                        {partLossReasons.sort((a, b) => b.value - a.value).slice(0, 5).map(r => (
+                          <li key={r.name} className="flex items-center justify-between">
+                            <span>{r.name}</span>
+                            <span className="text-muted-foreground">{r.value}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </>
+              )}
+            </Card>
+
+            {/* Conversão — Convênio */}
+            <Card className="p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h3 className="text-sm font-semibold">Conversão — Convênio</h3>
+                  <p className="text-[11px] text-muted-foreground">Pacientes com faturamento por convênio (não-particular).</p>
+                </div>
+                <Button variant="ghost" size="sm" onClick={exportConvenio}>
+                  <Download className="h-3.5 w-3.5" />CSV
+                </Button>
+              </div>
+              {convenioList.length === 0 ? (
+                <div className="text-sm text-muted-foreground py-4 text-center">Sem convênios no recorte</div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="rounded border border-border p-3">
+                      <div className="text-xs text-muted-foreground">Conversão</div>
+                      <div className="text-2xl font-bold">{convAll.pct}%</div>
+                      <div className="text-[10px] text-muted-foreground mt-1">{convAll.realizadas}/{convAll.denom} realizadas</div>
+                    </div>
+                    <div className="rounded border border-border p-3">
+                      <div className="text-xs text-muted-foreground">Em andamento</div>
+                      <div className="text-2xl font-bold">{convAll.emAndamento}</div>
+                    </div>
+                    <div className="rounded border border-border p-3">
+                      <div className="text-xs text-muted-foreground">Realizadas</div>
+                      <div className="text-2xl font-bold text-[hsl(var(--pipeline-green))]">{convAll.realizadas}</div>
+                    </div>
+                    {canSeeFinancials && (
+                      <div className="rounded border border-border p-3">
+                        <div className="text-xs text-muted-foreground">Ticket realizado</div>
+                        <div className="text-2xl font-bold">{fmtCurrency(convAll.ticketRealizadas)}</div>
+                      </div>
+                    )}
+                  </div>
+                  {convByPayerRows.length > 0 && (
+                    <div className="mt-4 h-[260px]">
+                      <ResponsiveContainer>
+                        <BarChart data={convByPayerRows.slice(0, 8)} layout="vertical" margin={{ left: 12, right: 12 }}>
+                          <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                          <XAxis type="number" fontSize={11} />
+                          <YAxis dataKey="name" type="category" fontSize={11} width={140} />
+                          <Tooltip contentStyle={{ fontSize: 12 }} formatter={(v: any, k: any) => k === 'pct' ? [`${v}%`, 'Conversão'] : [v, k]} />
+                          <Legend wrapperStyle={{ fontSize: 11 }} />
+                          <Bar dataKey="total" fill="hsl(var(--primary))" name="Total" />
+                          <Bar dataKey="pct" fill="hsl(var(--pipeline-green))" name="Conversão (%)" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                  {convLossReasons.length > 0 && (
+                    <div className="mt-3 border-t border-border pt-3">
+                      <div className="text-xs font-medium mb-2">Principais motivos de perda</div>
+                      <ul className="text-xs space-y-1">
+                        {convLossReasons.sort((a, b) => b.value - a.value).slice(0, 5).map(r => (
+                          <li key={r.name} className="flex items-center justify-between">
+                            <span>{r.name}</span>
+                            <span className="text-muted-foreground">{r.value}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </>
+              )}
+            </Card>
+
             {/* SLA orçamento particulares (24h) */}
             <Card className="p-4">
               <div className="flex items-center justify-between mb-3">
                 <div>
                   <h3 className="text-sm font-semibold">SLA orçamento — Particulares (24h)</h3>
-                  <p className="text-[11px] text-muted-foreground">Pacientes particulares devem ter orçamento anexado no Axis em até 24h do cadastro.</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Considera o primeiro orçamento (preliminar) anexado no Axis, independentemente de quantos hospitais foram selecionados.
+                  </p>
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => downloadCsv('sla-orcamento-particulares.csv',
-                  [['Paciente', 'Cadastro', 'Hospitais faltantes', 'Cobertura completa em', 'Status'],
-                   ...budgetSla.map(b => [
-                     b.patient.name,
-                     b.patient.createdAt,
-                     b.missing.join(' | '),
-                     b.first ? new Date(b.first).toISOString() : '',
-                     b.status === 'on_time' ? 'No prazo' : b.status === 'late' ? 'Fora do prazo' : b.status === 'pending_ok' ? 'Pendente (dentro)' : 'Pendente (estourado)',
-                   ])])}>
+                <Button variant="ghost" size="sm" onClick={exportSla}>
                   <Download className="h-3.5 w-3.5" />CSV
                 </Button>
               </div>
@@ -357,8 +580,8 @@ export default function Relatorios() {
                             <li key={b.patient.id} className="flex items-center justify-between gap-2 text-xs">
                               <Link to={`/?patient=${b.patient.id}`} className="hover:underline truncate">
                                 {b.patient.name}
-                                {b.missing.length > 0 && (
-                                  <span className="ml-2 text-muted-foreground">— falta: {b.missing.join(', ')}</span>
+                                {b.hoursToFirst != null && (
+                                  <span className="ml-2 text-muted-foreground">— anexado em {b.hoursToFirst.toFixed(1)}h</span>
                                 )}
                               </Link>
                               <Badge variant={b.status === 'late' ? 'secondary' : 'destructive'} className="text-[10px]">
@@ -373,14 +596,11 @@ export default function Relatorios() {
               )}
             </Card>
 
-
-
             {/* Funnel */}
             <Card className="p-4">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-semibold">Funil de conversão por estágio</h3>
-                <Button variant="ghost" size="sm" onClick={() => downloadCsv('funil.csv',
-                  [['Estágio', 'Pacientes', 'Valor'], ...funnelData.map(d => [d.stage, d.count, d.value])])}>
+                <Button variant="ghost" size="sm" onClick={exportFunil}>
                   <Download className="h-3.5 w-3.5" />CSV
                 </Button>
               </div>
@@ -402,8 +622,7 @@ export default function Relatorios() {
               <Card className="p-4">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-sm font-semibold">Perdidos por motivo</h3>
-                  <Button variant="ghost" size="sm" onClick={() => downloadCsv('perdidos.csv',
-                    [['Motivo', 'Qtde'], ...lossData.map(d => [d.name, d.value])])}>
+                  <Button variant="ghost" size="sm" onClick={exportPerdidos}>
                     <Download className="h-3.5 w-3.5" />CSV
                   </Button>
                 </div>
@@ -428,8 +647,7 @@ export default function Relatorios() {
                 <Card className="p-4">
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-sm font-semibold">Receita por convênio</h3>
-                    <Button variant="ghost" size="sm" onClick={() => downloadCsv('convenios.csv',
-                      [['Convênio', 'Valor'], ...payerData.map(d => [d.name, d.value])])}>
+                    <Button variant="ghost" size="sm" onClick={exportConveniosReceita}>
                       <Download className="h-3.5 w-3.5" />CSV
                     </Button>
                   </div>
@@ -456,8 +674,7 @@ export default function Relatorios() {
             <Card className="p-4">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-semibold">Produtividade por concierge</h3>
-                <Button variant="ghost" size="sm" onClick={() => downloadCsv('produtividade.csv',
-                  [['Concierge', 'Pacientes', 'Ações concluídas', 'SLA %'], ...productivityData.map(d => [d.name, d.pacientes, d.concluidas, d.sla])])}>
+                <Button variant="ghost" size="sm" onClick={exportProdutividade}>
                   <Download className="h-3.5 w-3.5" />CSV
                 </Button>
               </div>
