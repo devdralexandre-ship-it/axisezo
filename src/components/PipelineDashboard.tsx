@@ -40,6 +40,29 @@ import { PatientsTable } from './PatientsTable';
 
 const ACTIVE_STAGES = PIPELINE_STAGES.filter((s) => s !== 'lost') as PipelineStage[];
 
+function ViewToggle({ mode, onChange }: { mode: 'kanban' | 'table'; onChange: (m: 'kanban' | 'table') => void }) {
+  return (
+    <div className="inline-flex items-center rounded-md border border-input bg-background overflow-hidden h-8">
+      <button
+        type="button"
+        onClick={() => onChange('kanban')}
+        className={`px-2 h-full flex items-center gap-1 text-xs ${mode === 'kanban' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}
+        title="Visualizar como Kanban"
+      >
+        <LayoutGrid className="h-3.5 w-3.5" /> Kanban
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange('table')}
+        className={`px-2 h-full flex items-center gap-1 text-xs border-l border-input ${mode === 'table' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}
+        title="Visualizar como planilha"
+      >
+        <TableIcon className="h-3.5 w-3.5" /> Planilha
+      </button>
+    </div>
+  );
+}
+
 export function PipelineDashboard() {
   useRealtimePatients();
   const { data: patients = [], isLoading } = usePatients();
