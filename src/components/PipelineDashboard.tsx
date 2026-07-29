@@ -651,26 +651,26 @@ export function PipelineDashboard() {
           </div>
         </div>
 
-        <div className="flex items-center gap-x-6 gap-y-2 flex-wrap mb-3 md:mb-4">
-          <div className="flex items-center gap-2 text-sm">
-            <Users className="h-4 w-4 text-muted-foreground" />
+        <div className="flex items-center gap-x-5 gap-y-1.5 flex-wrap mb-2">
+          <div className="flex items-center gap-1.5 text-xs">
+            <Users className="h-3.5 w-3.5 text-muted-foreground" />
             <span className="text-muted-foreground">Ativos:</span>
             <span className="font-semibold text-foreground">{activeFiltered.length}</span>
           </div>
           {canSeeFinancials && (
-            <div className="hidden md:flex items-center gap-2 text-sm">
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <div className="hidden md:flex items-center gap-1.5 text-xs">
+              <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
               <span className="text-muted-foreground">Pipeline:</span>
               <span className="font-semibold text-foreground">{formatCurrency(totalValue)}</span>
             </div>
           )}
-          <div className="flex items-center gap-2 text-sm">
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          <div className="flex items-center gap-1.5 text-xs">
+            <TrendingUp className="h-3.5 w-3.5 text-muted-foreground" />
             <span className="text-muted-foreground">Conversão:</span>
             <span className="font-semibold text-foreground">{conversionRate}%</span>
           </div>
           {lostCount > 0 && (
-            <div className="flex items-center gap-2 text-sm">
+            <div className="flex items-center gap-1.5 text-xs">
               <span className="text-muted-foreground">Perdidos:</span>
               <span className="font-semibold text-destructive">{lostCount}</span>
             </div>
@@ -679,7 +679,7 @@ export function PipelineDashboard() {
             <Button
               variant={slaFilter === 'all' ? 'secondary' : 'ghost'}
               size="sm"
-              className="h-7 text-xs"
+              className="h-6 text-[11px] px-2"
               onClick={() => setSlaFilter('all')}
             >
               Todos
@@ -687,7 +687,7 @@ export function PipelineDashboard() {
             <Button
               variant={slaFilter === 'breached' ? 'secondary' : 'ghost'}
               size="sm"
-              className="h-7 text-xs"
+              className="h-6 text-[11px] px-2"
               onClick={() => setSlaFilter('breached')}
             >
               ⏰ SLA estourado
@@ -695,7 +695,7 @@ export function PipelineDashboard() {
             <Button
               variant={slaFilter === 'escalated' ? 'secondary' : 'ghost'}
               size="sm"
-              className="h-7 text-xs"
+              className="h-6 text-[11px] px-2"
               onClick={() => setSlaFilter('escalated')}
             >
               🚨 Escaladas
