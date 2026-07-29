@@ -66,6 +66,7 @@ function mapDbToPatient(db: DbPatient): Patient {
     id: db.id,
     name: db.name,
     age: (db as any).age ?? null,
+    ageMonths: (db as any).age_months ?? null,
     patientType: (db as any).patient_type || 'adult',
     procedure: db.procedure_name,
     procedureCategory: db.procedure_category || '',
