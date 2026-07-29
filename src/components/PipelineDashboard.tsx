@@ -676,32 +676,6 @@ export function PipelineDashboard() {
               <span className="font-semibold text-destructive">{lostCount}</span>
             </div>
           )}
-          <div className="md:ml-auto flex items-center gap-1 flex-wrap w-full md:w-auto">
-            <Button
-              variant={slaFilter === 'all' ? 'secondary' : 'ghost'}
-              size="sm"
-              className="h-6 text-[11px] px-2"
-              onClick={() => setSlaFilter('all')}
-            >
-              Todos
-            </Button>
-            <Button
-              variant={slaFilter === 'breached' ? 'secondary' : 'ghost'}
-              size="sm"
-              className="h-6 text-[11px] px-2"
-              onClick={() => setSlaFilter('breached')}
-            >
-              ⏰ SLA estourado
-            </Button>
-            <Button
-              variant={slaFilter === 'escalated' ? 'secondary' : 'ghost'}
-              size="sm"
-              className="h-6 text-[11px] px-2"
-              onClick={() => setSlaFilter('escalated')}
-            >
-              🚨 Escaladas
-            </Button>
-          </div>
         </div>
 
         {(() => {
