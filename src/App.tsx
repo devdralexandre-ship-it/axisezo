@@ -27,6 +27,19 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function IndexGate() {
+  const { user } = useAuth();
+  const { isConcierge, loading } = useUserRole();
+  if (loading) return <div className="flex items-center justify-center h-screen bg-background"><p className="text-muted-foreground">Carregando...</p></div>;
+  const flagKey = user ? `concierge-landed:${user.id}` : null;
+  if (isConcierge && flagKey && !sessionStorage.getItem(flagKey)) {
+    sessionStorage.setItem(flagKey, '1');
+    return <Navigate to="/pendencias" replace />;
+  }
+  return <Index />;
+}
+
+
 function AuthRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   if (loading) return null;
