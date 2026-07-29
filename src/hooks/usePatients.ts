@@ -203,6 +203,7 @@ export function useAddPatient() {
         desired_hospital: p.desiredHospital,
         notes: p.notes,
         age: p.age,
+        age_months: (p as any).ageMonths ?? null,
         patient_type: p.patientType || 'adult',
         billing_type: p.billingType,
         medical_fees: p.medicalFees,
