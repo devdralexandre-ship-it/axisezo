@@ -562,6 +562,12 @@ export function PipelineDashboard() {
                     <DropdownMenuSeparator />
                   </>
                 )}
+                <DropdownMenuItem onClick={() => navigate('/pendencias')}>
+                  <ListTodo className="h-4 w-4 mr-2" />Pendências
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/relatorios')}>
+                  <BarChart3 className="h-4 w-4 mr-2" />Relatórios
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate('/perfil')}>
                   <UserCircle className="h-4 w-4 mr-2" />Perfil
                 </DropdownMenuItem>
