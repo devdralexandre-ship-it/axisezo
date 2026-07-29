@@ -15,6 +15,8 @@ import AdminDuplicates from "./pages/AdminDuplicates.tsx";
 import Profile from "./pages/Profile.tsx";
 import MfaEnroll from "./pages/MfaEnroll.tsx";
 import VerifyDocument from "./pages/VerifyDocument.tsx";
+import Pendencias from "./pages/Pendencias.tsx";
+import Relatorios from "./pages/Relatorios.tsx";
 
 const queryClient = new QueryClient();
 
