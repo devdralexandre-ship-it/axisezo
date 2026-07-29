@@ -15,6 +15,8 @@ import AdminDuplicates from "./pages/AdminDuplicates.tsx";
 import Profile from "./pages/Profile.tsx";
 import MfaEnroll from "./pages/MfaEnroll.tsx";
 import VerifyDocument from "./pages/VerifyDocument.tsx";
+import Pendencias from "./pages/Pendencias.tsx";
+import Relatorios from "./pages/Relatorios.tsx";
 
 const queryClient = new QueryClient();
 
@@ -50,6 +52,8 @@ const App = () => (
             <Route path="/admin/duplicates" element={<ProtectedRoute><AdminDuplicates /></ProtectedRoute>} />
             <Route path="/perfil" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
             <Route path="/perfil/mfa" element={<ProtectedRoute><MfaEnroll /></ProtectedRoute>} />
+            <Route path="/pendencias" element={<ProtectedRoute><Pendencias /></ProtectedRoute>} />
+            <Route path="/relatorios" element={<ProtectedRoute><Relatorios /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

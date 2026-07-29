@@ -33,7 +33,9 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useRealtimePatients } from '@/hooks/useRealtimePatients';
 import { ConciergeLoginBriefing, useConciergeBriefing } from './ConciergeLoginBriefing';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { AlertTriangle, ChevronLeft, ChevronRight, ListTodo, BarChart3 } from 'lucide-react';
+import { SortControl, SortKey, SortDir, sortPatients } from './SortControl';
+import { FilterSheet } from './FilterSheet';
 
 const ACTIVE_STAGES = PIPELINE_STAGES.filter((s) => s !== 'lost') as PipelineStage[];
 
@@ -88,6 +90,10 @@ export function PipelineDashboard() {
   const isMobile = useIsMobile();
   const ALL_STAGES = useMemo<PipelineStage[]>(() => [...ACTIVE_STAGES, 'lost'], []);
   const [mobileStage, setMobileStage] = useState<PipelineStage>(ACTIVE_STAGES[0]);
+  const [sortKey, setSortKey] = useState<SortKey>(() => (localStorage.getItem('kanban_sort_key') as SortKey) || 'indication');
+  const [sortDir, setSortDir] = useState<SortDir>(() => (localStorage.getItem('kanban_sort_dir') as SortDir) || 'asc');
+  useEffect(() => { localStorage.setItem('kanban_sort_key', sortKey); }, [sortKey]);
+  useEffect(() => { localStorage.setItem('kanban_sort_dir', sortDir); }, [sortDir]);
 
 
 
@@ -503,13 +509,19 @@ export function PipelineDashboard() {
             />
             {/* Desktop-only buttons */}
             <Button asChild variant="outline" size="sm" className="hidden md:inline-flex">
+              <Link to="/pendencias"><ListTodo className="h-4 w-4" />Pendências</Link>
+            </Button>
+            <Button asChild variant="outline" size="sm" className="hidden lg:inline-flex">
+              <Link to="/relatorios"><BarChart3 className="h-4 w-4" />Relatórios</Link>
+            </Button>
+            <Button asChild variant="outline" size="sm" className="hidden lg:inline-flex">
               <Link to="/perfil"><UserCircle className="h-4 w-4" />Perfil</Link>
             </Button>
-            <Button asChild variant="outline" size="sm" className="hidden md:inline-flex">
+            <Button asChild variant="outline" size="sm" className="hidden lg:inline-flex">
               <Link to="/templates"><FileText className="h-4 w-4" />Templates</Link>
             </Button>
             {can('manage_library') && (
-              <Button asChild variant="outline" size="sm" className="hidden md:inline-flex">
+              <Button asChild variant="outline" size="sm" className="hidden lg:inline-flex">
                 <Link to="/library"><BookOpen className="h-4 w-4" />Biblioteca</Link>
               </Button>
             )}
@@ -550,6 +562,12 @@ export function PipelineDashboard() {
                     <DropdownMenuSeparator />
                   </>
                 )}
+                <DropdownMenuItem onClick={() => navigate('/pendencias')}>
+                  <ListTodo className="h-4 w-4 mr-2" />Pendências
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/relatorios')}>
+                  <BarChart3 className="h-4 w-4 mr-2" />Relatórios
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate('/perfil')}>
                   <UserCircle className="h-4 w-4 mr-2" />Perfil
                 </DropdownMenuItem>
@@ -637,32 +655,55 @@ export function PipelineDashboard() {
           </div>
         </div>
 
-        <FilterBar
-          search={search} onSearchChange={setSearch}
-          surgeon={surgeonFilter} onSurgeonChange={setSurgeonFilter}
-          concierge={conciergeFilter} onConciergeChange={setConciergeFilter}
-          procedure={procedureFilter} onProcedureChange={setProcedureFilter}
-          patientType={patientTypeFilter} onPatientTypeChange={setPatientTypeFilter}
-          surgicalApproach={surgicalApproachFilter} onSurgicalApproachChange={setSurgicalApproachFilter}
-          payer={payerFilter} onPayerChange={setPayerFilter}
-          billingType={billingTypeFilter} onBillingTypeChange={setBillingTypeFilter}
-          hospital={hospitalFilter} onHospitalChange={setHospitalFilter}
-          indicationSource={indicationSourceFilter} onIndicationSourceChange={setIndicationSourceFilter}
-          indicationFrom={indicationFrom} onIndicationFromChange={setIndicationFrom}
-          indicationTo={indicationTo} onIndicationToChange={setIndicationTo}
-          hasActiveFilters={
-            !!search || surgeonFilter !== 'all' || conciergeFilter !== 'all' || procedureFilter !== 'all' ||
-            patientTypeFilter !== 'all' || surgicalApproachFilter !== 'all' || payerFilter !== 'all' ||
-            billingTypeFilter !== 'all' || hospitalFilter !== 'all' || indicationSourceFilter !== 'all' ||
-            !!indicationFrom || !!indicationTo
-          }
-          onClearAll={() => {
-            setSearch(''); setSurgeonFilter('all'); setConciergeFilter('all'); setProcedureFilter('all');
-            setPatientTypeFilter('all'); setSurgicalApproachFilter('all'); setPayerFilter('all');
-            setBillingTypeFilter('all'); setHospitalFilter('all'); setIndicationSourceFilter('all');
-            setIndicationFrom(''); setIndicationTo('');
-          }}
-        />
+        {(() => {
+          const filterProps = {
+            search, onSearchChange: setSearch,
+            surgeon: surgeonFilter, onSurgeonChange: setSurgeonFilter,
+            concierge: conciergeFilter, onConciergeChange: setConciergeFilter,
+            procedure: procedureFilter, onProcedureChange: setProcedureFilter,
+            patientType: patientTypeFilter, onPatientTypeChange: setPatientTypeFilter,
+            surgicalApproach: surgicalApproachFilter, onSurgicalApproachChange: setSurgicalApproachFilter,
+            payer: payerFilter, onPayerChange: setPayerFilter,
+            billingType: billingTypeFilter, onBillingTypeChange: setBillingTypeFilter,
+            hospital: hospitalFilter, onHospitalChange: setHospitalFilter,
+            indicationSource: indicationSourceFilter, onIndicationSourceChange: setIndicationSourceFilter,
+            indicationFrom, onIndicationFromChange: setIndicationFrom,
+            indicationTo, onIndicationToChange: setIndicationTo,
+            hasActiveFilters:
+              !!search || surgeonFilter !== 'all' || conciergeFilter !== 'all' || procedureFilter !== 'all' ||
+              patientTypeFilter !== 'all' || surgicalApproachFilter !== 'all' || payerFilter !== 'all' ||
+              billingTypeFilter !== 'all' || hospitalFilter !== 'all' || indicationSourceFilter !== 'all' ||
+              !!indicationFrom || !!indicationTo,
+            onClearAll: () => {
+              setSearch(''); setSurgeonFilter('all'); setConciergeFilter('all'); setProcedureFilter('all');
+              setPatientTypeFilter('all'); setSurgicalApproachFilter('all'); setPayerFilter('all');
+              setBillingTypeFilter('all'); setHospitalFilter('all'); setIndicationSourceFilter('all');
+              setIndicationFrom(''); setIndicationTo('');
+            },
+          };
+          return isMobile ? (
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="relative flex-1 min-w-[160px]">
+                <input
+                  placeholder="Buscar paciente..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+                />
+              </div>
+              <FilterSheet {...filterProps} />
+              <SortControl sortKey={sortKey} sortDir={sortDir} onKeyChange={setSortKey} onDirChange={setSortDir} compact />
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <FilterBar {...filterProps} />
+              <div className="flex items-center gap-2">
+                <SortControl sortKey={sortKey} sortDir={sortDir} onKeyChange={setSortKey} onDirChange={setSortDir} />
+              </div>
+            </div>
+          );
+        })()}
+
 
       </header>
 
@@ -760,9 +801,7 @@ export function PipelineDashboard() {
           {/* Single column */}
           <div className="flex-1 overflow-y-auto px-3 pb-4">
             {(() => {
-              const stagePatients = filtered
-                .filter((p) => p.stage === mobileStage)
-                .sort((a, b) => new Date(a.indicationDate || a.createdAt || '9999-12-31').getTime() - new Date(b.indicationDate || b.createdAt || '9999-12-31').getTime());
+              const stagePatients = sortPatients(filtered.filter((p) => p.stage === mobileStage), sortKey, sortDir);
               return (
                 <PipelineColumn
                   stage={mobileStage}
@@ -785,14 +824,10 @@ export function PipelineDashboard() {
           <div className="flex-1 overflow-auto">
             <div className="flex gap-4 p-6 min-h-full min-w-max">
               {ACTIVE_STAGES.map((stage) => {
-                const stagePatients = filtered.filter((p) => p.stage === stage).sort((a, b) => {
-                  const dateA = new Date(a.indicationDate || a.createdAt || '9999-12-31').getTime();
-                  const dateB = new Date(b.indicationDate || b.createdAt || '9999-12-31').getTime();
-                  return dateA - dateB;
-                });
+                const stagePatients = sortPatients(filtered.filter((p) => p.stage === stage), sortKey, sortDir);
                 return <PipelineColumn key={stage} stage={stage} patients={stagePatients} onPatientClick={handlePatientClick} onCompleteTask={handleCompleteTask} onDeletePatient={can('delete_patients') ? handleDeletePatient : undefined} newSinceIso={briefing.lastSeenAt} />;
               })}
-              <PipelineColumn key="lost" stage="lost" patients={filtered.filter((p) => p.stage === 'lost').sort((a, b) => new Date(a.indicationDate || a.createdAt || '9999-12-31').getTime() - new Date(b.indicationDate || b.createdAt || '9999-12-31').getTime())} onPatientClick={handlePatientClick} onCompleteTask={handleCompleteTask} onDeletePatient={can('delete_patients') ? handleDeletePatient : undefined} variant="lost" newSinceIso={briefing.lastSeenAt} />
+              <PipelineColumn key="lost" stage="lost" patients={sortPatients(filtered.filter((p) => p.stage === 'lost'), sortKey, sortDir)} onPatientClick={handlePatientClick} onCompleteTask={handleCompleteTask} onDeletePatient={can('delete_patients') ? handleDeletePatient : undefined} variant="lost" newSinceIso={briefing.lastSeenAt} />
             </div>
           </div>
         </DragDropContext>
