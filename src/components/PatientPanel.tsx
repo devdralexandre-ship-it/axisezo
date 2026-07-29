@@ -70,8 +70,10 @@ export function PatientPanel({ patient, open, onClose, onCompleteTask, onAddTask
   const isKnownIndication = (val: string | null) => val && (INDICATION_SOURCES as readonly string[]).includes(val);
 
   const startEditing = () => {
-    const hospVal = patient.desiredHospital || '';
     const indVal = patient.indicationLocation || '';
+    const hospitalsInit = patient.desiredHospitals && patient.desiredHospitals.length > 0
+      ? patient.desiredHospitals
+      : (patient.desiredHospital ? [patient.desiredHospital] : []);
     setEditData({
       name: patient.name,
       age: patient.age,
@@ -91,8 +93,7 @@ export function PatientPanel({ patient, open, onClose, onCompleteTask, onAddTask
       anesthesia_fees: patient.anesthesiaFees,
       hospital_budget: patient.hospitalBudget,
       materials_cost: patient.materialsCost,
-      desired_hospital: isKnownHospital(hospVal) ? hospVal : (hospVal ? 'Outro' : ''),
-      custom_hospital: isKnownHospital(hospVal) ? '' : hospVal,
+      desired_hospitals: hospitalsInit,
       indication_location: isKnownIndication(indVal) ? indVal : (indVal ? 'Outro' : ''),
       custom_indication: isKnownIndication(indVal) ? '' : indVal,
       notes: patient.notes || '',
@@ -107,9 +108,10 @@ export function PatientPanel({ patient, open, onClose, onCompleteTask, onAddTask
 
   const saveEditing = () => {
     const fields: Record<string, any> = { ...editData };
-    // Resolve hospital
-    fields.desired_hospital = fields.desired_hospital === 'Outro' ? (fields.custom_hospital || null) : (fields.desired_hospital || null);
-    delete fields.custom_hospital;
+    // Resolve hospitals (multi)
+    const hospArr: string[] = Array.isArray(fields.desired_hospitals) ? fields.desired_hospitals : [];
+    fields.desired_hospitals = hospArr;
+    fields.desired_hospital = hospArr[0] || null;
     // Resolve indication
     fields.indication_location = fields.indication_location === 'Outro' ? (fields.custom_indication || null) : (fields.indication_location || null);
     delete fields.custom_indication;
