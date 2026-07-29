@@ -90,6 +90,10 @@ export function PipelineDashboard() {
   const isMobile = useIsMobile();
   const ALL_STAGES = useMemo<PipelineStage[]>(() => [...ACTIVE_STAGES, 'lost'], []);
   const [mobileStage, setMobileStage] = useState<PipelineStage>(ACTIVE_STAGES[0]);
+  const [sortKey, setSortKey] = useState<SortKey>(() => (localStorage.getItem('kanban_sort_key') as SortKey) || 'indication');
+  const [sortDir, setSortDir] = useState<SortDir>(() => (localStorage.getItem('kanban_sort_dir') as SortDir) || 'asc');
+  useEffect(() => { localStorage.setItem('kanban_sort_key', sortKey); }, [sortKey]);
+  useEffect(() => { localStorage.setItem('kanban_sort_dir', sortDir); }, [sortDir]);
 
 
 
