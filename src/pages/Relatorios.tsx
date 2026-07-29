@@ -62,8 +62,9 @@ export default function Relatorios() {
   const surgeons = useMemo(() => [...new Set(patients.map(p => p.surgeon).filter(Boolean))].sort(), [patients]);
   const concierges = useMemo(() => [...new Set(patients.map(p => p.concierge).filter(Boolean))].sort(), [patients]);
 
-  // Filter by indication date + role filters
+  // Filter by indication date + role filters. Exclude 'surgical_potential' from all metrics.
   const inRange = useMemo(() => patients.filter((p) => {
+    if (p.stage === 'surgical_potential') return false;
     if (conciergeFilter !== 'all' && p.concierge !== conciergeFilter) return false;
     if (surgeonFilter !== 'all' && p.surgeon !== surgeonFilter) return false;
     if (from || to) {
@@ -139,7 +140,7 @@ export default function Relatorios() {
 
 
   // Funnel by stage
-  const funnelData = PIPELINE_STAGES.filter(s => s !== 'lost').map((s) => {
+  const funnelData = PIPELINE_STAGES.filter(s => s !== 'lost' && s !== 'surgical_potential').map((s) => {
     const list = inRange.filter(p => p.stage === s);
     return {
       stage: STAGE_LABELS[s],

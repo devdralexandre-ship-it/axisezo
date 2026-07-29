@@ -33,6 +33,9 @@ const STATUS_MAP: Record<string, PipelineStage> = {
   'cirurgia concluida': 'surgery_completed',
   'preparacao orcamento': 'budget_preparation',
   'aguardando autorizacao': 'awaiting_authorization',
+  'potencial': 'surgical_potential',
+  'potencial de indicacao': 'surgical_potential',
+  'potencial de indicacao cirurgica': 'surgical_potential',
 };
 
 // Column mapping from CSV headers to internal fields

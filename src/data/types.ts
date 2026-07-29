@@ -1,4 +1,5 @@
 export const PIPELINE_STAGES = [
+  'surgical_potential',
   'indication',
   'first_contact',
   'budget_preparation',
@@ -14,7 +15,11 @@ export const PIPELINE_STAGES = [
 
 export type PipelineStage = typeof PIPELINE_STAGES[number];
 
+// Stages excluded from all metrics/KPIs (still visible on the board).
+export const NON_METRIC_STAGES: PipelineStage[] = ['surgical_potential'];
+
 export const STAGE_LABELS: Record<PipelineStage, string> = {
+  surgical_potential: 'Potencial de indicação',
   indication: 'Indicação',
   first_contact: 'Primeiro Contato',
   budget_preparation: 'Preparo de Orçamento',

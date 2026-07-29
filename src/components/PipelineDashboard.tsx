@@ -160,11 +160,12 @@ export function PipelineDashboard() {
 
 
   const activeFiltered = filtered.filter((p) => p.stage !== 'lost');
-  // BUG 1 FIX: Use estimatedValue OR medicalFees as fallback for pipeline total
-  const totalValue = useMemo(() => activeFiltered.reduce((s, p) => s + (p.estimatedValue ?? p.medicalFees ?? 0), 0), [activeFiltered]);
-  const completedCount = activeFiltered.filter((p) => p.stage === 'surgery_completed').length;
+  // Metrics exclude 'surgical_potential' (acompanhamento — não entra em KPIs).
+  const metricPatients = filtered.filter((p) => p.stage !== 'lost' && p.stage !== 'surgical_potential');
+  const totalValue = useMemo(() => metricPatients.reduce((s, p) => s + (p.estimatedValue ?? p.medicalFees ?? 0), 0), [metricPatients]);
+  const completedCount = metricPatients.filter((p) => p.stage === 'surgery_completed').length;
   const lostCount = filtered.filter((p) => p.stage === 'lost').length;
-  const conversionRate = (activeFiltered.length + lostCount) > 0 ? Math.round((completedCount / (activeFiltered.length + lostCount)) * 100) : 0;
+  const conversionRate = (metricPatients.length + lostCount) > 0 ? Math.round((completedCount / (metricPatients.length + lostCount)) * 100) : 0;
 
   const formatCurrency = (v: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(v);
