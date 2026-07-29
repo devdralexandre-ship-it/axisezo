@@ -33,9 +33,10 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useRealtimePatients } from '@/hooks/useRealtimePatients';
 import { ConciergeLoginBriefing, useConciergeBriefing } from './ConciergeLoginBriefing';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { AlertTriangle, ChevronLeft, ChevronRight, ListTodo, BarChart3 } from 'lucide-react';
+import { AlertTriangle, ChevronLeft, ChevronRight, ListTodo, BarChart3, LayoutGrid, Table as TableIcon } from 'lucide-react';
 import { SortControl, SortKey, SortDir, sortPatients } from './SortControl';
 import { FilterSheet } from './FilterSheet';
+import { PatientsTable } from './PatientsTable';
 
 const ACTIVE_STAGES = PIPELINE_STAGES.filter((s) => s !== 'lost') as PipelineStage[];
 
