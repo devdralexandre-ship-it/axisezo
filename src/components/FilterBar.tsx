@@ -50,6 +50,7 @@ export function FilterBar({
   indicationFrom, onIndicationFromChange,
   indicationTo, onIndicationToChange,
   onClearAll, hasActiveFilters,
+  hideSearch = false,
 }: FilterBarProps) {
   return (
     <div className="space-y-1.5">
