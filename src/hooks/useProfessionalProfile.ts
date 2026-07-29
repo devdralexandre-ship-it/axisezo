@@ -50,18 +50,18 @@ export function useProfessionalProfileBySurgeonName(surgeonName: string | null |
     queryKey: ['professional_profile_by_surgeon', surgeonName],
     enabled: !!surgeonName,
     queryFn: async (): Promise<Omit<ProfessionalProfile, 'user_id'> & { user_id: string | null }> => {
-      const { data: profileRow } = await supabase
-        .from('profiles')
-        .select('user_id')
-        .eq('surgeon_name', surgeonName!)
-        .maybeSingle();
-      if (!profileRow?.user_id) return { user_id: null, ...EMPTY };
+      const { data: resolvedUserId } = await supabase.rpc(
+        'get_user_id_by_surgeon_name' as any,
+        { _surgeon_name: surgeonName! },
+      );
+      const targetUserId = (resolvedUserId as string | null) ?? null;
+      if (!targetUserId) return { user_id: null, ...EMPTY };
       const { data: prof } = await supabase
         .from('professional_profiles' as any)
         .select('*')
-        .eq('user_id', profileRow.user_id)
+        .eq('user_id', targetUserId)
         .maybeSingle();
-      return (prof as any) ?? { user_id: profileRow.user_id, ...EMPTY };
+      return (prof as any) ?? { user_id: targetUserId, ...EMPTY };
     },
     staleTime: 5 * 60 * 1000,
   });
