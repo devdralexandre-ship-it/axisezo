@@ -55,15 +55,17 @@ export function FilterBar({
   return (
     <div className="space-y-1.5">
       <div className="flex flex-wrap items-center gap-1.5">
-        <div className="relative flex-1 min-w-[180px] max-w-xs">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-          <Input
-            placeholder="Buscar paciente..."
-            value={search}
-            onChange={(e) => onSearchChange(e.target.value)}
-            className="pl-8 h-8 text-xs"
-          />
-        </div>
+        {!hideSearch && (
+          <div className="relative flex-1 min-w-[180px] max-w-xs">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              placeholder="Buscar paciente..."
+              value={search}
+              onChange={(e) => onSearchChange(e.target.value)}
+              className="pl-8 h-8 text-xs"
+            />
+          </div>
+        )}
         <Select value={surgeon} onValueChange={onSurgeonChange}>
           <SelectTrigger className="w-[150px] h-8 text-xs"><SelectValue placeholder="Cirurgião" /></SelectTrigger>
           <SelectContent>
