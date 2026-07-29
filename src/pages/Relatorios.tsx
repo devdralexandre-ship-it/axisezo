@@ -436,8 +436,8 @@ export default function Relatorios() {
                     <ResponsiveContainer>
                       <BarChart
                         data={[
-                          { name: 'Honorários Médicos Particulares', Conversao: partHonStats.pct, Total: partHonorarios.length },
-                          { name: 'Custos Totais Particulares', Conversao: partCustosStats.pct, Total: partCustos.length },
+                          { name: 'Só honorários médicos', Conversao: partHonStats.pct, Total: partHonorarios.length },
+                          { name: 'Pacote completo (custos totais)', Conversao: partCustosStats.pct, Total: partCustos.length },
                         ]}
                         layout="vertical"
                         margin={{ left: 12, right: 12 }}
@@ -445,16 +445,16 @@ export default function Relatorios() {
                         <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
                         <XAxis type="number" fontSize={11} />
                         <YAxis dataKey="name" type="category" fontSize={11} width={220} />
-                        <Tooltip contentStyle={{ fontSize: 12 }} formatter={(v: any, k: any) => k === 'Conversao' ? [`${v}%`, 'Conversão'] : [v, k]} />
+                        <Tooltip contentStyle={{ fontSize: 12 }} formatter={(v: any, k: any) => k === 'Conversao' ? [`${v}%`, '% viraram cirurgia'] : [v, k]} />
                         <Legend wrapperStyle={{ fontSize: 11 }} />
-                        <Bar dataKey="Total" fill="hsl(var(--primary))" name="Total pacientes" />
-                        <Bar dataKey="Conversao" fill="hsl(var(--pipeline-green))" name="Conversão (%)" />
+                        <Bar dataKey="Total" fill="hsl(var(--primary))" name="Total de pacientes" />
+                        <Bar dataKey="Conversao" fill="hsl(var(--pipeline-green))" name="% viraram cirurgia" />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
                   {partLossReasons.length > 0 && (
                     <div className="mt-3 border-t border-border pt-3">
-                      <div className="text-xs font-medium mb-2">Principais motivos de perda</div>
+                      <div className="text-xs font-medium mb-2">Por que perdemos esses pacientes</div>
                       <ul className="text-xs space-y-1">
                         {partLossReasons.sort((a, b) => b.value - a.value).slice(0, 5).map(r => (
                           <li key={r.name} className="flex items-center justify-between">
@@ -473,11 +473,11 @@ export default function Relatorios() {
             <Card className="p-4">
               <div className="flex items-center justify-between mb-3">
                 <div>
-                  <h3 className="text-sm font-semibold">Conversão — Convênio</h3>
-                  <p className="text-[11px] text-muted-foreground">Pacientes com faturamento por convênio (não-particular).</p>
+                  <h3 className="text-sm font-semibold">Pacientes de convênio — quantos viraram cirurgia</h3>
+                  <p className="text-[11px] text-muted-foreground">Pacientes cujo pagamento vem por plano de saúde (não particular).</p>
                 </div>
-                <Button variant="ghost" size="sm" onClick={exportConvenio}>
-                  <Download className="h-3.5 w-3.5" />CSV
+                <Button variant="ghost" size="sm" onClick={exportConvenio} title="Baixar este bloco em planilha">
+                  <Download className="h-3.5 w-3.5" />Planilha
                 </Button>
               </div>
               {convenioList.length === 0 ? (
