@@ -1338,6 +1338,7 @@ export type Database = {
         | "chose_another"
         | "other"
       pipeline_stage:
+        | "surgical_potential"
         | "indication"
         | "first_contact"
         | "budget_preparation"
@@ -1494,6 +1495,7 @@ export const Constants = {
         "other",
       ],
       pipeline_stage: [
+        "surgical_potential",
         "indication",
         "first_contact",
         "budget_preparation",
