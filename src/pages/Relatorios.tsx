@@ -293,12 +293,15 @@ export default function Relatorios() {
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-10 border-b border-border bg-background/95 backdrop-blur px-4 md:px-6 py-3">
-        <div className="flex items-center gap-3 mb-3">
+        <div className="flex items-center gap-3 mb-2">
           <Button asChild variant="ghost" size="sm"><Link to="/"><ArrowLeft className="h-4 w-4" />Kanban</Link></Button>
-          <h1 className="text-lg font-semibold">Relatórios</h1>
+          <div>
+            <h1 className="text-lg font-semibold leading-tight">Relatórios</h1>
+            <p className="text-[11px] text-muted-foreground">Como está a conversão dos pacientes em cirurgia.</p>
+          </div>
           <div className="ml-auto">
-            <Button variant="outline" size="sm" className="h-8 text-xs" onClick={exportAll}>
-              <Download className="h-3.5 w-3.5" />Exportar tudo (CSV)
+            <Button variant="outline" size="sm" className="h-8 text-xs" onClick={exportAll} title="Baixa uma planilha (CSV) para cada bloco desta tela">
+              <Download className="h-3.5 w-3.5" />Baixar tudo em planilha
             </Button>
           </div>
         </div>
@@ -317,7 +320,7 @@ export default function Relatorios() {
             ))}
           </div>
           <div className="flex items-center gap-1 text-xs text-muted-foreground">
-            <span className="font-medium text-foreground">Indicação:</span>
+            <span className="font-medium text-foreground">Período de indicação:</span>
             <span>de</span>
             <input type="date" value={from} onChange={(e) => { setFrom(e.target.value); setPreset('custom'); }} className="h-8 rounded border border-input bg-background px-2 text-xs" />
             <span>até</span>
@@ -338,11 +341,11 @@ export default function Relatorios() {
             </SelectContent>
           </Select>
           <Select value={financialCut} onValueChange={(v) => setFinancialCut(v as FinancialCut)}>
-            <SelectTrigger className="h-8 w-[160px] text-xs"><SelectValue placeholder="Financeiro" /></SelectTrigger>
+            <SelectTrigger className="h-8 w-[170px] text-xs"><SelectValue placeholder="Tipo de pagamento" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todos financeiros</SelectItem>
-              <SelectItem value="particular">Particulares</SelectItem>
-              <SelectItem value="convenio">Convênio</SelectItem>
+              <SelectItem value="all">Todos os pagamentos</SelectItem>
+              <SelectItem value="particular">Só particulares</SelectItem>
+              <SelectItem value="convenio">Só convênio</SelectItem>
             </SelectContent>
           </Select>
           <Select value={payerFilter} onValueChange={setPayerFilter}>
@@ -354,7 +357,7 @@ export default function Relatorios() {
           </Select>
         </div>
         <div className="mt-2 text-[11px] text-muted-foreground">
-          Filtros se combinam (E lógico). Cada bloco abaixo pode ser exportado em CSV com os filtros atuais aplicados.
+          Os filtros funcionam somados — quanto mais você marca, mais específico fica o resultado. Cada bloco tem um botão para baixar só aquele bloco em planilha.
         </div>
       </header>
 
