@@ -509,13 +509,19 @@ export function PipelineDashboard() {
             />
             {/* Desktop-only buttons */}
             <Button asChild variant="outline" size="sm" className="hidden md:inline-flex">
+              <Link to="/pendencias"><ListTodo className="h-4 w-4" />Pendências</Link>
+            </Button>
+            <Button asChild variant="outline" size="sm" className="hidden lg:inline-flex">
+              <Link to="/relatorios"><BarChart3 className="h-4 w-4" />Relatórios</Link>
+            </Button>
+            <Button asChild variant="outline" size="sm" className="hidden lg:inline-flex">
               <Link to="/perfil"><UserCircle className="h-4 w-4" />Perfil</Link>
             </Button>
-            <Button asChild variant="outline" size="sm" className="hidden md:inline-flex">
+            <Button asChild variant="outline" size="sm" className="hidden lg:inline-flex">
               <Link to="/templates"><FileText className="h-4 w-4" />Templates</Link>
             </Button>
             {can('manage_library') && (
-              <Button asChild variant="outline" size="sm" className="hidden md:inline-flex">
+              <Button asChild variant="outline" size="sm" className="hidden lg:inline-flex">
                 <Link to="/library"><BookOpen className="h-4 w-4" />Biblioteca</Link>
               </Button>
             )}
