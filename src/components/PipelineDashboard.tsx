@@ -516,17 +516,17 @@ export function PipelineDashboard() {
 
   return (
     <div className="flex flex-col h-screen bg-background overflow-hidden">
-      <header className="border-b border-border px-4 md:px-6 py-3 md:py-4 shrink-0 bg-background">
-        <div className="flex items-center justify-between gap-2 mb-3 md:mb-4">
+      <header className="border-b border-border px-4 md:px-6 py-2 md:py-3 shrink-0 bg-background">
+        <div className="flex items-center justify-between gap-2 mb-2">
           <div className="min-w-0">
             <h1 className="leading-none flex items-baseline">
-              <span className="font-serif text-2xl font-semibold text-primary tracking-wide">EZO</span>
-              <span className="ml-2 font-sans text-[11px] uppercase tracking-[0.22em] text-muted-foreground">Urologia</span>
+              <span className="font-serif text-xl font-semibold text-primary tracking-wide">EZO</span>
+              <span className="ml-2 font-sans text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Urologia</span>
             </h1>
-            <p className="text-sm text-muted-foreground mt-1.5 hidden md:block">Pipeline de decisão cirúrgica</p>
+            <p className="text-xs text-muted-foreground mt-0.5 hidden md:block">Pipeline de decisão cirúrgica</p>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground hidden lg:inline">{user?.email}</span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-muted-foreground hidden xl:inline">{user?.email}</span>
             <NotificationBell
               notifications={notifications}
               onMarkRead={handleMarkNotificationRead}
@@ -534,49 +534,70 @@ export function PipelineDashboard() {
               onClickNotification={handleNotificationClick}
               autoOpenKey={user?.id}
             />
-            {/* Desktop-only buttons */}
-            <Button asChild variant="outline" size="sm" className="hidden md:inline-flex">
-              <Link to="/pendencias"><ListTodo className="h-4 w-4" />Pendências</Link>
+            {/* Desktop primary buttons */}
+            <Button asChild variant="outline" size="sm" className="hidden md:inline-flex h-8 text-xs px-2.5">
+              <Link to="/pendencias"><ListTodo className="h-3.5 w-3.5 mr-1" />Pendências</Link>
             </Button>
-            <Button asChild variant="outline" size="sm" className="hidden lg:inline-flex">
-              <Link to="/relatorios"><BarChart3 className="h-4 w-4" />Relatórios</Link>
-            </Button>
-            <Button asChild variant="outline" size="sm" className="hidden lg:inline-flex">
-              <Link to="/perfil"><UserCircle className="h-4 w-4" />Perfil</Link>
-            </Button>
-            <Button asChild variant="outline" size="sm" className="hidden lg:inline-flex">
-              <Link to="/templates"><FileText className="h-4 w-4" />Templates</Link>
-            </Button>
-            {can('manage_library') && (
-              <Button asChild variant="outline" size="sm" className="hidden lg:inline-flex">
-                <Link to="/library"><BookOpen className="h-4 w-4" />Biblioteca</Link>
-              </Button>
-            )}
-            {(isAdmin || can('manage_users')) && (
-              <Button asChild variant="outline" size="sm" className="hidden md:inline-flex">
-                <Link to="/admin/users"><Shield className="h-4 w-4" />Usuários</Link>
-              </Button>
-            )}
-            {can('import_csv') && (
-              <Button variant="outline" size="sm" onClick={() => setCsvImporterOpen(true)} className="hidden md:inline-flex">
-                <Upload className="h-4 w-4" />
-                Importar CSV
-              </Button>
-            )}
-            {/* Always visible: Add patient */}
-            <Button onClick={() => setAddOpen(true)} size="sm">
-              <Plus className="h-4 w-4" />
+            <Button onClick={() => setAddOpen(true)} size="sm" className="h-8 text-xs px-2.5">
+              <Plus className="h-3.5 w-3.5 mr-1" />
               <span className="hidden sm:inline">Novo Paciente</span>
               <span className="sm:hidden">Novo</span>
             </Button>
-            {/* Desktop-only logout */}
-            <Button variant="ghost" size="icon" onClick={signOut} title="Sair" className="hidden md:inline-flex">
-              <LogOut className="h-4 w-4" />
-            </Button>
+            {/* Desktop "More" menu */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild className="hidden md:inline-flex">
+                <Button variant="outline" size="sm" className="h-8 text-xs px-2.5" aria-label="Mais opções">
+                  <Menu className="h-3.5 w-3.5 mr-1" />Mais
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56 bg-background z-50">
+                {user?.email && (
+                  <>
+                    <DropdownMenuLabel className="text-xs font-normal text-muted-foreground truncate">
+                      {user.email}
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
+                <DropdownMenuItem onClick={() => navigate('/relatorios')}>
+                  <BarChart3 className="h-4 w-4 mr-2" />Relatórios
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/perfil')}>
+                  <UserCircle className="h-4 w-4 mr-2" />Perfil
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/templates')}>
+                  <FileText className="h-4 w-4 mr-2" />Templates
+                </DropdownMenuItem>
+                {can('manage_library') && (
+                  <DropdownMenuItem onClick={() => navigate('/library')}>
+                    <BookOpen className="h-4 w-4 mr-2" />Biblioteca
+                  </DropdownMenuItem>
+                )}
+                {(isAdmin || can('manage_users')) && (
+                  <DropdownMenuItem onClick={() => navigate('/admin/users')}>
+                    <Shield className="h-4 w-4 mr-2" />Usuários
+                  </DropdownMenuItem>
+                )}
+                {isAdmin && (
+                  <DropdownMenuItem onClick={() => navigate('/admin/duplicates')}>
+                    <Shield className="h-4 w-4 mr-2" />Duplicatas
+                  </DropdownMenuItem>
+                )}
+                {can('import_csv') && (
+                  <DropdownMenuItem onClick={() => setCsvImporterOpen(true)}>
+                    <Upload className="h-4 w-4 mr-2" />Importar CSV
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={signOut}>
+                  <LogOut className="h-4 w-4 mr-2" />Sair
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             {/* Mobile-only hamburger */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild className="md:hidden">
-                <Button variant="outline" size="icon" aria-label="Menu">
+                <Button variant="outline" size="icon" aria-label="Menu" className="h-8 w-8">
                   <Menu className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
