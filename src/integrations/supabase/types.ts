@@ -1264,6 +1264,10 @@ export type Database = {
           valid_to: string
         }[]
       }
+      get_user_id_by_surgeon_name: {
+        Args: { _surgeon_name: string }
+        Returns: string
+      }
       has_capability: {
         Args: { _cap: string; _user_id: string }
         Returns: boolean
