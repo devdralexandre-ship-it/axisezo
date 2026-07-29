@@ -12,6 +12,7 @@ import { PatientDocuments } from './PatientDocuments';
 import { PatientUploads } from './PatientUploads';
 import { PatientOrientations } from './PatientOrientations';
 import { ProcedureCombobox } from './ProcedureCombobox';
+import { HospitalMultiSelect } from './HospitalMultiSelect';
 import { PatientFlags } from './PatientCard';
 import { Calendar, UserRound, Stethoscope, DollarSign, Clock, Plus, CheckCircle2, Circle, Building2, CreditCard, MapPin, Pencil, Save, X, AlertTriangle, Baby, User, Phone, Mail, FileText, Contact, ArrowRightLeft } from 'lucide-react';
 
@@ -493,22 +494,13 @@ export function PatientPanel({ patient, open, onClose, onCompleteTask, onAddTask
                   )}
                 </div>
               )}
-              {/* Hospital dropdown in edit */}
+              {/* Hospitals (multi) in edit */}
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-muted-foreground">Hospital Desejado</label>
-                <Select value={editData.desired_hospital || 'none'} onValueChange={(v) => {
-                  const val = v === 'none' ? '' : v;
-                  setEditData({ ...editData, desired_hospital: val, custom_hospital: val !== 'Outro' ? '' : editData.custom_hospital });
-                }}>
-                  <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Nenhum</SelectItem>
-                    {HOSPITALS.map((h) => <SelectItem key={h} value={h}>{h}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                {editData.desired_hospital === 'Outro' && (
-                  <Input value={editData.custom_hospital || ''} onChange={(e) => setEditData({ ...editData, custom_hospital: e.target.value })} placeholder="Informe o hospital" className="mt-2 h-8 text-sm" />
-                )}
+                <label className="text-xs font-semibold text-muted-foreground">Hospitais Desejados</label>
+                <HospitalMultiSelect
+                  value={Array.isArray(editData.desired_hospitals) ? editData.desired_hospitals : []}
+                  onChange={(v) => setEditData({ ...editData, desired_hospitals: v })}
+                />
               </div>
               {/* Indication dropdown in edit */}
               <div className="space-y-1">
@@ -567,7 +559,7 @@ export function PatientPanel({ patient, open, onClose, onCompleteTask, onAddTask
                 <InfoItem icon={Contact} label="Responsável pelo Paciente" value={patient.responsibleContact || '—'} />
                 <InfoItem icon={CreditCard} label="Convênio" value={patient.payer || '—'} />
                 <InfoItem icon={CreditCard} label="Faturamento" value={displayBillingType(patient.billingType)} />
-                <InfoItem icon={Building2} label="Hospital" value={patient.desiredHospital || '—'} />
+                <InfoItem icon={Building2} label="Hospitais" value={(patient.desiredHospitals && patient.desiredHospitals.length > 0) ? patient.desiredHospitals.join(' · ') : (patient.desiredHospital || '—')} />
                 <InfoItem icon={MapPin} label="Origem" value={patient.indicationLocation || '—'} />
               </div>
 
