@@ -363,7 +363,10 @@ export function PatientPanel({ patient, open, onClose, onCompleteTask, onAddTask
             <div className="space-y-4">
               <EditField label="Nome" value={editData.name} onChange={(v) => setEditData({ ...editData, name: v })} />
               <div className="grid grid-cols-2 gap-3">
-                <EditField label="Idade" type="number" value={editData.age || ''} onChange={(v) => setEditData({ ...editData, age: v ? parseInt(v) : null })} />
+                <div className="grid grid-cols-2 gap-2">
+                  <EditField label="Idade (anos)" type="number" value={editData.age || ''} onChange={(v) => setEditData({ ...editData, age: v ? parseInt(v) : null })} />
+                  <EditField label="Meses" type="number" value={editData.age_months || ''} onChange={(v) => setEditData({ ...editData, age_months: v ? parseInt(v) : null })} />
+                </div>
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-muted-foreground">Tipo</label>
                   <Select value={editData.patient_type} onValueChange={(v) => setEditData({ ...editData, patient_type: v })}>
