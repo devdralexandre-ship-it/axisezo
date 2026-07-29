@@ -655,32 +655,55 @@ export function PipelineDashboard() {
           </div>
         </div>
 
-        <FilterBar
-          search={search} onSearchChange={setSearch}
-          surgeon={surgeonFilter} onSurgeonChange={setSurgeonFilter}
-          concierge={conciergeFilter} onConciergeChange={setConciergeFilter}
-          procedure={procedureFilter} onProcedureChange={setProcedureFilter}
-          patientType={patientTypeFilter} onPatientTypeChange={setPatientTypeFilter}
-          surgicalApproach={surgicalApproachFilter} onSurgicalApproachChange={setSurgicalApproachFilter}
-          payer={payerFilter} onPayerChange={setPayerFilter}
-          billingType={billingTypeFilter} onBillingTypeChange={setBillingTypeFilter}
-          hospital={hospitalFilter} onHospitalChange={setHospitalFilter}
-          indicationSource={indicationSourceFilter} onIndicationSourceChange={setIndicationSourceFilter}
-          indicationFrom={indicationFrom} onIndicationFromChange={setIndicationFrom}
-          indicationTo={indicationTo} onIndicationToChange={setIndicationTo}
-          hasActiveFilters={
-            !!search || surgeonFilter !== 'all' || conciergeFilter !== 'all' || procedureFilter !== 'all' ||
-            patientTypeFilter !== 'all' || surgicalApproachFilter !== 'all' || payerFilter !== 'all' ||
-            billingTypeFilter !== 'all' || hospitalFilter !== 'all' || indicationSourceFilter !== 'all' ||
-            !!indicationFrom || !!indicationTo
-          }
-          onClearAll={() => {
-            setSearch(''); setSurgeonFilter('all'); setConciergeFilter('all'); setProcedureFilter('all');
-            setPatientTypeFilter('all'); setSurgicalApproachFilter('all'); setPayerFilter('all');
-            setBillingTypeFilter('all'); setHospitalFilter('all'); setIndicationSourceFilter('all');
-            setIndicationFrom(''); setIndicationTo('');
-          }}
-        />
+        {(() => {
+          const filterProps = {
+            search, onSearchChange: setSearch,
+            surgeon: surgeonFilter, onSurgeonChange: setSurgeonFilter,
+            concierge: conciergeFilter, onConciergeChange: setConciergeFilter,
+            procedure: procedureFilter, onProcedureChange: setProcedureFilter,
+            patientType: patientTypeFilter, onPatientTypeChange: setPatientTypeFilter,
+            surgicalApproach: surgicalApproachFilter, onSurgicalApproachChange: setSurgicalApproachFilter,
+            payer: payerFilter, onPayerChange: setPayerFilter,
+            billingType: billingTypeFilter, onBillingTypeChange: setBillingTypeFilter,
+            hospital: hospitalFilter, onHospitalChange: setHospitalFilter,
+            indicationSource: indicationSourceFilter, onIndicationSourceChange: setIndicationSourceFilter,
+            indicationFrom, onIndicationFromChange: setIndicationFrom,
+            indicationTo, onIndicationToChange: setIndicationTo,
+            hasActiveFilters:
+              !!search || surgeonFilter !== 'all' || conciergeFilter !== 'all' || procedureFilter !== 'all' ||
+              patientTypeFilter !== 'all' || surgicalApproachFilter !== 'all' || payerFilter !== 'all' ||
+              billingTypeFilter !== 'all' || hospitalFilter !== 'all' || indicationSourceFilter !== 'all' ||
+              !!indicationFrom || !!indicationTo,
+            onClearAll: () => {
+              setSearch(''); setSurgeonFilter('all'); setConciergeFilter('all'); setProcedureFilter('all');
+              setPatientTypeFilter('all'); setSurgicalApproachFilter('all'); setPayerFilter('all');
+              setBillingTypeFilter('all'); setHospitalFilter('all'); setIndicationSourceFilter('all');
+              setIndicationFrom(''); setIndicationTo('');
+            },
+          };
+          return isMobile ? (
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="relative flex-1 min-w-[160px]">
+                <input
+                  placeholder="Buscar paciente..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+                />
+              </div>
+              <FilterSheet {...filterProps} />
+              <SortControl sortKey={sortKey} sortDir={sortDir} onKeyChange={setSortKey} onDirChange={setSortDir} compact />
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <FilterBar {...filterProps} />
+              <div className="flex items-center gap-2">
+                <SortControl sortKey={sortKey} sortDir={sortDir} onKeyChange={setSortKey} onDirChange={setSortDir} />
+              </div>
+            </div>
+          );
+        })()}
+
 
       </header>
 
