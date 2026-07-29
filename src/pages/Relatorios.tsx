@@ -86,6 +86,58 @@ export default function Relatorios() {
     .filter(p => p.stage === 'surgery_scheduled' || p.stage === 'preop_preparation')
     .reduce((s, p) => s + patientValue(p), 0);
 
+  // SLA: particular patients must have a budget document attached within 24h of creation.
+  const particulares = useMemo(
+    () => inRange.filter(p => (p.billingType || '').toLowerCase().includes('particular')),
+    [inRange],
+  );
+  const [budgetTimes, setBudgetTimes] = useState<Record<string, string>>({});
+  useEffect(() => {
+    const ids = particulares.map(p => p.id);
+    if (ids.length === 0) { setBudgetTimes({}); return; }
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('patient_documents')
+        .select('patient_id, created_at')
+        .eq('type', 'budget')
+        .in('patient_id', ids)
+        .order('created_at', { ascending: true });
+      if (cancelled) return;
+      const map: Record<string, string> = {};
+      (data ?? []).forEach((d: any) => {
+        if (!map[d.patient_id]) map[d.patient_id] = d.created_at;
+      });
+      setBudgetTimes(map);
+    })();
+    return () => { cancelled = true; };
+  }, [particulares]);
+
+  const nowMs = Date.now();
+  const budgetSla = particulares.map((p) => {
+    const created = p.createdAt ? new Date(p.createdAt).getTime() : null;
+    const first = budgetTimes[p.id] ? new Date(budgetTimes[p.id]).getTime() : null;
+    const deadlineMs = created != null ? created + 24 * 3600 * 1000 : null;
+    let status: 'on_time' | 'late' | 'pending_ok' | 'pending_breached';
+    if (first != null && created != null) {
+      status = (first - created) <= 24 * 3600 * 1000 ? 'on_time' : 'late';
+    } else if (deadlineMs != null && nowMs <= deadlineMs) {
+      status = 'pending_ok';
+    } else {
+      status = 'pending_breached';
+    }
+    return { patient: p, first, status };
+  });
+  const particularesTotal = budgetSla.length;
+  const particularesOnTime = budgetSla.filter(b => b.status === 'on_time').length;
+  const particularesPendingOk = budgetSla.filter(b => b.status === 'pending_ok').length;
+  const particularesBreached = budgetSla.filter(b => b.status === 'late' || b.status === 'pending_breached').length;
+  const particularesResolved = budgetSla.filter(b => b.status === 'on_time' || b.status === 'late').length;
+  const particularesSlaPct = particularesResolved > 0
+    ? Math.round((particularesOnTime / particularesResolved) * 100)
+    : 100;
+
+
   // Funnel by stage
   const funnelData = PIPELINE_STAGES.filter(s => s !== 'lost').map((s) => {
     const list = inRange.filter(p => p.stage === s);
