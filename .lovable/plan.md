@@ -1,26 +1,29 @@
-## Objetivo
+Agrupar os filtros do desktop em um menu para reduzir a altura da barra superior e deixar o cabeçalho mais enxuto.
 
-1. Desativar a abertura automática do modal de briefing da concierge (desktop e mobile).
-2. Redirecionar concierges automaticamente para `/pendencias` ao fazer login, tanto no desktop quanto no mobile.
+### O que será feito
 
-## Mudanças
+1. **Novo componente de menu de filtros para desktop**
+   - Criar um componente (ou estender `FilterSheet`) que, no desktop, abra como **Sheet lateral direita** (480 px, mesmo padrão dos slide-overs do projeto) e contenha o `FilterBar` existente.
+   - No mobile, manter o comportamento atual de bottom sheet.
+   - O gatilho será um botão "Filtros" com ícone e badge mostrando a quantidade de filtros ativos (mesma lógica já usada no `FilterSheet`).
 
-### 1. `src/components/ConciergeLoginBriefing.tsx`
-No hook `useConciergeBriefing`, remover o `useEffect` que faz `setOpen(true)` automaticamente (linhas ~154-184) e o flag `autoopen` no localStorage. O modal continua existindo e pode ser aberto manualmente via `openManually()` (usado em algum botão do header, se houver) — apenas nunca abre sozinho.
+2. **Ajustar o cabeçalho do `PipelineDashboard` no desktop**
+   - Remover a exibição inline do `FilterBar`.
+   - Deixar sempre visíveis: campo de busca, botão "Filtros", toggles rápidos de SLA (Todos / SLA estourado / Escaladas), `ViewToggle` e `SortControl`.
+   - Agrupar esses elementos em uma única linha compacta, sem quebra de layout.
 
-### 2. Redirecionar concierge para `/pendencias` no login
+3. **Preservar comportamentos**
+   - Limpar filtros (`Limpar`) continua funcionando dentro do menu.
+   - Contador de filtros ativos continua igual ao do mobile.
+   - Filtros aplicados refletem imediatamente na tabela/kanban ao fechar/alterar o menu.
 
-Em `src/App.tsx`, na rota `/`, envolver `<Index />` num pequeno wrapper (ou ajustar `ProtectedRoute`) que:
-- Aguarda `useAuth` + `useUserRole` carregarem.
-- Se `role === 'concierge'` **e** for a primeira navegação da sessão (flag em `sessionStorage`, ex.: `concierge-landed:<userId>`), faz `<Navigate to="/pendencias" replace />` e grava o flag.
-- Caso contrário, renderiza `<Index />` normalmente.
+### Detalhes técnicos
+- Arquivos alterados:
+  - `src/components/FilterSheet.tsx` — adicionar variação de layout desktop (Sheet lateral) e props de `side`/`className`.
+  - `src/components/PipelineDashboard.tsx` — substituir o bloco desktop do `FilterBar` inline pelo novo menu de filtros.
+  - Opcionalmente `src/components/FilterBar.tsx` — apenas se for necessário ajustar espaçamentos internos para caber melhor no Sheet lateral.
 
-Usar `sessionStorage` (não `localStorage`) para que:
-- O redirect ocorra uma vez por sessão de login (não fica preso — a concierge ainda pode navegar para `/` manualmente depois).
-- Vale igualmente no mobile, pois é o mesmo App/rota.
-
-Nenhuma mudança em Auth.tsx é necessária — o redirect já leva para `/`, e o wrapper decide o destino final.
-
-## Fora de escopo
-- Não mexer no conteúdo da tela `/pendencias` nem no `Index`/Kanban.
-- Não remover o componente `ConciergeLoginBriefing`; permanece disponível para abertura manual futura.
+### Não inclui
+- Mudança na lógica de filtragem (mesmos filtros e estados).
+- Alteração no mobile (continua com bottom sheet).
+- Alteração nos toggles de SLA (permanecem visíveis fora do menu).
