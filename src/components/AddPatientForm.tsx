@@ -555,18 +555,13 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
               </div>
             )}
 
-            {/* Desired Hospital */}
+            {/* Desired Hospitals (multi-select) */}
             <div className="space-y-2">
-              <Label>Hospital Desejado</Label>
-              <Select value={desiredHospital} onValueChange={(v) => { setDesiredHospital(v); if (v !== 'Outro') setCustomHospital(''); }}>
-                <SelectTrigger className="focus:ring-offset-0"><SelectValue placeholder="Selecione o hospital" /></SelectTrigger>
-                <SelectContent>
-                  {HOSPITALS.map((h) => <SelectItem key={h} value={h}>{h}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              {isCustomHospital && (
-                <Input value={customHospital} onChange={(e) => setCustomHospital(e.target.value)} placeholder="Informe o hospital" className="mt-2 focus-visible:ring-offset-0" />
-              )}
+              <Label>Hospitais Desejados</Label>
+              <HospitalMultiSelect value={desiredHospitals} onChange={setDesiredHospitals} />
+              <p className="text-[11px] text-muted-foreground">
+                Selecione um ou mais hospitais para obtenção de orçamento (particulares).
+              </p>
             </div>
 
             {/* Indication Source */}
