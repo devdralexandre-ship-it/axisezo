@@ -51,6 +51,7 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
 
   const [name, setName] = useState('');
   const [age, setAge] = useState('');
+  const [ageMonths, setAgeMonths] = useState('');
   const [patientType, setPatientType] = useState('adult');
   const duplicateMatches = useMemo(() => {
     const n = normalizeName(name);
