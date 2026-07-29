@@ -1,74 +1,73 @@
 ## Objetivo
 
-Reorganizar `Relatorios.tsx` em três análises principais de conversão + SLA, deixar clara a semântica dos filtros, permitir combiná-los e exportar cada bloco em CSV. Corrigir a métrica de SLA de orçamento para considerar apenas o **orçamento preliminar** (primeiro orçamento anexado), independentemente do número de hospitais desejados.
+Em `AdminDuplicates`, adicionar ação **"Unificar no principal"** que reatribui todos os dados relacionados de registros duplicados para um paciente escolhido como principal e depois exclui os duplicados. Os campos do paciente principal permanecem inalterados.
 
-## Definições
+## Fluxo de UI
 
-- **Filtro de data = data de indicação** do paciente (`indicationDate`, com fallback para `createdAt` quando ausente). Isso será rotulado explicitamente na UI.
-- **Filtros combinam entre si** (AND lógico): data + concierge + cirurgião já se cruzam hoje; vamos deixar isso explícito na UI e adicionar dois filtros novos (recorte financeiro e convênio) que também combinam.
-- **Particular (financeiro do médico)**: `billingType ∈ { 'Honorários Médicos Particulares', 'Custos Totais Particulares' }`.
-- **Convênio**: `billingType ∈ { 'Cooperuro', 'Unicooper' }`.
-- **Taxa de conversão**: `realizadas / (realizadas + perdidos)` dentro do recorte.
-- `surgical_potential` continua fora de todas as métricas.
+Em `src/pages/AdminDuplicates.tsx`, no card de cada grupo:
 
-## 1. Barra de filtros — clareza e combinação
+1. Adicionar um botão **"Manter este"** (ou radio) por linha para escolher o principal.
+2. Um botão **"Unificar no principal"** no header do card abre um dialog de prévia.
+3. Prévia mostra:
+   - Registro principal (nome, procedimento, estágio, cirurgião, telefone, e-mail).
+   - Lista de duplicados que serão excluídos.
+   - Contadores do que será reatribuído: documentos, uploads, tarefas, contatos, ações pendentes, checklist pré-op, materiais enviados.
+   - Aviso: "Campos do paciente principal serão mantidos. Nenhum valor será sobrescrito."
+4. Confirmar dispara a operação; sucesso mostra toast e refetch das queries.
 
-Em `src/pages/Relatorios.tsx`:
+## Backend
 
-- Rotular o range de datas como **"Indicação: de ___ até ___"** (label visível, não só tooltip).
-- Adicionar uma linha de ajuda curta abaixo: *"Filtros se combinam (E lógico). Cada bloco abaixo pode ser exportado em CSV com os filtros atuais aplicados."*
-- Adicionar dois novos filtros combináveis:
-  - **Recorte financeiro**: Todos / Particulares / Convênio.
-  - **Convênio específico** (`payer`): Todos + lista dinâmica.
-- Botão global **"Exportar tudo (CSV)"** no header que gera um zip conceitual — na prática, dispara um único CSV consolidado com uma aba por bloco separada por linha em branco + título, OU faz download sequencial de um CSV por bloco (escolho a segunda opção por simplicidade; sem dependência nova).
+Criar migration com função `SECURITY DEFINER`:
 
-## 2. Bloco "Conversão — Particulares"
+```sql
+CREATE OR REPLACE FUNCTION public.merge_patients(_keep uuid, _remove uuid[])
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  -- Só admin pode unificar
+  IF NOT has_role(auth.uid(), 'admin') THEN
+    RAISE EXCEPTION 'only admin can merge patients';
+  END IF;
+  IF _keep = ANY(_remove) THEN
+    RAISE EXCEPTION 'keep id cannot be in remove list';
+  END IF;
 
-- Taxa geral do recorte particular + quebra em "Custos Totais Particulares" e "Honorários Médicos Particulares" (cada um com % e `n/N`).
-- Contadores: em andamento, realizadas, perdidas, ticket médio realizado.
-- Gráfico de barras horizontal comparando os dois sub-tipos.
-- Top motivos de perda dentro do recorte.
-- Botão **CSV** local (uma linha por paciente).
+  -- Reatribuir todas as tabelas com patient_id
+  UPDATE public.contact_records         SET patient_id = _keep WHERE patient_id = ANY(_remove);
+  UPDATE public.patient_documents       SET patient_id = _keep WHERE patient_id = ANY(_remove);
+  UPDATE public.patient_uploads         SET patient_id = _keep WHERE patient_id = ANY(_remove);
+  UPDATE public.patient_sent_materials  SET patient_id = _keep WHERE patient_id = ANY(_remove);
+  UPDATE public.pending_items           SET patient_id = _keep WHERE patient_id = ANY(_remove);
+  UPDATE public.preop_checklist_items   SET patient_id = _keep WHERE patient_id = ANY(_remove);
+  UPDATE public.tasks                   SET patient_id = _keep WHERE patient_id = ANY(_remove);
 
-## 3. Bloco "Conversão — Convênio"
+  -- signature_audit_log e signature_verifications guardam patient_id só como snapshot histórico:
+  -- manter aponta para o duplicado excluído quebraria FK se houvesse; hoje são apenas colunas
+  -- informativas sem FK, então reatribuímos também por consistência de consulta.
+  UPDATE public.signature_audit_log     SET patient_id = _keep WHERE patient_id = ANY(_remove);
+  UPDATE public.signature_verifications SET document_id = document_id WHERE false; -- no-op, mantido para leitura
 
-Espelha o bloco de particulares:
-- Taxa geral do recorte convênio + quebra por `payer` (top 5 + "outros").
-- Contadores equivalentes + ticket médio realizado.
-- Gráfico de barras horizontal por convênio.
-- Motivos de perda no recorte.
-- Botão **CSV** local.
+  -- Excluir duplicados (patients já tem cascade nas tabelas próprias, mas aqui já esvaziamos)
+  DELETE FROM public.patients WHERE id = ANY(_remove);
+END;
+$$;
 
-## 4. SLA orçamento — Particulares (24h) — CORREÇÃO
+GRANT EXECUTE ON FUNCTION public.merge_patients(uuid, uuid[]) TO authenticated;
+```
 
-Mudança na lógica em `Relatorios.tsx` (bloco "budgetSla"):
+## Frontend
 
-- O SLA passa a ser cumprido quando **existe pelo menos um `patient_documents` do tipo `budget`** para o paciente dentro de 24h do cadastro — trata-se do "orçamento preliminar/primário".
-- **Não** verifica mais cobertura por hospital. Múltiplos hospitais desejados continuam sendo cadastrados e usados na geração de orçamentos definitivos, mas não entram no cálculo do SLA preliminar.
-- Recorte do universo permanece: `billingType` contém "particular" (mantém ambos os sub-tipos).
-- Status:
-  - `on_time` se o primeiro `budget` foi criado ≤ 24h após `createdAt`.
-  - `late` se o primeiro `budget` existe, mas veio depois de 24h.
-  - `pending_ok` se ainda não tem `budget` e o prazo não venceu.
-  - `pending_breached` se ainda não tem `budget` e o prazo venceu.
-- Remover a coluna "Hospitais faltantes" do CSV e da lista de estourados; adicionar coluna "Primeiro orçamento em (h)" quando houver.
-- Manter o texto explicativo curto: *"Considera o primeiro orçamento (preliminar) anexado no Axis, independentemente de quantos hospitais foram selecionados."*
-
-## 5. Exportação CSV — padrão
-
-- Cada card com análise ganha um botão `CSV` próprio (já existente no SLA; adicionar em Particulares e Convênio).
-- Header ganha botão **"Exportar tudo"** que dispara em sequência os CSVs de: recorte filtrado bruto (pacientes + campos-chave), Conversão Particulares, Conversão Convênio, SLA Orçamento, Funil, Motivos de perda, Produtividade por concierge, Receita por convênio.
-- Todos os CSVs respeitam os filtros ativos e usam o helper `downloadCsv` já existente.
+- Novo hook `useMergePatients` em `src/hooks/usePatients.ts` que chama `supabase.rpc('merge_patients', { _keep, _remove })` e invalida as queries de pacientes, documentos, tarefas, uploads.
+- Novo componente inline `MergePreviewDialog` dentro de `AdminDuplicates.tsx` (ou extraído se passar de ~80 linhas). Busca contagens via `supabase.from('<tabela>').select('id', { count: 'exact', head: true }).in('patient_id', removeIds)` em paralelo para as 7 tabelas.
+- Estado local por grupo: `keepId: string | null`. Botão "Unificar" fica desabilitado até escolher o principal.
+- Após sucesso, o grupo some naturalmente (só sobra 1 registro com aquele nome).
 
 ## Detalhes técnicos
 
-- Toda lógica adicional roda client-side sobre o array retornado por `usePatients`, mais a query já existente para `patient_documents` (agora simplificada — sem precisar ler `data->hospital`).
-- Reaproveitar `patientValue`, `downloadCsv`, `fmtCurrency`, `CHART_COLORS`.
-- Blocos novos ficam como componentes internos em `Relatorios.tsx`; se algum passar de ~80 linhas, extrair para `src/components/reports/`.
-- `canSeeFinancials`: valores em R$ e ticket ficam ocultos quando falso; % e contagens permanecem.
-- Sem alteração de schema, RLS, hooks ou tipos.
+- Somente admin acessa a página, e a função também valida `admin` no server.
+- Não há alteração de RLS nas tabelas envolvidas — o `UPDATE`/`DELETE` roda como `SECURITY DEFINER`.
+- Nenhuma mudança nos formulários de paciente, Kanban ou relatórios.
 
 ## Fora de escopo
 
-- Métricas complementares (aging por estágio, cohort, heatmap por motivo × concierge) — deixo para uma próxima rodada, após você validar essa reorganização.
-- Nenhuma mudança no fluxo de criação/edição de orçamento em si.
+- Merge campo a campo (rejeitado — mantemos campos do principal).
+- Undo/histórico de merges — irreversível, coberto pela prévia obrigatória.
