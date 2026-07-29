@@ -744,11 +744,13 @@ export function PipelineDashboard() {
               <SortControl sortKey={sortKey} sortDir={sortDir} onKeyChange={setSortKey} onDirChange={setSortDir} compact />
             </div>
           ) : (
-            <div className="space-y-2">
-              <FilterBar {...filterProps} />
-              <div className="flex items-center gap-2">
-                <SortControl sortKey={sortKey} sortDir={sortDir} onKeyChange={setSortKey} onDirChange={setSortDir} />
+            <div className="flex items-start gap-2">
+              <div className="flex-1 min-w-0">
+                <FilterBar {...filterProps} />
+              </div>
+              <div className="flex flex-col gap-1.5 shrink-0 pt-0.5">
                 <ViewToggle mode={viewMode} onChange={setViewMode} />
+                <SortControl sortKey={sortKey} sortDir={sortDir} onKeyChange={setSortKey} onDirChange={setSortDir} />
               </div>
             </div>
           );
