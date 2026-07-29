@@ -210,6 +210,7 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
       created = await onAdd({
         name: trimmedName,
         age: age ? parseInt(age) : null,
+        ageMonths: ageMonths ? parseInt(ageMonths) : null,
         patientType,
         procedure: effectiveProcedure,
         procedureCategory: '',
