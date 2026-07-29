@@ -423,7 +423,7 @@ export default function Relatorios() {
                     <BarChart data={productivityData} margin={{ top: 8, right: 12, left: 0, bottom: 4 }}>
                       <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
                       <XAxis dataKey="name" fontSize={11} />
-                      <YAxis yatd="left" yAxisId="count" fontSize={11} label={{ value: 'Volume', angle: -90, position: 'insideLeft', style: { fontSize: 10, fill: 'hsl(var(--muted-foreground))' } }} />
+                      <YAxis yAxisId="count" fontSize={11} label={{ value: 'Volume', angle: -90, position: 'insideLeft', style: { fontSize: 10, fill: 'hsl(var(--muted-foreground))' } }} />
                       <YAxis yAxisId="pct" orientation="right" domain={[0, 100]} unit="%" fontSize={11} />
                       <Tooltip contentStyle={{ fontSize: 12 }} formatter={(v: any, name: any) => name === 'SLA (%)' ? [`${v}%`, name] : [v, name]} />
                       <Legend wrapperStyle={{ fontSize: 11 }} />
