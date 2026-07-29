@@ -62,8 +62,9 @@ export default function Relatorios() {
   const surgeons = useMemo(() => [...new Set(patients.map(p => p.surgeon).filter(Boolean))].sort(), [patients]);
   const concierges = useMemo(() => [...new Set(patients.map(p => p.concierge).filter(Boolean))].sort(), [patients]);
 
-  // Filter by indication date + role filters
+  // Filter by indication date + role filters. Exclude 'surgical_potential' from all metrics.
   const inRange = useMemo(() => patients.filter((p) => {
+    if (p.stage === 'surgical_potential') return false;
     if (conciergeFilter !== 'all' && p.concierge !== conciergeFilter) return false;
     if (surgeonFilter !== 'all' && p.surgeon !== surgeonFilter) return false;
     if (from || to) {
