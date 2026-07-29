@@ -14,6 +14,7 @@ import { TaskFormFields, TaskDraft, emptyTaskDraft } from './TaskFormFields';
 import { CodeAutocomplete } from './CodeAutocomplete';
 import { uploadPatientFile, UPLOAD_CATEGORIES, UploadCategory } from '@/hooks/usePatientUploads';
 import { ProcedureCombobox } from './ProcedureCombobox';
+import { HospitalMultiSelect } from './HospitalMultiSelect';
 import { recordProcedureCodeSuggestions } from '@/hooks/useCodeSuggestions';
 import { toast } from 'sonner';
 
