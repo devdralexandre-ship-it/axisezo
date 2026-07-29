@@ -33,6 +33,7 @@ interface FilterBarProps {
   onIndicationToChange: (v: string) => void;
   onClearAll: () => void;
   hasActiveFilters: boolean;
+  hideSearch?: boolean;
 }
 
 export function FilterBar({
