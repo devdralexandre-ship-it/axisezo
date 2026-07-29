@@ -25,6 +25,8 @@ export function useRealtimePatients() {
   const qc = useQueryClient();
 
   useEffect(() => {
+    let cancelled = false;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
     const pending = new Set<string>();
     let timer: ReturnType<typeof setTimeout> | null = null;
 
@@ -50,25 +52,31 @@ export function useRealtimePatients() {
       timer = setTimeout(flush, 1500);
     };
 
-    let channel = supabase.channel('kanban-realtime', { config: { private: true } });
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (cancelled || !user) return;
 
-    for (const table of TABLES) {
-      channel = channel.on(
-        'postgres_changes' as any,
-        { event: '*', schema: 'public', table },
-        () => {
-          schedule('patients');
-          if (table === 'patient_uploads') schedule('patient-uploads');
-          if (table === 'patient_documents') schedule('patient-documents');
-        },
-      );
-    }
+      let ch = supabase.channel(`kanban-realtime:${user.id}`, { config: { private: true } });
 
-    channel.subscribe();
+      for (const table of TABLES) {
+        ch = ch.on(
+          'postgres_changes' as any,
+          { event: '*', schema: 'public', table },
+          () => {
+            schedule('patients');
+            if (table === 'patient_uploads') schedule('patient-uploads');
+            if (table === 'patient_documents') schedule('patient-documents');
+          },
+        );
+      }
+      ch.subscribe();
+      channel = ch;
+    })();
 
     return () => {
+      cancelled = true;
       if (timer) clearTimeout(timer);
-      supabase.removeChannel(channel);
+      if (channel) supabase.removeChannel(channel);
     };
   }, [qc]);
 }
