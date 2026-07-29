@@ -151,37 +151,9 @@ export function useConciergeBriefing(
     setLastSeenAt(localStorage.getItem(storageKey));
   }, [storageKey]);
 
-  // Auto-open: once per day per user, if there is anything actionable.
-  // On mobile (< 768px) we suppress the modal — the mobile banner takes over.
-  useEffect(() => {
-    if (!userId || !conciergeName || !storageKey) return;
-    if (!patients || patients.length === 0) return;
-    if (typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches) return;
-    const today = new Date().toISOString().slice(0, 10);
-    const autoFlag = `${storageKey}:autoopen:${today}`;
-    if (localStorage.getItem(autoFlag)) return;
+  // Auto-open desativado: o modal só abre via openManually().
+  // (Concierges são redirecionadas para /pendencias após login.)
 
-    const since = lastSeenAt ? new Date(lastSeenAt).getTime() : 0;
-    const hasNew = patients.some(
-      (p) => p.concierge === conciergeName && p.stage !== 'lost' && new Date(p.createdAt).getTime() > since,
-    );
-    const hasBreached = patients.some((p) => {
-      if (p.stage === 'lost') return false;
-      const isMine = p.concierge === conciergeName;
-      return p.tasks.some((t) => {
-        if (t.completed) return false;
-        const state = getTaskSlaState(t);
-        if (state !== 'breached' && state !== 'escalated') return false;
-        return t.responsible === conciergeName || isMine;
-      });
-    });
-
-    if (hasNew || hasBreached) {
-      setOpen(true);
-      localStorage.setItem(autoFlag, '1');
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, conciergeName, patients.length, lastSeenAt]);
 
   const close = () => {
     setOpen(false);
