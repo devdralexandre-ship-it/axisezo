@@ -8,7 +8,7 @@
 - Carregando o app autenticado em viewport de desktop (1280x900), o Kanban e o painel de pendências renderizam sem erro.
 - O projeto não registra service worker (só um `manifest.json` estático), então não há cache offline "preso" — o cache é do próprio navegador.
 
-Conclusão: não há falha do lado do servidor nem do código publicado. O sintoma "branco só no desktop, normal no celular" é compatível com bundle JavaScript antigo em cache no navegador de desktop (ou extensão bloqueando scripts).
+Conclusão: não há falha do lado do servidor nem do código publicado. O sintoma "branco só no desktop, normal no celular" é compatível com bundle JavaScript antigo em cache no navegador de desktop, extensão bloqueando scripts, ou redirecionamento/interceptação da rede (proxy, captive portal, rede não segura).
 
 ## Passos para você testar (nesta ordem)
 
