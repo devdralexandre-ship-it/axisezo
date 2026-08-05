@@ -1,51 +1,29 @@
-## Problema
+# Tela branca em axiscrm.app (desktop)
 
-Ao unificar pacientes, o erro `duplicate key value violates unique constraint "preop_checklist_items_patient_id_item_key_key"` ocorre porque a função `merge_patients` faz `UPDATE ... SET patient_id = _keep` em `preop_checklist_items`, mas existe constraint única em `(patient_id, item_key)`. Se o paciente principal e o duplicado têm o mesmo `item_key`, o UPDATE colide.
+## O que verifiquei agora
 
-O mesmo risco existe em outras tabelas com constraints únicas por paciente — no schema atual, `preop_checklist_items` é a única com esse padrão, mas vou tratar defensivamente.
+- `https://axiscrm.app/` responde 200 e carrega normalmente em navegador limpo (tela de login "EZO Urologia" renderiza, sem erros de JavaScript).
+- A publicação está ativa e com visibilidade pública.
+- O backend (banco/auth) está saudável.
+- Carregando o app autenticado em viewport de desktop (1280x900), o Kanban e o painel de pendências renderizam sem erro.
+- O projeto não registra service worker (só um `manifest.json` estático), então não há cache offline "preso" — o cache é do próprio navegador.
 
-## Correção
+Conclusão: não há falha do lado do servidor nem do código publicado. O sintoma "branco só no desktop, normal no celular" é compatível com bundle JavaScript antigo em cache no navegador de desktop (ou extensão bloqueando scripts).
 
-Migração alterando `public.merge_patients(_keep uuid, _remove uuid[])` para, **antes** dos UPDATEs de reatribuição:
+## Passos para você testar (nesta ordem)
 
-1. **`preop_checklist_items`**: para cada `item_key` já presente no `_keep`, deletar as linhas correspondentes nos `_remove` (mantém o valor do principal, conforme regra "campos do principal não são sobrescritos"). Depois fazer o `UPDATE` normal das restantes.
+1. Abrir `https://axiscrm.app` em uma janela anônima no desktop. Se funcionar, é cache.
+2. No navegador normal: recarregar com cache limpo (Ctrl+Shift+R / Cmd+Shift+R).
+3. Se ainda ficar branco: limpar dados do site (DevTools > Application > Clear site data) e recarregar.
+4. Testar com extensões desativadas (bloqueadores podem impedir o carregamento dos scripts).
 
-2. Manter o restante da função inalterado (contact_records, patient_documents, patient_uploads, patient_sent_materials, pending_items, tasks, signature_audit_log, DELETE final dos pacientes).
+Se depois disso continuar branco, me envie o conteúdo da aba Console do DevTools (F12) — a mensagem de erro aponta a causa exata.
 
-Sem mudanças no frontend — a mensagem de erro já é exibida pelo `AdminDuplicates.tsx` via toast. Após a correção, a unificação do caso ALBERTO ABREU CABUS (6 itens de checklist no duplicado) deve concluir sem erro.
+## Se você quiser que eu já atue no código
 
-## Detalhes técnicos
+Só há uma ação de código que faz sentido preventivamente, e ela é opcional:
 
-```sql
-CREATE OR REPLACE FUNCTION public.merge_patients(_keep uuid, _remove uuid[])
-RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public'
-AS $$
-BEGIN
-  IF NOT public.has_role(auth.uid(), 'admin') THEN
-    RAISE EXCEPTION 'only admin can merge patients';
-  END IF;
-  IF _keep IS NULL OR _remove IS NULL OR array_length(_remove,1) IS NULL THEN
-    RAISE EXCEPTION 'invalid arguments';
-  END IF;
-  IF _keep = ANY(_remove) THEN
-    RAISE EXCEPTION 'keep id cannot be in remove list';
-  END IF;
+- Adicionar um error boundary global no `App.tsx` para que, em caso de erro de renderização, o usuário veja uma mensagem com botão "Recarregar" em vez de tela branca.
+- Opcional: republicar o app para garantir que o bundle servido é o mais recente.
 
-  -- Dedupe preop_checklist_items: keep principal's row when item_key collides
-  DELETE FROM public.preop_checklist_items
-   WHERE patient_id = ANY(_remove)
-     AND item_key IN (SELECT item_key FROM public.preop_checklist_items WHERE patient_id = _keep);
-
-  UPDATE public.contact_records        SET patient_id = _keep WHERE patient_id = ANY(_remove);
-  UPDATE public.patient_documents      SET patient_id = _keep WHERE patient_id = ANY(_remove);
-  UPDATE public.patient_uploads        SET patient_id = _keep WHERE patient_id = ANY(_remove);
-  UPDATE public.patient_sent_materials SET patient_id = _keep WHERE patient_id = ANY(_remove);
-  UPDATE public.pending_items          SET patient_id = _keep WHERE patient_id = ANY(_remove);
-  UPDATE public.preop_checklist_items  SET patient_id = _keep WHERE patient_id = ANY(_remove);
-  UPDATE public.tasks                  SET patient_id = _keep WHERE patient_id = ANY(_remove);
-  UPDATE public.signature_audit_log    SET patient_id = _keep WHERE patient_id = ANY(_remove);
-
-  DELETE FROM public.patients WHERE id = ANY(_remove);
-END;
-$$;
-```
+Confirme se quer o error boundary e/ou a republicação, ou se prefere primeiro fazer os testes de cache acima.
