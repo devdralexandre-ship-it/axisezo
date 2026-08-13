@@ -589,6 +589,11 @@ export function PipelineDashboard() {
                     <Shield className="h-4 w-4 mr-2" />Duplicatas
                   </DropdownMenuItem>
                 )}
+                {isAdmin && (
+                  <DropdownMenuItem onClick={() => navigate('/admin/tipos-acao')}>
+                    <Shield className="h-4 w-4 mr-2" />Tipos de ação
+                  </DropdownMenuItem>
+                )}
                 {can('import_csv') && (
                   <DropdownMenuItem onClick={() => setCsvImporterOpen(true)}>
                     <Upload className="h-4 w-4 mr-2" />Importar CSV
@@ -641,6 +646,11 @@ export function PipelineDashboard() {
                 {isAdmin && (
                   <DropdownMenuItem onClick={() => navigate('/admin/duplicates')}>
                     <Shield className="h-4 w-4 mr-2" />Duplicatas
+                  </DropdownMenuItem>
+                )}
+                {isAdmin && (
+                  <DropdownMenuItem onClick={() => navigate('/admin/tipos-acao')}>
+                    <Shield className="h-4 w-4 mr-2" />Tipos de ação
                   </DropdownMenuItem>
                 )}
                 {can('import_csv') && (
