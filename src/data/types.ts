@@ -123,6 +123,9 @@ export interface PatientTask {
   completed: boolean;
   completedAt: string | null;
   createdAt: string;
+  taskTypeId?: string | null;
+  deadlineOverrideReason?: string | null;
+  deadlineOverrideAt?: string | null;
   slaHours?: number;
   slaDueAt?: string | null;
   slaBreachedAt?: string | null;
@@ -131,6 +134,7 @@ export interface PatientTask {
   escalatedTo?: string | null;
   escalationReason?: string | null;
 }
+
 
 export type SlaState = 'ok' | 'warning' | 'breached' | 'escalated';
 

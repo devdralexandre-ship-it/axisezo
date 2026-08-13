@@ -39,7 +39,11 @@ function mapDbToPatient(db: DbPatient): Patient {
     completed: t.completed,
     completedAt: t.completed_at,
     createdAt: t.created_at?.split('T')[0] || '',
+    taskTypeId: t.task_type_id ?? null,
+    deadlineOverrideReason: t.deadline_override_reason ?? null,
+    deadlineOverrideAt: t.deadline_override_at ?? null,
     slaHours: t.sla_hours ?? 24,
+
     slaDueAt: t.sla_due_at ?? null,
     slaBreachedAt: t.sla_breached_at ?? null,
     escalateAfterHours: t.escalate_after_hours ?? 24,
