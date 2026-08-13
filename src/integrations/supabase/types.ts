@@ -989,11 +989,47 @@ export type Database = {
         }
         Relationships: []
       }
+      task_types: {
+        Row: {
+          active: boolean
+          created_at: string
+          default_tolerance_hours: number
+          id: string
+          max_hours: number
+          name: string
+          position: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          default_tolerance_hours?: number
+          id?: string
+          max_hours?: number
+          name: string
+          position?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          default_tolerance_hours?: number
+          id?: string
+          max_hours?: number
+          name?: string
+          position?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       tasks: {
         Row: {
           completed: boolean
           completed_at: string | null
           created_at: string
+          deadline_override_at: string | null
+          deadline_override_by: string | null
+          deadline_override_reason: string | null
           due_date: string
           due_time: string
           escalate_after_hours: number
@@ -1007,6 +1043,7 @@ export type Database = {
           sla_breached_at: string | null
           sla_due_at: string | null
           sla_hours: number
+          task_type_id: string | null
           title: string
           updated_at: string
         }
@@ -1014,6 +1051,9 @@ export type Database = {
           completed?: boolean
           completed_at?: string | null
           created_at?: string
+          deadline_override_at?: string | null
+          deadline_override_by?: string | null
+          deadline_override_reason?: string | null
           due_date: string
           due_time?: string
           escalate_after_hours?: number
@@ -1027,6 +1067,7 @@ export type Database = {
           sla_breached_at?: string | null
           sla_due_at?: string | null
           sla_hours?: number
+          task_type_id?: string | null
           title: string
           updated_at?: string
         }
@@ -1034,6 +1075,9 @@ export type Database = {
           completed?: boolean
           completed_at?: string | null
           created_at?: string
+          deadline_override_at?: string | null
+          deadline_override_by?: string | null
+          deadline_override_reason?: string | null
           due_date?: string
           due_time?: string
           escalate_after_hours?: number
@@ -1047,6 +1091,7 @@ export type Database = {
           sla_breached_at?: string | null
           sla_due_at?: string | null
           sla_hours?: number
+          task_type_id?: string | null
           title?: string
           updated_at?: string
         }
@@ -1063,6 +1108,13 @@ export type Database = {
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "patients_no_financials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_task_type_id_fkey"
+            columns: ["task_type_id"]
+            isOneToOne: false
+            referencedRelation: "task_types"
             referencedColumns: ["id"]
           },
         ]

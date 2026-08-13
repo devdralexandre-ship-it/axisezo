@@ -22,7 +22,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useUserRole } from '@/hooks/useUserRole';
 import { Link } from 'react-router-dom';
 import { DragDropContext, DropResult } from '@hello-pangea/dnd';
@@ -79,6 +79,7 @@ export function PipelineDashboard() {
   const { isAdmin, canSeeFinancials, can, isConcierge, conciergeName } = useUserRole();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const briefing = useConciergeBriefing(user?.id, conciergeName, patients);
 
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
@@ -500,6 +501,20 @@ export function PipelineDashboard() {
     if (patient) { setSelectedPatient(patient); setPanelOpen(true); }
   }, [patients]);
 
+  // Deep link: /?patient=ID opens the patient panel (used by the Pendências screen).
+  const deepLinkPatientId = searchParams.get('patient');
+  useEffect(() => {
+    if (!deepLinkPatientId || patients.length === 0) return;
+    const patient = patients.find((p) => p.id === deepLinkPatientId);
+    if (patient) {
+      setSelectedPatient(patient);
+      setPanelOpen(true);
+    }
+    const next = new URLSearchParams(searchParams);
+    next.delete('patient');
+    setSearchParams(next, { replace: true });
+  }, [deepLinkPatientId, patients, searchParams, setSearchParams]);
+
   const taskPatient = taskPatientId ? patients.find((p) => p.id === taskPatientId) : null;
   const lossDialogPatient = pendingLossDrag ? patients.find((p) => p.id === pendingLossDrag.patientId) : null;
   const surgeryDialogPatientId = pendingSurgeryDrag?.patientId || editingSurgeryPatientId || null;
@@ -589,6 +604,11 @@ export function PipelineDashboard() {
                     <Shield className="h-4 w-4 mr-2" />Duplicatas
                   </DropdownMenuItem>
                 )}
+                {isAdmin && (
+                  <DropdownMenuItem onClick={() => navigate('/admin/tipos-acao')}>
+                    <Shield className="h-4 w-4 mr-2" />Tipos de ação
+                  </DropdownMenuItem>
+                )}
                 {can('import_csv') && (
                   <DropdownMenuItem onClick={() => setCsvImporterOpen(true)}>
                     <Upload className="h-4 w-4 mr-2" />Importar CSV
@@ -641,6 +661,11 @@ export function PipelineDashboard() {
                 {isAdmin && (
                   <DropdownMenuItem onClick={() => navigate('/admin/duplicates')}>
                     <Shield className="h-4 w-4 mr-2" />Duplicatas
+                  </DropdownMenuItem>
+                )}
+                {isAdmin && (
+                  <DropdownMenuItem onClick={() => navigate('/admin/tipos-acao')}>
+                    <Shield className="h-4 w-4 mr-2" />Tipos de ação
                   </DropdownMenuItem>
                 )}
                 {can('import_csv') && (

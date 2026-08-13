@@ -5,6 +5,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Owner } from '@/data/types';
 import { SURGEONS, CONCIERGES } from '@/data/constants';
 import { useTaskTitleSuggestions } from '@/hooks/useTaskTitleSuggestions';
+import { useTaskTypes, TaskType } from '@/hooks/useTaskTypes';
+import { Textarea } from '@/components/ui/textarea';
+import { AlertTriangle } from 'lucide-react';
 import { normalizeText } from '@/lib/utils';
 
 export interface TaskDraft {
@@ -18,6 +21,10 @@ export interface TaskDraft {
   slaHours: number;
   /** Fixed at 24h server-side; kept here for type compatibility */
   escalateAfterHours: number;
+  /** Mandatory action type from the catalog (defines the maximum deadline) */
+  taskTypeId: string;
+  /** Justification required when the deadline exceeds the type's cap */
+  deadlineOverrideReason: string;
 }
 
 /** Responsibles available in the action form: surgeons + concierges. */
@@ -57,8 +64,35 @@ export const emptyTaskDraft = (defaultResponsible?: Owner): TaskDraft => {
     responsible: resp,
     slaHours: 24,
     escalateAfterHours: 24,
+    taskTypeId: '',
+    deadlineOverrideReason: '',
   };
 };
+
+const pad = (n: number) => String(n).padStart(2, '0');
+
+/** Deadline (local) allowed by the type's cap, counted from now. */
+export function capDeadline(maxHours: number): Date {
+  return new Date(Date.now() + maxHours * 3600 * 1000);
+}
+
+export function deadlineOf(draft: { dueDate: string; dueTime: string }): Date {
+  return new Date(`${draft.dueDate}T${draft.dueTime || '10:00'}`);
+}
+
+/** True when the draft is over the cap of its selected type. */
+export function isDeadlineOverCap(draft: TaskDraft, types: TaskType[]): boolean {
+  const t = types.find((x) => x.id === draft.taskTypeId);
+  if (!t) return false;
+  return deadlineOf(draft).getTime() > capDeadline(t.maxHours).getTime() + 60_000;
+}
+
+/** Validation used by the dialogs before submitting. */
+export function taskDraftIsValid(draft: TaskDraft, types: TaskType[]): boolean {
+  if (!draft.title.trim() || !draft.dueDate || !draft.responsible || !draft.taskTypeId) return false;
+  if (isDeadlineOverCap(draft, types) && !draft.deadlineOverrideReason.trim()) return false;
+  return true;
+}
 
 interface Props {
   value: TaskDraft;
@@ -76,6 +110,24 @@ export function TaskFormFields({ value, onChange, compact = false }: Props) {
 
   // ---- Title autocomplete ----
   const { data: suggestions = [] } = useTaskTitleSuggestions();
+  const { data: taskTypes = [] } = useTaskTypes();
+  const selectedType = taskTypes.find((t) => t.id === value.taskTypeId);
+  const overCap = isDeadlineOverCap(value, taskTypes);
+
+  const applyType = (id: string) => {
+    const t = taskTypes.find((x) => x.id === id);
+    if (!t) { onChange({ ...value, taskTypeId: id }); return; }
+    const d = capDeadline(t.maxHours);
+    d.setSeconds(0); d.setMilliseconds(0);
+    onChange({
+      ...value,
+      taskTypeId: id,
+      dueDate: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
+      dueTime: `${pad(d.getHours())}:${pad(d.getMinutes())}`,
+      slaHours: t.defaultToleranceHours,
+      deadlineOverrideReason: '',
+    });
+  };
   const [focused, setFocused] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
@@ -106,6 +158,23 @@ export function TaskFormFields({ value, onChange, compact = false }: Props) {
 
   return (
     <div className={compact ? 'space-y-3' : 'space-y-4'}>
+      <div className="space-y-2">
+        <Label className={labelCls}>Tipo da ação *</Label>
+        <Select value={value.taskTypeId || undefined} onValueChange={applyType}>
+          <SelectTrigger className={inputCls}><SelectValue placeholder="Selecionar tipo" /></SelectTrigger>
+          <SelectContent>
+            {taskTypes.map((t) => (
+              <SelectItem key={t.id} value={t.id}>{t.name} — máx. {t.maxHours}h</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {selectedType && (
+          <p className="text-[11px] text-muted-foreground">
+            Prazo máximo deste tipo: {selectedType.maxHours}h a partir de agora.
+          </p>
+        )}
+      </div>
+
       <div className="space-y-2" ref={wrapRef}>
         <Label className={labelCls}>Título da ação *</Label>
         <div className="relative">
@@ -151,6 +220,25 @@ export function TaskFormFields({ value, onChange, compact = false }: Props) {
           <Input type="time" value={value.dueTime} onChange={(e) => set('dueTime', e.target.value)} className={inputCls} />
         </div>
       </div>
+
+      {overCap && selectedType && (
+        <div className="space-y-2 rounded-md border border-destructive/50 bg-destructive/5 p-3">
+          <div className="flex items-start gap-2 text-xs text-destructive">
+            <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+            <span>
+              Prazo acima do limite de {selectedType.maxHours}h para "{selectedType.name}".
+              Para salvar assim, justifique a extensão — a ação será marcada como <strong>prazo estendido</strong> nos relatórios.
+            </span>
+          </div>
+          <Textarea
+            value={value.deadlineOverrideReason}
+            onChange={(e) => set('deadlineOverrideReason', e.target.value)}
+            placeholder="Justificativa obrigatória para estender o prazo"
+            rows={2}
+            className="text-sm"
+          />
+        </div>
+      )}
 
       <div className="space-y-2">
         <Label className={labelCls}>Responsável *</Label>

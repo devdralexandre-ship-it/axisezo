@@ -39,7 +39,11 @@ function mapDbToPatient(db: DbPatient): Patient {
     completed: t.completed,
     completedAt: t.completed_at,
     createdAt: t.created_at?.split('T')[0] || '',
+    taskTypeId: t.task_type_id ?? null,
+    deadlineOverrideReason: t.deadline_override_reason ?? null,
+    deadlineOverrideAt: t.deadline_override_at ?? null,
     slaHours: t.sla_hours ?? 24,
+
     slaDueAt: t.sla_due_at ?? null,
     slaBreachedAt: t.sla_breached_at ?? null,
     escalateAfterHours: t.escalate_after_hours ?? 24,
@@ -135,7 +139,7 @@ export function usePatients() {
 export function useAddPatient() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (p: Partial<Patient> & { name: string; procedure: string; surgeon: string; initialTasks?: { title: string; dueDate: string; dueTime: string; responsible: string }[] }) => {
+    mutationFn: async (p: Partial<Patient> & { name: string; procedure: string; surgeon: string; initialTasks?: { title: string; dueDate: string; dueTime: string; responsible: string; taskTypeId?: string | null; deadlineOverrideReason?: string | null; slaHours?: number }[] }) => {
       // Defense in depth: auto-fill concierge/surgeon from the current user's profile
       // so RLS (which requires concierge = current_concierge_name() / surgeon = current_surgeon_name())
       // doesn't fail when the form leaves them empty.
@@ -245,7 +249,11 @@ export function useAddPatient() {
           due_time: t.dueTime + ':00',
           responsible: t.responsible,
           completed: false,
+          task_type_id: t.taskTypeId || null,
+          deadline_override_reason: t.deadlineOverrideReason || null,
+          sla_hours: t.slaHours ?? 24,
         }));
+
         const { error: tasksError } = await supabase.from('tasks').insert(taskInserts);
         if (tasksError) throw Object.assign(tasksError, { phase: 'tasks' });
       }
@@ -331,10 +339,13 @@ export function useAddTask() {
         due_date: task.dueDate,
         due_time: task.dueTime + ':00',
         responsible: task.responsible,
+        task_type_id: task.taskTypeId || null,
+        deadline_override_reason: task.deadlineOverrideReason || null,
         sla_hours: task.slaHours ?? 24,
         // Escalation is always 24h after tolerance expires (enforced server-side too).
         escalate_after_hours: 24,
       } as any);
+
       if (error) throw error;
     },
     onSuccess: () => {
