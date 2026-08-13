@@ -10,7 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Patient, PIPELINE_STAGES, STAGE_LABELS, OWNERS, Owner } from '@/data/types';
 import { PROCEDURES, SURGEONS, CONCIERGES, PAYERS, BILLING_TYPES, PATIENT_TYPE_LABELS, SURGICAL_APPROACHES, procedureNeedsApproach, LATERALITY_OPTIONS, procedureNeedsLaterality, HOSPITALS, INDICATION_SOURCES } from '@/data/constants';
 import { Plus, X, Upload, Camera, FileText, Image as ImageIcon, Loader2, AlertTriangle } from 'lucide-react';
-import { TaskFormFields, TaskDraft, emptyTaskDraft } from './TaskFormFields';
+import { TaskFormFields, TaskDraft, emptyTaskDraft, taskDraftIsValid } from './TaskFormFields';
+import { useTaskTypes } from '@/hooks/useTaskTypes';
 import { CodeAutocomplete } from './CodeAutocomplete';
 import { uploadPatientFile, UPLOAD_CATEGORIES, UploadCategory } from '@/hooks/usePatientUploads';
 import { ProcedureCombobox } from './ProcedureCombobox';
@@ -27,6 +28,9 @@ interface InitialTask {
   dueDate: string;
   dueTime: string;
   responsible: string;
+  taskTypeId: string;
+  deadlineOverrideReason: string | null;
+  slaHours: number;
 }
 
 interface AddPatientFormProps {
@@ -113,6 +117,7 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
   const [extraCbhpm, setExtraCbhpm] = useState<{ code: string; label: string }[]>([]);
 
   // Inline task creation — default responsible = concierge assigned to case
+  const { data: taskTypes = [] } = useTaskTypes();
   const [initialTasks, setInitialTasks] = useState<InitialTask[]>([]);
   const [draft, setDraft] = useState<TaskDraft>(emptyTaskDraft((lockConcierge ? conciergeName! : '') as any));
 
@@ -155,15 +160,18 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
   const hasValidTask = initialTasks.length > 0 && initialTasks.every(t => t.title.trim() && t.dueDate);
 
   const addInitialTask = () => {
-    if (!draft.title.trim() || !draft.dueDate) return;
     const resp = draft.responsible || concierge;
     if (!resp) return; // require someone
+    if (!taskDraftIsValid({ ...draft, responsible: resp as any }, taskTypes)) return;
     setInitialTasks([...initialTasks, {
       id: crypto.randomUUID(),
       title: draft.title.trim(),
       dueDate: draft.dueDate,
       dueTime: draft.dueTime || '10:00',
       responsible: resp,
+      taskTypeId: draft.taskTypeId,
+      deadlineOverrideReason: draft.deadlineOverrideReason.trim() || null,
+      slaHours: draft.slaHours,
     }]);
     setDraft(emptyTaskDraft(concierge as any));
   };
@@ -227,7 +235,7 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
         nextFollowUpDate: null,
         phone,
         email,
-        initialTasks: initialTasks.map(t => ({ title: t.title, dueDate: t.dueDate, dueTime: t.dueTime, responsible: t.responsible })),
+        initialTasks: initialTasks.map(t => ({ title: t.title, dueDate: t.dueDate, dueTime: t.dueTime, responsible: t.responsible, taskTypeId: t.taskTypeId, deadlineOverrideReason: t.deadlineOverrideReason, slaHours: t.slaHours })),
         createdAt: today,
         indicationDate: indicationDate || today,
         indicationLocation: finalIndication || null,
