@@ -25,7 +25,7 @@ const emptyRow = (position: number): DraftRow => ({
 });
 
 export default function AdminTaskTypes() {
-  const { isAdmin, isLoading: roleLoading } = useUserRole();
+  const { isAdmin, loading: roleLoading } = useUserRole();
   const { data: types = [], isLoading } = useAllTaskTypes();
   const upsert = useUpsertTaskType();
   const remove = useDeleteTaskType();
@@ -54,7 +54,7 @@ export default function AdminTaskTypes() {
         <Button
           size="sm"
           className="ml-auto"
-          onClick={() => setNewRow(emptyRow((types.at(-1)?.position ?? 0) + 10))}
+          onClick={() => setNewRow(emptyRow((types.length ? types[types.length - 1].position : 0) + 10))}
           disabled={!!newRow}
         >
           <Plus className="h-4 w-4" />Novo tipo
