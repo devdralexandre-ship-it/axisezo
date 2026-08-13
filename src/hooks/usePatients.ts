@@ -249,7 +249,11 @@ export function useAddPatient() {
           due_time: t.dueTime + ':00',
           responsible: t.responsible,
           completed: false,
+          task_type_id: t.taskTypeId || null,
+          deadline_override_reason: t.deadlineOverrideReason || null,
+          sla_hours: t.slaHours ?? 24,
         }));
+
         const { error: tasksError } = await supabase.from('tasks').insert(taskInserts);
         if (tasksError) throw Object.assign(tasksError, { phase: 'tasks' });
       }
@@ -335,10 +339,13 @@ export function useAddTask() {
         due_date: task.dueDate,
         due_time: task.dueTime + ':00',
         responsible: task.responsible,
+        task_type_id: task.taskTypeId || null,
+        deadline_override_reason: task.deadlineOverrideReason || null,
         sla_hours: task.slaHours ?? 24,
         // Escalation is always 24h after tolerance expires (enforced server-side too).
         escalate_after_hours: 24,
       } as any);
+
       if (error) throw error;
     },
     onSuccess: () => {
