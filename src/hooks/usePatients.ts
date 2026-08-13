@@ -139,7 +139,7 @@ export function usePatients() {
 export function useAddPatient() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (p: Partial<Patient> & { name: string; procedure: string; surgeon: string; initialTasks?: { title: string; dueDate: string; dueTime: string; responsible: string }[] }) => {
+    mutationFn: async (p: Partial<Patient> & { name: string; procedure: string; surgeon: string; initialTasks?: { title: string; dueDate: string; dueTime: string; responsible: string; taskTypeId?: string | null; deadlineOverrideReason?: string | null; slaHours?: number }[] }) => {
       // Defense in depth: auto-fill concierge/surgeon from the current user's profile
       // so RLS (which requires concierge = current_concierge_name() / surgeon = current_surgeon_name())
       // doesn't fail when the form leaves them empty.

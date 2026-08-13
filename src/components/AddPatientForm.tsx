@@ -32,7 +32,7 @@ interface InitialTask {
 interface AddPatientFormProps {
   open: boolean;
   onClose: () => void;
-  onAdd: (patient: Partial<Patient> & { name: string; procedure: string; surgeon: string; initialTasks?: { title: string; dueDate: string; dueTime: string; responsible: string }[] }) => Promise<{ id: string } | void> | void;
+  onAdd: (patient: Partial<Patient> & { name: string; procedure: string; surgeon: string; initialTasks?: { title: string; dueDate: string; dueTime: string; responsible: string; taskTypeId?: string | null; deadlineOverrideReason?: string | null; slaHours?: number }[] }) => Promise<{ id: string } | void> | void;
 }
 
 interface PendingUpload {
