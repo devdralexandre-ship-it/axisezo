@@ -35,8 +35,9 @@ export function useRealtimePatients() {
       const keys = Array.from(pending);
       pending.clear();
       if (keys.includes('patients')) {
-        qc.invalidateQueries({ queryKey: ['patients'] });
-        qc.invalidateQueries({ queryKey: ['task-title-suggestions'] });
+        // Only refetch the heavy patients query if someone is actually looking
+        // at it; otherwise just mark it stale for the next mount.
+        qc.invalidateQueries({ queryKey: ['patients'], refetchType: 'active' });
       }
       if (keys.includes('patient-uploads')) {
         qc.invalidateQueries({ queryKey: ['patient-uploads'] });
