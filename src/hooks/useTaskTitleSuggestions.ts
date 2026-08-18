@@ -25,6 +25,11 @@ export function useTaskTitleSuggestions() {
         .sort((a, b) => b[1] - a[1])
         .map(([title]) => title);
     },
-    staleTime: 30_000,
+    // Practically static data: keep it cached for an hour instead of refetching
+    // every time something changes in the Kanban.
+    staleTime: 60 * 60_000,
+    gcTime: 2 * 60 * 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
 }
