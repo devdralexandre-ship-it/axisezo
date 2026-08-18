@@ -1292,7 +1292,11 @@ export type Database = {
         Args: { _signer_user_id: string }
         Returns: number
       }
+      current_assigned_only: { Args: never; Returns: boolean }
+      current_broad_scope: { Args: never; Returns: boolean }
       current_concierge_name: { Args: never; Returns: string }
+      current_is_admin: { Args: never; Returns: boolean }
+      current_scope_surgeon_name: { Args: never; Returns: string }
       current_surgeon_name: { Args: never; Returns: string }
       get_signing_certificate_meta: {
         Args: { _signer_user_id: string }

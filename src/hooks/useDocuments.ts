@@ -18,8 +18,10 @@ import {
   ReportData,
   BudgetData,
 } from '@/data/documents';
-import { renderDocumentToBlob } from '@/lib/pdf-generator';
-import { renderInsidePdfTemplate, htmlToBlocks } from '@/lib/pdf-template-renderer';
+// Heavy PDF libraries (@react-pdf/renderer, pdf-lib) are loaded on demand so they
+// don't weigh on the initial app bundle.
+const loadPdfGenerator = () => import('@/lib/pdf-generator');
+const loadPdfTemplateRenderer = () => import('@/lib/pdf-template-renderer');
 import { toast } from 'sonner';
 
 const BUCKET = 'patient-documents';
@@ -275,6 +277,7 @@ export function useGenerateDocument() {
         if (!signedUrl) throw new Error('Não foi possível baixar o PDF do template');
         const resp = await fetch(signedUrl);
         const templatePdfBytes = await resp.arrayBuffer();
+        const { renderInsidePdfTemplate, htmlToBlocks } = await loadPdfTemplateRenderer();
         const blocks = htmlToBlocks(body);
         const bytes = await renderInsidePdfTemplate({
           templatePdfBytes,
@@ -285,6 +288,7 @@ export function useGenerateDocument() {
         blob = new Blob([bytes as BlobPart], { type: 'application/pdf' });
       } else {
         const logoUrl = await getSignedLogoUrl(template?.logo_path);
+        const { renderDocumentToBlob } = await loadPdfGenerator();
         blob = await renderDocumentToBlob({
           title,
           bodyHtml: body,

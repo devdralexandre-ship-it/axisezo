@@ -5,16 +5,20 @@ import { toast } from 'sonner';
 
 type DbPatient = Awaited<ReturnType<typeof fetchPatients>>[number];
 
+// Only the columns the app actually maps are requested: selecting `*` on the
+// child tables roughly doubled the payload and the JSON aggregation cost.
+const PATIENTS_SELECT = `
+  *,
+  tasks(id,title,due_date,due_time,responsible,completed,completed_at,created_at,task_type_id,deadline_override_reason,deadline_override_at,sla_hours,sla_due_at,sla_breached_at,escalate_after_hours,escalated_at,escalated_to,escalation_reason),
+  contact_records(id,contact_date,type,note,by_whom),
+  preop_checklist_items(item_key,checked),
+  pending_items(id,title,checked)
+`;
+
 async function fetchPatients() {
   const { data, error } = await supabase
     .from('patients')
-    .select(`
-      *,
-      tasks(*),
-      contact_records(*),
-      preop_checklist_items(*),
-      pending_items(*)
-    `)
+    .select(PATIENTS_SELECT)
     .order('created_at', { ascending: false });
 
   if (error) throw error;
