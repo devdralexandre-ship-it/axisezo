@@ -149,9 +149,16 @@ export function PatientCard({ patient, onClick, onCompleteTask, onDelete }: Pati
         </div>
 
         <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-          <span className="flex items-center gap-1" title="Dias desde a indicação cirúrgica">
+          <span className="flex items-center gap-1" title={patient.indicationDate ? `Data de indicação: ${new Date(patient.indicationDate + 'T12:00:00').toLocaleDateString('pt-BR')}` : 'Dias desde a indicação cirúrgica'}>
             <Calendar className="h-3 w-3" />
-            {daysSinceIndication}d desde indicação
+            {patient.indicationDate ? (
+              <span className="text-foreground font-medium">
+                {new Date(patient.indicationDate + 'T12:00:00').toLocaleDateString('pt-BR')}
+                <span className="text-muted-foreground font-normal"> · {daysSinceIndication}d</span>
+              </span>
+            ) : (
+              <span>{daysSinceIndication}d desde indicação</span>
+            )}
           </span>
           <span className="flex items-center gap-1" title="Dias na etapa atual">
             <Clock className="h-3 w-3" />
