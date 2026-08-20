@@ -1,7 +1,7 @@
 import { Patient, DECISION_LABELS, OWNER_INITIALS, OWNER_COLORS, getNextPendingTask, getTaskUrgency, getDaysInStage, getDaysSinceIndication, getTaskSlaState, formatSlaChip } from '@/data/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, UserRound, Clock, CheckCircle2, MoreVertical, Trash2 } from 'lucide-react';
+import { Calendar, UserRound, Clock, CheckCircle2, MoreVertical, Trash2, MessageSquare } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
@@ -160,10 +160,25 @@ export function PatientCard({ patient, onClick, onCompleteTask, onDelete }: Pati
               <span>{daysSinceIndication}d desde indicação</span>
             )}
           </span>
-          <span className="flex items-center gap-1" title="Dias na etapa atual">
-            <Clock className="h-3 w-3" />
-            {daysInStage}d na etapa
-          </span>
+          <div className="flex items-center gap-2">
+            {!!patient.notesCount && (
+              <span
+                className="flex items-center gap-0.5"
+                title={
+                  patient.latestNote
+                    ? `${patient.latestNote.authorName} · ${new Date(patient.latestNote.createdAt).toLocaleDateString('pt-BR')}: ${patient.latestNote.body}`
+                    : `${patient.notesCount} nota(s) da concierge`
+                }
+              >
+                <MessageSquare className="h-3 w-3" />
+                {patient.notesCount}
+              </span>
+            )}
+            <span className="flex items-center gap-1" title="Dias na etapa atual">
+              <Clock className="h-3 w-3" />
+              {daysInStage}d na etapa
+            </span>
+          </div>
         </div>
 
         {patient.stage === 'surgery_scheduled' && patient.surgeryDate && (

@@ -12,14 +12,19 @@ const PATIENTS_SELECT = `
   tasks(id,title,due_date,due_time,responsible,completed,completed_at,created_at,task_type_id,deadline_override_reason,deadline_override_at,sla_hours,sla_due_at,sla_breached_at,escalate_after_hours,escalated_at,escalated_to,escalation_reason),
   contact_records(id,contact_date,type,note,by_whom),
   preop_checklist_items(item_key,checked),
-  pending_items(id,title,checked)
+  pending_items(id,title,checked),
+  notes_count:patient_notes(count),
+  latest_note:patient_notes(body,author_name,created_at)
 `;
 
 async function fetchPatients() {
   const { data, error } = await supabase
     .from('patients')
     .select(PATIENTS_SELECT)
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    // Só a nota mais recente acompanha o Kanban (tooltip do card).
+    .order('created_at', { referencedTable: 'latest_note', ascending: false })
+    .limit(1, { referencedTable: 'latest_note' });
 
   if (error) throw error;
   return data;
@@ -120,6 +125,11 @@ function mapDbToPatient(db: DbPatient): Patient {
     highRisk: !!(db as any).high_risk,
     highTicket: !!(db as any).high_ticket,
     updatedAt: (db as any).updated_at ?? null,
+    notesCount: Number((db as any).notes_count?.[0]?.count ?? (db as any).notes_count?.count ?? 0) || 0,
+    latestNote: (() => {
+      const n = Array.isArray((db as any).latest_note) ? (db as any).latest_note[0] : (db as any).latest_note;
+      return n ? { body: n.body as string, authorName: n.author_name as string, createdAt: n.created_at as string } : null;
+    })(),
 
   };
 }

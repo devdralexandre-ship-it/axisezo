@@ -11,6 +11,7 @@ import { PreOpChecklist } from './PreOpChecklist';
 import { PatientDocuments } from './PatientDocuments';
 import { PatientUploads } from './PatientUploads';
 import { PatientOrientations } from './PatientOrientations';
+import { PatientNotes } from './PatientNotes';
 import { ProcedureCombobox } from './ProcedureCombobox';
 import { HospitalMultiSelect } from './HospitalMultiSelect';
 import { PatientFlags } from './PatientCard';
@@ -601,6 +602,9 @@ export function PatientPanel({ patient, open, onClose, onCompleteTask, onAddTask
               onToggle={(item) => onTogglePreOpItem(patient.id, item)}
             />
           )}
+
+          {/* Notas da concierge (autor + data, registro permanente) */}
+          <PatientNotes key={patient.id} patientId={patient.id} />
 
           {/* Patient uploads (RG, exames, fotos) */}
           <PatientUploads patientId={patient.id} />

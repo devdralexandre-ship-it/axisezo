@@ -330,6 +330,57 @@ export type Database = {
           },
         ]
       }
+      patient_notes: {
+        Row: {
+          author_name: string
+          author_user_id: string
+          body: string
+          created_at: string
+          edited_at: string | null
+          for_surgeon: boolean
+          id: string
+          patient_id: string
+          updated_at: string
+        }
+        Insert: {
+          author_name: string
+          author_user_id: string
+          body: string
+          created_at?: string
+          edited_at?: string | null
+          for_surgeon?: boolean
+          id?: string
+          patient_id: string
+          updated_at?: string
+        }
+        Update: {
+          author_name?: string
+          author_user_id?: string
+          body?: string
+          created_at?: string
+          edited_at?: string | null
+          for_surgeon?: boolean
+          id?: string
+          patient_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_notes_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_notes_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients_no_financials"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patient_sent_materials: {
         Row: {
           channel: string
