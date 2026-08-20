@@ -540,9 +540,10 @@ export function PipelineDashboard() {
       <header className="border-b border-border px-4 md:px-6 py-2 md:py-3 shrink-0 bg-background">
         <div className="flex items-center justify-between gap-2 mb-2">
           <div className="min-w-0">
-            <h1 className="leading-none flex items-baseline">
-              <span className="font-serif text-xl font-semibold text-primary tracking-wide">EZO</span>
-              <span className="ml-2 font-sans text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Urologia</span>
+            <h1 className="leading-none flex items-center gap-2">
+              <img src="/icon-192.png" alt="" aria-hidden="true" className="h-6 w-6 rounded" />
+              <span className="font-serif text-xl font-semibold text-primary tracking-wide">Axis</span>
+              <span className="font-sans text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Jornada Cirúrgica</span>
             </h1>
             <p className="text-xs text-muted-foreground mt-0.5 hidden md:block">Pipeline de decisão cirúrgica</p>
           </div>
