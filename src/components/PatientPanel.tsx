@@ -11,6 +11,7 @@ import { PreOpChecklist } from './PreOpChecklist';
 import { PatientDocuments } from './PatientDocuments';
 import { PatientUploads } from './PatientUploads';
 import { PatientOrientations } from './PatientOrientations';
+import { PatientNotes } from './PatientNotes';
 import { ProcedureCombobox } from './ProcedureCombobox';
 import { HospitalMultiSelect } from './HospitalMultiSelect';
 import { PatientFlags } from './PatientCard';
