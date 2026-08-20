@@ -327,7 +327,30 @@ function UserDialog({ user, onClose }: { user?: AdminUser; onClose: () => void }
                 <Input value={conciergeName} onChange={(e) => setConciergeName(e.target.value)} placeholder="Ex.: Margô" />
               </div>
             )}
+
+            {!roles.includes('admin') && (
+              <div className="space-y-2 mt-4 border-t pt-3">
+                <Label className="text-base">Cirurgiões que este usuário enxerga</Label>
+                <p className="text-xs text-muted-foreground">
+                  Deixe tudo desmarcado para manter o acesso atual (concierges veem todos os pacientes).
+                  Ao marcar um ou mais cirurgiões, o usuário passa a ver e cadastrar apenas pacientes desses cirurgiões.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {surgeons.map((s) => (
+                    <div key={s} className="flex items-center gap-2">
+                      <Checkbox
+                        id={`scope-${s}`}
+                        checked={scopeSurgeons.includes(s)}
+                        onCheckedChange={() => toggleScopeSurgeon(s)}
+                      />
+                      <label htmlFor={`scope-${s}`} className="text-sm cursor-pointer">{s}</label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
+
 
           {/* Capabilities */}
           <div className="space-y-3 border-t pt-4">
