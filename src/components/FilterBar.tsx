@@ -5,6 +5,7 @@ import { Search, X } from 'lucide-react';
 import { PROCEDURES } from '@/data/constants';
 import { PATIENT_TYPE_LABELS } from '@/data/constants';
 import { useStaffNames } from '@/hooks/useStaffNames';
+import { useUserRole } from '@/hooks/useUserRole';
 import { SURGICAL_APPROACHES, SURGEONS, CONCIERGES, PAYERS, BILLING_TYPES, HOSPITALS, INDICATION_SOURCES } from '@/data/constants';
 
 interface FilterBarProps {
