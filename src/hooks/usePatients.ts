@@ -125,6 +125,11 @@ function mapDbToPatient(db: DbPatient): Patient {
     highRisk: !!(db as any).high_risk,
     highTicket: !!(db as any).high_ticket,
     updatedAt: (db as any).updated_at ?? null,
+    notesCount: Number((db as any).notes_count?.[0]?.count ?? (db as any).notes_count?.count ?? 0) || 0,
+    latestNote: (() => {
+      const n = Array.isArray((db as any).latest_note) ? (db as any).latest_note[0] : (db as any).latest_note;
+      return n ? { body: n.body as string, authorName: n.author_name as string, createdAt: n.created_at as string } : null;
+    })(),
 
   };
 }
