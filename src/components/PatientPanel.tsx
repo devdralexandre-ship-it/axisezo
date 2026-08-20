@@ -422,7 +422,7 @@ export function PatientPanel({ patient, open, onClose, onCompleteTask, onAddTask
                   <Select value={editData.surgeon} onValueChange={(v) => setEditData({ ...editData, surgeon: v })}>
                     <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {SURGEONS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                      {staffSurgeons.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
@@ -431,7 +431,7 @@ export function PatientPanel({ patient, open, onClose, onCompleteTask, onAddTask
                   <Select value={editData.concierge} onValueChange={(v) => setEditData({ ...editData, concierge: v })}>
                     <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {CONCIERGES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                      {staffConcierges.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>

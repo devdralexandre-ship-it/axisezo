@@ -4,6 +4,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Owner } from '@/data/types';
 import { SURGEONS, CONCIERGES } from '@/data/constants';
+import { useStaffNames } from '@/hooks/useStaffNames';
 import { useTaskTitleSuggestions } from '@/hooks/useTaskTitleSuggestions';
 import { useTaskTypes, TaskType } from '@/hooks/useTaskTypes';
 import { Textarea } from '@/components/ui/textarea';
@@ -139,6 +140,8 @@ export function TaskFormFields({ value, onChange, compact = false }: Props) {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
+  const { surgeons: staffSurgeons, concierges: staffConcierges } = useStaffNames();
+
   const filteredSuggestions = useMemo(() => {
     const q = normalizeText(value.title);
     const list = q
@@ -149,12 +152,12 @@ export function TaskFormFields({ value, onChange, compact = false }: Props) {
 
   // ---- Responsible list: include legacy value if not in current list ----
   const responsibleOptions = useMemo(() => {
-    const list = [...TASK_RESPONSIBLES];
+    const list = Array.from(new Set([...staffSurgeons, ...staffConcierges, ...TASK_RESPONSIBLES]));
     if (value.responsible && !list.includes(value.responsible as string)) {
       list.push(value.responsible as string);
     }
     return list;
-  }, [value.responsible]);
+  }, [value.responsible, staffSurgeons, staffConcierges]);
 
   return (
     <div className={compact ? 'space-y-3' : 'space-y-4'}>

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Search, X } from 'lucide-react';
 import { PROCEDURES } from '@/data/constants';
 import { PATIENT_TYPE_LABELS } from '@/data/constants';
+import { useStaffNames } from '@/hooks/useStaffNames';
 import { SURGICAL_APPROACHES, SURGEONS, CONCIERGES, PAYERS, BILLING_TYPES, HOSPITALS, INDICATION_SOURCES } from '@/data/constants';
 
 interface FilterBarProps {
@@ -70,14 +71,14 @@ export function FilterBar({
           <SelectTrigger className="w-[150px] h-8 text-xs"><SelectValue placeholder="Cirurgião" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos cirurgiões</SelectItem>
-            {SURGEONS.map((s) => (<SelectItem key={s} value={s}>{s}</SelectItem>))}
+            {staffSurgeons.map((s) => (<SelectItem key={s} value={s}>{s}</SelectItem>))}
           </SelectContent>
         </Select>
         <Select value={concierge} onValueChange={onConciergeChange}>
           <SelectTrigger className="w-[120px] h-8 text-xs"><SelectValue placeholder="Concierge" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos</SelectItem>
-            {CONCIERGES.map((c) => (<SelectItem key={c} value={c}>{c}</SelectItem>))}
+            {staffConcierges.map((c) => (<SelectItem key={c} value={c}>{c}</SelectItem>))}
           </SelectContent>
         </Select>
         <Select value={procedure} onValueChange={onProcedureChange}>

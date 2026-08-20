@@ -37,6 +37,8 @@ export interface UserRoleInfo {
   surgeonName: string | null;
   conciergeName: string | null;
   displayName: string | null;
+  /** When non-empty, this user only sees patients of these surgeons */
+  scopeSurgeons: string[];
   active: boolean;
   caps: CapsMap;
   can: (cap: Capability) => boolean;
@@ -54,6 +56,7 @@ const EMPTY: UserRoleInfo = {
   surgeonName: null,
   conciergeName: null,
   displayName: null,
+  scopeSurgeons: [],
   active: true,
   caps: {},
   can: () => false,
@@ -73,7 +76,7 @@ export function useUserRole() {
         supabase.from('user_roles').select('role').eq('user_id', user.id),
         supabase
           .from('profiles')
-          .select('display_name, surgeon_name, concierge_name, active')
+          .select('display_name, surgeon_name, concierge_name, scope_surgeons, active')
           .eq('user_id', user.id)
           .maybeSingle(),
         supabase
@@ -100,6 +103,7 @@ export function useUserRole() {
         surgeonName: profile?.surgeon_name ?? null,
         conciergeName: profile?.concierge_name ?? null,
         displayName: profile?.display_name ?? null,
+        scopeSurgeons: isAdmin ? [] : ((profile as any)?.scope_surgeons ?? []),
         active: profile?.active ?? true,
         caps,
         can,
