@@ -182,6 +182,19 @@ export default function Pendencias() {
                             {patient.clinicallySensitive && <span title="Clinicamente sensível" className="text-destructive font-bold">*</span>}
                             {patient.highRisk && <span title="Altíssimo risco" className="text-destructive font-bold">**</span>}
                             {patient.highTicket && <Star className="h-3 w-3 fill-pipeline-amber text-pipeline-amber" />}
+                            {!!patient.notesCount && (
+                              <span
+                                className="flex items-center gap-0.5 text-[11px] text-muted-foreground"
+                                title={
+                                  patient.latestNote
+                                    ? `${patient.latestNote.authorName} · ${new Date(patient.latestNote.createdAt).toLocaleDateString('pt-BR')}: ${patient.latestNote.body}`
+                                    : `${patient.notesCount} nota(s) da concierge`
+                                }
+                              >
+                                <MessageSquare className="h-3 w-3" />
+                                {patient.notesCount}
+                              </span>
+                            )}
                           </div>
                           <div className="text-sm text-foreground">{task.title}</div>
                           <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1 flex-wrap">
