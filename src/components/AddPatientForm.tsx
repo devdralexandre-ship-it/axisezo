@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
+import { useStaffNames } from '@/hooks/useStaffNames';
 import { useUserRole } from '@/hooks/useUserRole';
 import { usePatients } from '@/hooks/usePatients';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -48,7 +49,11 @@ interface PendingUpload {
 const OTHER_PROCEDURE = '__outro__';
 
 export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
-  const { isConcierge, isSurgeon, isAdmin, conciergeName, surgeonName } = useUserRole();
+  const { isConcierge, isSurgeon, isAdmin, conciergeName, surgeonName, scopeSurgeons } = useUserRole();
+  const { surgeons: staffSurgeonsAll, concierges: staffConcierges } = useStaffNames();
+  const staffSurgeons = scopeSurgeons.length
+    ? staffSurgeonsAll.filter((s) => scopeSurgeons.includes(s))
+    : staffSurgeonsAll;
   const lockConcierge = isConcierge && !isAdmin && !!conciergeName;
   const lockSurgeon = isSurgeon && !isAdmin && !!surgeonName;
 
@@ -472,7 +477,7 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
                 <Select value={surgeon} onValueChange={setSurgeon} disabled={lockSurgeon}>
                   <SelectTrigger className="focus:ring-offset-0"><SelectValue placeholder="Selecione" /></SelectTrigger>
                   <SelectContent>
-                    {SURGEONS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                    {staffSurgeons.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                   </SelectContent>
                 </Select>
                 {lockSurgeon && <p className="text-[11px] text-muted-foreground">Vinculado ao seu perfil</p>}
@@ -482,7 +487,7 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
                 <Select value={concierge} onValueChange={setConcierge} disabled={lockConcierge}>
                   <SelectTrigger className="focus:ring-offset-0"><SelectValue placeholder="Selecione" /></SelectTrigger>
                   <SelectContent>
-                    {CONCIERGES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    {staffConcierges.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                   </SelectContent>
                 </Select>
                 {lockConcierge && <p className="text-[11px] text-muted-foreground">Vinculado ao seu perfil</p>}

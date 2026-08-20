@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { useStaffNames } from '@/hooks/useStaffNames';
 import { useUserRole, AppRole, Capability, ALL_CAPABILITIES, CapsMap } from '@/hooks/useUserRole';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,10 +25,12 @@ interface AdminUser {
   display_name: string | null;
   surgeon_name: string | null;
   concierge_name: string | null;
+  scope_surgeons: string[];
   active: boolean;
   roles: AppRole[];
   caps: CapsMap;
 }
+
 
 const ROLE_OPTIONS: AppRole[] = ['admin', 'surgeon', 'concierge', 'call_center', 'intern'];
 const ROLE_LABELS: Record<AppRole, string> = {
@@ -175,6 +178,9 @@ export default function AdminUsers() {
                           {u.caps.view_financials && <Badge variant="outline">$</Badge>}
                           {u.caps.delete_patients && <Badge variant="outline">deletar</Badge>}
                           {u.caps.assigned_only && <Badge variant="destructive">restrita</Badge>}
+                          {!!u.scope_surgeons?.length && (
+                            <Badge variant="outline">{u.scope_surgeons.length} cirurgião(ões)</Badge>
+                          )}
                           {u.caps.manage_users && <Badge variant="outline">usuários</Badge>}
                           <span className="text-muted-foreground">({enabledCount})</span>
                         </div>
@@ -204,15 +210,21 @@ export default function AdminUsers() {
 
 function UserDialog({ user, onClose }: { user?: AdminUser; onClose: () => void }) {
   const isCreate = !user;
+  const { surgeons } = useStaffNames();
   const [email, setEmail] = useState(user?.email ?? '');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState(user?.display_name ?? '');
   const [surgeonName, setSurgeonName] = useState(user?.surgeon_name ?? '');
   const [conciergeName, setConciergeName] = useState(user?.concierge_name ?? '');
+  const [scopeSurgeons, setScopeSurgeons] = useState<string[]>(user?.scope_surgeons ?? []);
   const [active, setActive] = useState(user?.active ?? true);
   const [roles, setRoles] = useState<AppRole[]>(user?.roles ?? []);
   const [caps, setCaps] = useState<CapsMap>(user?.caps ?? {});
   const [saving, setSaving] = useState(false);
+
+  const toggleScopeSurgeon = (s: string) =>
+    setScopeSurgeons((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]));
+
 
   const toggleRole = (r: AppRole) =>
     setRoles((prev) => (prev.includes(r) ? prev.filter((x) => x !== r) : [...prev, r]));
@@ -241,6 +253,7 @@ function UserDialog({ user, onClose }: { user?: AdminUser; onClose: () => void }
           email, password, display_name: displayName,
           surgeon_name: roles.includes('surgeon') ? surgeonName || null : null,
           concierge_name: roles.includes('concierge') ? conciergeName || null : null,
+          scope_surgeons: roles.includes('admin') ? [] : scopeSurgeons,
           roles,
           caps: fullCaps,
         });
@@ -252,6 +265,7 @@ function UserDialog({ user, onClose }: { user?: AdminUser; onClose: () => void }
           display_name: displayName,
           surgeon_name: roles.includes('surgeon') ? surgeonName || null : null,
           concierge_name: roles.includes('concierge') ? conciergeName || null : null,
+          scope_surgeons: roles.includes('admin') ? [] : scopeSurgeons,
           active,
           roles,
           caps: fullCaps,
@@ -319,7 +333,30 @@ function UserDialog({ user, onClose }: { user?: AdminUser; onClose: () => void }
                 <Input value={conciergeName} onChange={(e) => setConciergeName(e.target.value)} placeholder="Ex.: Margô" />
               </div>
             )}
+
+            {!roles.includes('admin') && (
+              <div className="space-y-2 mt-4 border-t pt-3">
+                <Label className="text-base">Cirurgiões que este usuário enxerga</Label>
+                <p className="text-xs text-muted-foreground">
+                  Deixe tudo desmarcado para manter o acesso atual (concierges veem todos os pacientes).
+                  Ao marcar um ou mais cirurgiões, o usuário passa a ver e cadastrar apenas pacientes desses cirurgiões.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {surgeons.map((s) => (
+                    <div key={s} className="flex items-center gap-2">
+                      <Checkbox
+                        id={`scope-${s}`}
+                        checked={scopeSurgeons.includes(s)}
+                        onCheckedChange={() => toggleScopeSurgeon(s)}
+                      />
+                      <label htmlFor={`scope-${s}`} className="text-sm cursor-pointer">{s}</label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
+
 
           {/* Capabilities */}
           <div className="space-y-3 border-t pt-4">

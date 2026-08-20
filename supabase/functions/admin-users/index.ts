@@ -26,6 +26,7 @@ const CreateSchema = z.object({
   display_name: z.string().min(1).max(120),
   surgeon_name: z.string().max(120).nullable().optional(),
   concierge_name: z.string().max(120).nullable().optional(),
+  scope_surgeons: z.array(z.string().max(120)).max(50).optional(),
   roles: z.array(z.enum(ROLES)).min(1),
   caps: CapsSchema,
 });
@@ -36,6 +37,7 @@ const UpdateSchema = z.object({
   display_name: z.string().min(1).max(120).optional(),
   surgeon_name: z.string().max(120).nullable().optional(),
   concierge_name: z.string().max(120).nullable().optional(),
+  scope_surgeons: z.array(z.string().max(120)).max(50).optional(),
   active: z.boolean().optional(),
   roles: z.array(z.enum(ROLES)).optional(),
   caps: CapsSchema,
@@ -107,7 +109,7 @@ Deno.serve(async (req) => {
 
     if (body.action === "list") {
       const [{ data: profiles }, { data: roles }, { data: capsRows }, listRes] = await Promise.all([
-        admin.from("profiles").select("user_id, display_name, surgeon_name, concierge_name, active"),
+        admin.from("profiles").select("user_id, display_name, surgeon_name, concierge_name, scope_surgeons, active"),
         admin.from("user_roles").select("user_id, role"),
         admin.from("user_capabilities").select("user_id, caps"),
         admin.auth.admin.listUsers(),
@@ -131,6 +133,7 @@ Deno.serve(async (req) => {
         display_name: p.display_name,
         surgeon_name: p.surgeon_name,
         concierge_name: p.concierge_name,
+        scope_surgeons: p.scope_surgeons ?? [],
         active: p.active,
         roles: rolesByUser.get(p.user_id) ?? [],
         caps: capsByUser.get(p.user_id) ?? {},
@@ -156,6 +159,7 @@ Deno.serve(async (req) => {
           display_name: body.display_name,
           surgeon_name: body.surgeon_name ?? null,
           concierge_name: body.concierge_name ?? null,
+          scope_surgeons: body.scope_surgeons ?? [],
           active: true,
         })
         .eq("user_id", newId);
@@ -179,6 +183,7 @@ Deno.serve(async (req) => {
       if (body.display_name !== undefined) update.display_name = body.display_name;
       if (body.surgeon_name !== undefined) update.surgeon_name = body.surgeon_name;
       if (body.concierge_name !== undefined) update.concierge_name = body.concierge_name;
+      if (body.scope_surgeons !== undefined) update.scope_surgeons = body.scope_surgeons;
       if (body.active !== undefined) update.active = body.active;
       if (Object.keys(update).length) {
         await admin.from("profiles").update(update).eq("user_id", body.user_id);

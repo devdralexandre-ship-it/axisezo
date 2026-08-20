@@ -1,0 +1,10 @@
+REVOKE EXECUTE ON FUNCTION public.staff_names() FROM anon, public;
+REVOKE EXECUTE ON FUNCTION public.current_scope_surgeons() FROM anon, public;
+REVOKE EXECUTE ON FUNCTION public.current_has_surgeon_scope() FROM anon, public;
+REVOKE EXECUTE ON FUNCTION public.current_broad_scope() FROM anon, public;
+REVOKE EXECUTE ON FUNCTION public.can_access_patient(uuid) FROM anon, public;
+GRANT EXECUTE ON FUNCTION public.staff_names() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.current_scope_surgeons() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.current_has_surgeon_scope() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.current_broad_scope() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.can_access_patient(uuid) TO authenticated;

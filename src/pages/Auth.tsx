@@ -37,9 +37,12 @@ export default function Auth() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center space-y-3">
-          <div className="flex items-baseline justify-center">
-            <span className="font-serif text-4xl font-semibold text-primary tracking-wide">EZO</span>
-            <span className="ml-2 font-sans text-xs uppercase tracking-[0.22em] text-muted-foreground">Urologia</span>
+          <div className="flex items-center justify-center gap-3">
+            <img src="/icon-192.png" alt="Axis" className="h-10 w-10 rounded-md" />
+            <div className="flex flex-col items-start leading-none">
+              <span className="font-serif text-4xl font-semibold text-primary tracking-wide">Axis</span>
+              <span className="mt-1 font-sans text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Jornada Cirúrgica</span>
+            </div>
           </div>
           <CardDescription>
             {mode === 'login'

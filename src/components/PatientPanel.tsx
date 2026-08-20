@@ -1,3 +1,5 @@
+import { useStaffNames } from '@/hooks/useStaffNames';
+import { useUserRole } from '@/hooks/useUserRole';
 import { useState, useEffect } from 'react';
 import { Patient, STAGE_LABELS, PatientTask, getTaskUrgency, LOSS_REASON_LABELS, PreOpChecklistItem, getTaskSlaState, formatSlaChip, PIPELINE_STAGES, PipelineStage } from '@/data/types';
 import { PROCEDURES, SURGEONS, CONCIERGES, PAYERS, BILLING_TYPES, SURGICAL_APPROACHES, PATIENT_TYPE_LABELS, procedureNeedsApproach, LATERALITY_OPTIONS, procedureNeedsLaterality, HOSPITALS, INDICATION_SOURCES } from '@/data/constants';
@@ -53,6 +55,11 @@ function computeEstimatedTotal(medicalFees: number | null, anesthesiaFees: numbe
 export function PatientPanel({ patient, open, onClose, onCompleteTask, onAddTask, onTogglePreOpItem, onUpdateFields, onEditSurgeryDate, onChangeStage }: PatientPanelProps) {
   const [editing, setEditing] = useState(false);
   const [editData, setEditData] = useState<Record<string, any>>({});
+  const { surgeons: staffSurgeonsAll, concierges: staffConcierges } = useStaffNames();
+  const { scopeSurgeons } = useUserRole();
+  const staffSurgeons = scopeSurgeons.length
+    ? staffSurgeonsAll.filter((s) => scopeSurgeons.includes(s))
+    : staffSurgeonsAll;
 
   // Reset edit state when patient changes or panel closes
   useEffect(() => {
@@ -422,7 +429,7 @@ export function PatientPanel({ patient, open, onClose, onCompleteTask, onAddTask
                   <Select value={editData.surgeon} onValueChange={(v) => setEditData({ ...editData, surgeon: v })}>
                     <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {SURGEONS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                      {staffSurgeons.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
@@ -431,7 +438,7 @@ export function PatientPanel({ patient, open, onClose, onCompleteTask, onAddTask
                   <Select value={editData.concierge} onValueChange={(v) => setEditData({ ...editData, concierge: v })}>
                     <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {CONCIERGES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                      {staffConcierges.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
