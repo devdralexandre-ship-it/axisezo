@@ -241,6 +241,10 @@ export interface Patient {
   highRisk: boolean;
   highTicket: boolean;
   updatedAt: string | null;
+  /** Quantidade de notas da concierge (agregada na consulta do Kanban). */
+  notesCount?: number;
+  /** Nota mais recente, usada apenas para o tooltip do card. */
+  latestNote?: { body: string; authorName: string; createdAt: string } | null;
 }
 
 
