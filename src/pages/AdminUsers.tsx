@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { useStaffNames } from '@/hooks/useStaffNames';
 import { useUserRole, AppRole, Capability, ALL_CAPABILITIES, CapsMap } from '@/hooks/useUserRole';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -177,6 +178,9 @@ export default function AdminUsers() {
                           {u.caps.view_financials && <Badge variant="outline">$</Badge>}
                           {u.caps.delete_patients && <Badge variant="outline">deletar</Badge>}
                           {u.caps.assigned_only && <Badge variant="destructive">restrita</Badge>}
+                          {!!u.scope_surgeons?.length && (
+                            <Badge variant="outline">{u.scope_surgeons.length} cirurgião(ões)</Badge>
+                          )}
                           {u.caps.manage_users && <Badge variant="outline">usuários</Badge>}
                           <span className="text-muted-foreground">({enabledCount})</span>
                         </div>
@@ -249,6 +253,7 @@ function UserDialog({ user, onClose }: { user?: AdminUser; onClose: () => void }
           email, password, display_name: displayName,
           surgeon_name: roles.includes('surgeon') ? surgeonName || null : null,
           concierge_name: roles.includes('concierge') ? conciergeName || null : null,
+          scope_surgeons: roles.includes('admin') ? [] : scopeSurgeons,
           roles,
           caps: fullCaps,
         });
@@ -260,6 +265,7 @@ function UserDialog({ user, onClose }: { user?: AdminUser; onClose: () => void }
           display_name: displayName,
           surgeon_name: roles.includes('surgeon') ? surgeonName || null : null,
           concierge_name: roles.includes('concierge') ? conciergeName || null : null,
+          scope_surgeons: roles.includes('admin') ? [] : scopeSurgeons,
           active,
           roles,
           caps: fullCaps,
