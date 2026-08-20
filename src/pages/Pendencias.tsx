@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, Check, Star, AlertTriangle, Phone } from 'lucide-react';
+import { ArrowLeft, Check, Star, AlertTriangle, Phone, MessageSquare } from 'lucide-react';
 import { toast } from 'sonner';
 import { AddTaskDialog } from '@/components/AddTaskDialog';
 import { useAddTask } from '@/hooks/usePatients';
