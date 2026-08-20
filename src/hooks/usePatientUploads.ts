@@ -138,6 +138,24 @@ export function useDeletePatientUpload() {
   });
 }
 
+/** Signed URL that opens the file inline (no forced download) — used for
+ *  thumbnails and for the in-app viewer. */
+export function useUploadViewUrl(path: string | null | undefined, enabled = true) {
+  return useQuery({
+    queryKey: ['upload-view-url', path],
+    enabled: !!path && enabled,
+    staleTime: 50 * 60 * 1000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .storage
+        .from('patient-uploads')
+        .createSignedUrl(path!, 60 * 60);
+      if (error) throw error;
+      return data.signedUrl;
+    },
+  });
+}
+
 export function useUploadDownloadUrl(path: string | null | undefined, fileName?: string) {
   return useQuery({
     queryKey: ['upload-url', path, fileName],
