@@ -1,3 +1,5 @@
+import { useStaffNames } from '@/hooks/useStaffNames';
+import { useUserRole } from '@/hooks/useUserRole';
 import { useState, useEffect } from 'react';
 import { Patient, STAGE_LABELS, PatientTask, getTaskUrgency, LOSS_REASON_LABELS, PreOpChecklistItem, getTaskSlaState, formatSlaChip, PIPELINE_STAGES, PipelineStage } from '@/data/types';
 import { PROCEDURES, SURGEONS, CONCIERGES, PAYERS, BILLING_TYPES, SURGICAL_APPROACHES, PATIENT_TYPE_LABELS, procedureNeedsApproach, LATERALITY_OPTIONS, procedureNeedsLaterality, HOSPITALS, INDICATION_SOURCES } from '@/data/constants';
