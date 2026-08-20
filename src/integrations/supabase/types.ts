@@ -820,6 +820,7 @@ export type Database = {
           created_at: string
           display_name: string | null
           id: string
+          scope_surgeons: string[]
           surgeon_name: string | null
           updated_at: string
           user_id: string
@@ -830,6 +831,7 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           id?: string
+          scope_surgeons?: string[]
           surgeon_name?: string | null
           updated_at?: string
           user_id: string
@@ -840,6 +842,7 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           id?: string
+          scope_surgeons?: string[]
           surgeon_name?: string | null
           updated_at?: string
           user_id?: string
@@ -1346,8 +1349,10 @@ export type Database = {
       current_assigned_only: { Args: never; Returns: boolean }
       current_broad_scope: { Args: never; Returns: boolean }
       current_concierge_name: { Args: never; Returns: string }
+      current_has_surgeon_scope: { Args: never; Returns: boolean }
       current_is_admin: { Args: never; Returns: boolean }
       current_scope_surgeon_name: { Args: never; Returns: string }
+      current_scope_surgeons: { Args: never; Returns: string[] }
       current_surgeon_name: { Args: never; Returns: string }
       get_signing_certificate_meta: {
         Args: { _signer_user_id: string }
@@ -1441,6 +1446,13 @@ export type Database = {
             }
             Returns: undefined
           }
+      staff_names: {
+        Args: never
+        Returns: {
+          concierge_name: string
+          surgeon_name: string
+        }[]
+      }
     }
     Enums: {
       app_role: "admin" | "surgeon" | "concierge" | "call_center" | "intern"
