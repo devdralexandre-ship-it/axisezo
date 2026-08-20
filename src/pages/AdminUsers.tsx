@@ -206,15 +206,21 @@ export default function AdminUsers() {
 
 function UserDialog({ user, onClose }: { user?: AdminUser; onClose: () => void }) {
   const isCreate = !user;
+  const { surgeons } = useStaffNames();
   const [email, setEmail] = useState(user?.email ?? '');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState(user?.display_name ?? '');
   const [surgeonName, setSurgeonName] = useState(user?.surgeon_name ?? '');
   const [conciergeName, setConciergeName] = useState(user?.concierge_name ?? '');
+  const [scopeSurgeons, setScopeSurgeons] = useState<string[]>(user?.scope_surgeons ?? []);
   const [active, setActive] = useState(user?.active ?? true);
   const [roles, setRoles] = useState<AppRole[]>(user?.roles ?? []);
   const [caps, setCaps] = useState<CapsMap>(user?.caps ?? {});
   const [saving, setSaving] = useState(false);
+
+  const toggleScopeSurgeon = (s: string) =>
+    setScopeSurgeons((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]));
+
 
   const toggleRole = (r: AppRole) =>
     setRoles((prev) => (prev.includes(r) ? prev.filter((x) => x !== r) : [...prev, r]));
