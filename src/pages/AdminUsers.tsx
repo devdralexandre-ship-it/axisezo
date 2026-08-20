@@ -24,10 +24,12 @@ interface AdminUser {
   display_name: string | null;
   surgeon_name: string | null;
   concierge_name: string | null;
+  scope_surgeons: string[];
   active: boolean;
   roles: AppRole[];
   caps: CapsMap;
 }
+
 
 const ROLE_OPTIONS: AppRole[] = ['admin', 'surgeon', 'concierge', 'call_center', 'intern'];
 const ROLE_LABELS: Record<AppRole, string> = {
