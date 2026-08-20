@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   usePatientUploads,
-  useUploadPatientFile,
+  uploadPatientFile,
   useDeletePatientUpload,
   useUploadDownloadUrl,
   useUploadViewUrl,
@@ -133,7 +133,7 @@ function PendingRow({
         </p>
         {!failed && (
           <div className="mt-1 h-1 w-full overflow-hidden rounded bg-muted">
-            <div className="h-full w-1/3 animate-[progress_1.2s_ease-in-out_infinite] rounded bg-primary" />
+            <div className="h-full w-1/3 animate-pulse rounded bg-primary" />
           </div>
         )}
       </div>
@@ -180,7 +180,6 @@ function ViewerDialog({ upload, onClose }: { upload: PatientUpload | null; onClo
 export function PatientUploads({ patientId }: Props) {
   const qc = useQueryClient();
   const { data: uploads = [], isLoading } = usePatientUploads(patientId);
-  const upload = useUploadPatientFile();
   const del = useDeletePatientUpload();
   const [category, setCategory] = useState<UploadCategory>('exame');
   const [pending, setPending] = useState<PendingUpload[]>([]);
@@ -197,7 +196,7 @@ export function PatientUploads({ patientId }: Props) {
 
   const runUpload = async (p: PendingUpload) => {
     try {
-      const created = await upload.mutateAsync({ patientId, file: p.file, category: p.category });
+      const created = await uploadPatientFile({ patientId, file: p.file, category: p.category });
       setPending((prev) => prev.filter((x) => x.tempId !== p.tempId));
       setRecentIds((prev) => [...prev, created.id]);
       return true;
