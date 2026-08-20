@@ -53,6 +53,12 @@ export function FilterBar({
   onClearAll, hasActiveFilters,
   hideSearch = false,
 }: FilterBarProps) {
+  const { surgeons: staffSurgeonsAll, concierges: staffConcierges } = useStaffNames();
+  const { scopeSurgeons } = useUserRole();
+  const staffSurgeons = scopeSurgeons.length
+    ? staffSurgeonsAll.filter((s) => scopeSurgeons.includes(s))
+    : staffSurgeonsAll;
+
   return (
     <div className="space-y-1.5">
       <div className="flex flex-wrap items-center gap-1.5">

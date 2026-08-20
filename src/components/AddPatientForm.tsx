@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
+import { useStaffNames } from '@/hooks/useStaffNames';
 import { useUserRole } from '@/hooks/useUserRole';
 import { usePatients } from '@/hooks/usePatients';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -48,7 +49,11 @@ interface PendingUpload {
 const OTHER_PROCEDURE = '__outro__';
 
 export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
-  const { isConcierge, isSurgeon, isAdmin, conciergeName, surgeonName } = useUserRole();
+  const { isConcierge, isSurgeon, isAdmin, conciergeName, surgeonName, scopeSurgeons } = useUserRole();
+  const { surgeons: staffSurgeonsAll, concierges: staffConcierges } = useStaffNames();
+  const staffSurgeons = scopeSurgeons.length
+    ? staffSurgeonsAll.filter((s) => scopeSurgeons.includes(s))
+    : staffSurgeonsAll;
   const lockConcierge = isConcierge && !isAdmin && !!conciergeName;
   const lockSurgeon = isSurgeon && !isAdmin && !!surgeonName;
 

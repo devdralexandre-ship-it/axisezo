@@ -53,6 +53,11 @@ function computeEstimatedTotal(medicalFees: number | null, anesthesiaFees: numbe
 export function PatientPanel({ patient, open, onClose, onCompleteTask, onAddTask, onTogglePreOpItem, onUpdateFields, onEditSurgeryDate, onChangeStage }: PatientPanelProps) {
   const [editing, setEditing] = useState(false);
   const [editData, setEditData] = useState<Record<string, any>>({});
+  const { surgeons: staffSurgeonsAll, concierges: staffConcierges } = useStaffNames();
+  const { scopeSurgeons } = useUserRole();
+  const staffSurgeons = scopeSurgeons.length
+    ? staffSurgeonsAll.filter((s) => scopeSurgeons.includes(s))
+    : staffSurgeonsAll;
 
   // Reset edit state when patient changes or panel closes
   useEffect(() => {
