@@ -197,25 +197,102 @@ export function SurgicalRequestForm({ data, onChange, procedureKey }: Props) {
               variant="ghost"
               size="sm"
               className="h-6 text-xs"
-              onClick={() => set('opme', [...data.opme, { description: '', quantity: 1 }])}
+              onClick={() => set('opme', [...(data.opme ?? []), { description: '', quantity: 1, suppliers: [] }])}
             >
               <Plus className="h-3 w-3 mr-1" />Adicionar
             </Button>
           </div>
-          {data.opme.map((item, idx) => (
+          {(data.opme ?? []).map((item, idx) => {
+            const suppliers = item.suppliers ?? [];
+            const updateItem = (patch: Partial<typeof item>) => {
+              const next = [...(data.opme ?? [])];
+              next[idx] = { ...next[idx], ...patch };
+              set('opme', next);
+            };
+            return (
+              <div key={idx} className="rounded-md border border-border p-2 space-y-2">
+                <div className="flex items-center gap-1">
+                  <div className="flex-1">
+                    <CodeAutocomplete
+                      procedure={procedureKey}
+                      kind="opme"
+                      value=""
+                      label={item.description}
+                      onChange={(_, label) => updateItem({ description: label })}
+                      labelPlaceholder="Descrição do item"
+                      hideValue
+                    />
+                  </div>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={item.quantity}
+                    onChange={(e) => updateItem({ quantity: parseInt(e.target.value) || 1 })}
+                    className="h-8 text-sm w-16"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-destructive"
+                    onClick={() => set('opme', (data.opme ?? []).filter((_, i) => i !== idx))}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+                <div className="space-y-1 pl-1">
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Fornecedores (até 3)
+                  </span>
+                  {[0, 1, 2].map((s) => (
+                    <CodeAutocomplete
+                      key={s}
+                      procedure={procedureKey}
+                      kind="supplier"
+                      value=""
+                      label={suppliers[s] ?? ''}
+                      onChange={(_, label) => {
+                        const nextSup = [suppliers[0] ?? '', suppliers[1] ?? '', suppliers[2] ?? ''];
+                        nextSup[s] = label;
+                        updateItem({ suppliers: nextSup });
+                      }}
+                      labelPlaceholder={`Fornecedor ${s + 1}`}
+                      hideValue
+                    />
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="space-y-1">
+          <div className="flex items-center justify-between">
+            <label className="text-[11px] font-semibold text-muted-foreground">Equipamentos</label>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-6 text-xs"
+              onClick={() => set('equipment', [...(data.equipment ?? []), { description: '', quantity: 1 }])}
+            >
+              <Plus className="h-3 w-3 mr-1" />Adicionar
+            </Button>
+          </div>
+          {(data.equipment ?? []).map((item, idx) => (
             <div key={idx} className="flex items-center gap-1">
               <div className="flex-1">
                 <CodeAutocomplete
                   procedure={procedureKey}
-                  kind="opme"
+                  kind="equipment"
                   value=""
                   label={item.description}
                   onChange={(_, label) => {
-                    const next = [...data.opme];
+                    const next = [...(data.equipment ?? [])];
                     next[idx] = { ...next[idx], description: label };
-                    set('opme', next);
+                    set('equipment', next);
                   }}
-                  labelPlaceholder="Descrição do item"
+                  labelPlaceholder="Equipamento necessário"
                   hideValue
                 />
               </div>
@@ -224,9 +301,9 @@ export function SurgicalRequestForm({ data, onChange, procedureKey }: Props) {
                 min={1}
                 value={item.quantity}
                 onChange={(e) => {
-                  const next = [...data.opme];
+                  const next = [...(data.equipment ?? [])];
                   next[idx] = { ...next[idx], quantity: parseInt(e.target.value) || 1 };
-                  set('opme', next);
+                  set('equipment', next);
                 }}
                 className="h-8 text-sm w-16"
               />
@@ -235,12 +312,25 @@ export function SurgicalRequestForm({ data, onChange, procedureKey }: Props) {
                 variant="ghost"
                 size="icon"
                 className="h-7 w-7 text-destructive"
-                onClick={() => set('opme', data.opme.filter((_, i) => i !== idx))}
+                onClick={() => set('equipment', (data.equipment ?? []).filter((_, i) => i !== idx))}
               >
                 <Trash2 className="h-3 w-3" />
               </Button>
             </div>
           ))}
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-[11px] font-semibold text-muted-foreground">Duração prevista do procedimento</label>
+          <CodeAutocomplete
+            procedure={procedureKey}
+            kind="duration"
+            value=""
+            label={data.procedureDuration ?? ''}
+            onChange={(_, label) => set('procedureDuration', label)}
+            labelPlaceholder="Ex.: 2h30 / 90 minutos"
+            hideValue
+          />
         </div>
 
         <div className="space-y-1">
@@ -254,6 +344,7 @@ export function SurgicalRequestForm({ data, onChange, procedureKey }: Props) {
           />
         </div>
       </section>
+
 
       {/* C — Regime */}
       <section className="space-y-3">
