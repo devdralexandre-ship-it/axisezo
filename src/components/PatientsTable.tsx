@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Patient, STAGE_LABELS, DECISION_LABELS, getDaysSinceIndication, getNextPendingTask, getTaskUrgency, LOSS_REASON_LABELS } from '@/data/types';
+import { Patient, STAGE_LABELS, DECISION_LABELS, getDaysSinceIndication, getNextPendingTask, getTaskUrgency, LOSS_REASON_LABELS, isTerminalStage } from '@/data/types';
 import { ArrowDown, ArrowUp, ArrowUpDown, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
