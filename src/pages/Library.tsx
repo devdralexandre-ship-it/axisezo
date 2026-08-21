@@ -24,6 +24,7 @@ import {
   MaterialPhase,
 } from '@/hooks/useMaterials';
 import { PROCEDURES, SURGEONS } from '@/data/constants';
+import { useStaffNames } from '@/hooks/useStaffNames';
 import { ArrowLeft, Plus, Pencil, Trash2, FileText, Video, Type as TypeIcon, Upload, Package } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -201,7 +202,7 @@ function MaterialEditor({ material, onClose }: { material: Partial<Material>; on
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value={NONE}>Todos</SelectItem>
-                  {SURGEONS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  {staffSurgeons.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -369,7 +370,7 @@ function PackageEditor({ pkg, onClose }: { pkg: Partial<MaterialPackage>; onClos
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value={NONE}>Todos</SelectItem>
-                  {SURGEONS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  {staffSurgeons.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>

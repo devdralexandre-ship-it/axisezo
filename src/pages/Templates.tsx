@@ -16,6 +16,7 @@ import {
   DocumentTemplate,
 } from '@/data/documents';
 import { SURGEONS } from '@/data/constants';
+import { useStaffNames } from '@/hooks/useStaffNames';
 import {
   useDocumentTemplates,
   useSaveTemplate,
@@ -281,7 +282,7 @@ export default function Templates() {
                     <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value={NO_SURGEON}>Genérico (qualquer cirurgião)</SelectItem>
-                      {SURGEONS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                      {staffSurgeons.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
