@@ -404,7 +404,30 @@ export function SurgicalRequestForm({ data, onChange, procedureKey }: Props) {
             </SelectContent>
           </Select>
         </div>
+
+        {isCooperuro && (
+          <div className="space-y-1">
+            <label className="text-[11px] font-semibold text-muted-foreground">
+              Código de prestador {data.payer ? `— ${data.payer}` : ''}
+            </label>
+            <Input
+              value={data.providerCode ?? ''}
+              onChange={(e) => set('providerCode', e.target.value)}
+              placeholder={providerRule ? providerRule.code : 'Convênio sem regra cadastrada — preencher manualmente'}
+              className="h-8 text-sm"
+            />
+            {providerRule?.note && (
+              <p className="text-[11px] text-muted-foreground">{providerRule.note}</p>
+            )}
+            {!providerRule && (
+              <p className="text-[11px] text-muted-foreground">
+                Não há código Cooperuro cadastrado para este convênio. Preencha manualmente.
+              </p>
+            )}
+          </div>
+        )}
       </section>
+
     </div>
   );
 }
