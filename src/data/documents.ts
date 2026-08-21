@@ -249,10 +249,24 @@ export function buildSurgicalRequestHtml(data: SurgicalRequestData, signatureInf
     parts.push(`<ul>${data.cid.map((c) => `<li><strong>${escapeHtml(c.code)}</strong> — ${escapeHtml(c.label)}</li>`).join('')}</ul>`);
   }
 
-  if (data.opme.length > 0) {
-    parts.push(`<h3>OPME / Materiais especiais</h3>`);
-    parts.push(`<ul>${data.opme.map((o) => `<li>${escapeHtml(o.description)} — <strong>Qtd: ${o.quantity}</strong></li>`).join('')}</ul>`);
+  if (data.procedureDuration && data.procedureDuration.trim()) {
+    parts.push(`<p><strong>Duração prevista:</strong> ${escapeHtml(data.procedureDuration)}</p>`);
   }
+
+  if ((data.opme ?? []).length > 0) {
+    parts.push(`<h3>OPME / Materiais especiais</h3>`);
+    parts.push(`<ul>${data.opme.map((o) => {
+      const sup = (o.suppliers ?? []).map((s) => (s || '').trim()).filter(Boolean);
+      const supText = sup.length ? ` <br/><em>Fornecedores: ${sup.map(escapeHtml).join(' · ')}</em>` : '';
+      return `<li>${escapeHtml(o.description)} — <strong>Qtd: ${o.quantity}</strong>${supText}</li>`;
+    }).join('')}</ul>`);
+  }
+
+  if ((data.equipment ?? []).length > 0) {
+    parts.push(`<h3>Equipamentos</h3>`);
+    parts.push(`<ul>${data.equipment.map((o) => `<li>${escapeHtml(o.description)} — <strong>Qtd: ${o.quantity}</strong></li>`).join('')}</ul>`);
+  }
+
 
   if (data.surgicalDescription && data.surgicalDescription.trim()) {
     parts.push(`<h3>Descrição cirúrgica</h3>`);
