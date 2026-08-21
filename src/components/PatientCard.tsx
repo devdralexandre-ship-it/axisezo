@@ -29,16 +29,18 @@ interface PatientCardProps {
 
 export function PatientCard({ patient, onClick, onCompleteTask, onDelete }: PatientCardProps) {
   const nextTask = getNextPendingTask(patient);
-  const urgency = getTaskUrgency(nextTask);
+  const terminal = isTerminalStage(patient.stage);
+  const urgency = terminal ? 'green' : getTaskUrgency(nextTask);
   const daysInStage = getDaysInStage(patient.stageEnteredAt);
   const daysSinceIndication = getDaysSinceIndication(patient);
 
-  // Count open tasks with breached/escalated tolerance
-  const breachedCount = patient.tasks.reduce((n, t) => {
+  // Count open tasks with breached/escalated tolerance (never in terminal stages)
+  const breachedCount = terminal ? 0 : patient.tasks.reduce((n, t) => {
     if (t.completed) return n;
     const s = getTaskSlaState(t);
     return s === 'breached' || s === 'escalated' ? n + 1 : n;
   }, 0);
+
 
   // "Novo": stays until the patient record is modified for the first time.
   // We compare updated_at vs created_at (with a 5s tolerance to absorb the
