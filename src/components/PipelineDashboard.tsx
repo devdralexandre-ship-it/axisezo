@@ -142,7 +142,7 @@ export function PipelineDashboard() {
   const notifications = useMemo(() => {
     const notifs: Notification[] = [];
     patients.forEach((p) => {
-      if (p.stage === 'lost') return;
+      if (isTerminalStage(p.stage)) return;
       const nextTask = getNextPendingTask(p);
       const urgency = getTaskUrgency(nextTask);
       if (urgency === 'red' && nextTask) {
