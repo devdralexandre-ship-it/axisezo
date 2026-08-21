@@ -253,8 +253,8 @@ export function AddPatientForm({ open, onClose, onAdd }: AddPatientFormProps) {
         responsibleContact: responsibleContact || null,
         desiredHospital: finalHospitals[0] || null,
         desiredHospitals: finalHospitals,
-        notes: notes || null,
-        alerts: alerts || null,
+        notes: notes.trim() || null,
+        alerts: alerts.trim() || null,
         lossReason: null,
         lossReasonDetail: null,
         procedureCodes: {
