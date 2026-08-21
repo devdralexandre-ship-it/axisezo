@@ -1,0 +1,2 @@
+update public.profiles set surgeon_name = null, updated_at = now() where user_id in ('70c19d43-acaf-482c-a28e-e606361800a6','38486fed-7854-4626-b2b1-12042baf55d4');
+delete from public.user_roles where role = 'surgeon' and user_id in ('70c19d43-acaf-482c-a28e-e606361800a6','38486fed-7854-4626-b2b1-12042baf55d4');
