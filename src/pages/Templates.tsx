@@ -493,7 +493,9 @@ export default function Templates() {
                           <Button type="button" size="sm" variant="ghost" className="text-destructive" onClick={handlePdfRemove}>
                             <X className="h-3 w-3 mr-1" />Remover
                           </Button>
+                        )}
                       </div>
+
                     </div>
                     <p className="text-[11px] text-muted-foreground">
                       Dica: use um PDF de fundo leve (idealmente abaixo de 1 MB). Arquivos grandes
