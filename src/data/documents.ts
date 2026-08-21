@@ -132,6 +132,8 @@ export interface CodeItem {
 export interface OpmeItem {
   description: string;
   quantity: number;
+  /** Up to 3 suppliers for this item */
+  suppliers?: string[];
 }
 
 export type AdmissionRegime = 'inpatient' | 'day_hospital';
@@ -151,6 +153,8 @@ export interface SurgicalRequestData {
   extraCbhpm: CodeItem[];
   cid: CodeItem[];
   opme: OpmeItem[];
+  equipment: OpmeItem[];
+  procedureDuration: string;
   surgicalDescription: string;
 
   // C — Regime + reservations
@@ -161,6 +165,7 @@ export interface SurgicalRequestData {
 
   // D — Billing
   billingType: string;
+  providerCode: string;
 
   // identification
   surgeon: string;
@@ -185,15 +190,24 @@ export function defaultSurgicalRequestData(patient: any, template?: DocumentTemp
     extraCbhpm: [],
     cid: [],
     opme: [],
+    equipment: [],
+    procedureDuration: seedDefaults.procedureDuration ?? '',
     surgicalDescription: seedDefaults.surgicalDescription ?? '',
     regime: (seedDefaults.regime as AdmissionRegime) ?? 'inpatient',
     icuReservation: seedDefaults.icuReservation ?? false,
     bloodReservation: seedDefaults.bloodReservation ?? false,
     bloodUnits: seedDefaults.bloodUnits ?? 0,
     billingType: patient?.billingType ?? '',
+    providerCode: '',
     surgeon: patient?.surgeon ?? '',
   };
 }
+
+/** True when the billing form means the document is a quote request, not an authorization. */
+export function isPrivateFullCostBilling(billingType: string | null | undefined): boolean {
+  return (billingType ?? '').toLowerCase().includes('custos totais particulares');
+}
+
 
 const REGIME_LABEL: Record<AdmissionRegime, string> = {
   inpatient: 'Hospitalar',
