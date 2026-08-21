@@ -10,13 +10,16 @@ import { SURGEONS, CONCIERGES } from '@/data/constants';
 export function useStaffNames() {
   const query = useQuery({
     queryKey: ['staff-names'],
-    staleTime: 10 * 60 * 1000,
+    staleTime: 30 * 1000,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       const { data, error } = await supabase.rpc('staff_names');
       if (error) throw error;
       return (data ?? []) as { surgeon_name: string | null; concierge_name: string | null }[];
     },
   });
+
 
   const rows = query.data ?? [];
   const merge = (base: readonly string[], values: (string | null)[]) => {
