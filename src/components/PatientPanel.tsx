@@ -129,7 +129,7 @@ export function PatientPanel({ patient, open, onClose, onCompleteTask, onAddTask
     if (typeof fields.name === 'string') fields.name = fields.name.trim();
 
     for (const [key, val] of Object.entries(fields)) {
-      if (val === '') fields[key] = null;
+      if (typeof val === 'string') fields[key] = val.trim() === '' ? null : val.trim();
     }
     // Clear legacy estimated_value whenever any detailed fee is being saved,
     // so the Kanban card always reflects current fees instead of a stale total.
@@ -274,13 +274,13 @@ export function PatientPanel({ patient, open, onClose, onCompleteTask, onAddTask
 
         <div className="p-6 space-y-6">
           {/* Alerts */}
-          {patient.alerts && (
+          {patient.alerts?.trim() && (
             <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20">
               <div className="flex items-center gap-1.5 text-xs font-semibold text-destructive mb-1">
                 <AlertTriangle className="h-3.5 w-3.5" />
                 Alertas
               </div>
-              <p className="text-sm text-destructive">{patient.alerts}</p>
+              <p className="text-sm text-destructive">{patient.alerts.trim()}</p>
             </div>
           )}
 
