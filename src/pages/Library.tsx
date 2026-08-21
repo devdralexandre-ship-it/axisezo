@@ -23,7 +23,7 @@ import {
   MaterialPackage,
   MaterialPhase,
 } from '@/hooks/useMaterials';
-import { PROCEDURES, SURGEONS } from '@/data/constants';
+import { PROCEDURES } from '@/data/constants';
 import { useStaffNames } from '@/hooks/useStaffNames';
 import { ArrowLeft, Plus, Pencil, Trash2, FileText, Video, Type as TypeIcon, Upload, Package } from 'lucide-react';
 import { toast } from 'sonner';

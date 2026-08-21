@@ -15,7 +15,7 @@ import {
   DEFAULT_TEMPLATE_BODIES,
   DocumentTemplate,
 } from '@/data/documents';
-import { SURGEONS } from '@/data/constants';
+
 import { useStaffNames } from '@/hooks/useStaffNames';
 import {
   useDocumentTemplates,
