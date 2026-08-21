@@ -64,7 +64,7 @@ tipo de faturamento, hospital(is) desejado(s) — é possível marcar **mais de 
 hospital** para pedir orçamento — e os campos financeiros (honorários médicos,
 anestesia, hospital, materiais), que somam o valor estimado.
 
-Marcadores do card: `*` sensível, `**` altíssimo risco, `★` alto ticket, e o selo
+Marcadores do card: \`*\` sensível, \`**\` altíssimo risco, \`★\` alto ticket, e o selo
 **✨ Novo**, que permanece até a primeira edição do paciente.
 
 Se o nome digitado se parecer com um paciente existente, o sistema avisa para evitar
