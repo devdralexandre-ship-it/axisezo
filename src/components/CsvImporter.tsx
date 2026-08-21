@@ -452,9 +452,7 @@ export function CsvImporter({ open, onClose, onImport, existingPatientNames }: C
                     <Select value={defaultSurgeon} onValueChange={setDefaultSurgeon}>
                       <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Dr Alexandre Ziomkowski">Dr Alexandre Ziomkowski</SelectItem>
-                        <SelectItem value="Dr Evaristo Oliveira">Dr Evaristo Oliveira</SelectItem>
-                        <SelectItem value="Dr João Estrela">Dr João Estrela</SelectItem>
+                        {staffSurgeons.map((s) => (<SelectItem key={s} value={s}>{s}</SelectItem>))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -463,12 +461,9 @@ export function CsvImporter({ open, onClose, onImport, existingPatientNames }: C
                     <Select value={defaultResponsible} onValueChange={setDefaultResponsible}>
                       <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Margô">Margô</SelectItem>
-                        <SelectItem value="Call Center">Call Center</SelectItem>
-                        <SelectItem value="Dr Alexandre Ziomkowski">Dr Alexandre Ziomkowski</SelectItem>
-                        <SelectItem value="Dr Evaristo Oliveira">Dr Evaristo Oliveira</SelectItem>
-                        <SelectItem value="Dr João Estrela">Dr João Estrela</SelectItem>
+                        {responsibleOptions.map((r) => (<SelectItem key={r} value={r}>{r}</SelectItem>))}
                       </SelectContent>
+
                     </Select>
                   </div>
                 </div>
