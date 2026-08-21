@@ -222,7 +222,12 @@ function buildSignature(data: { surgeon: string }, signatureInfo?: Partial<Signa
 
 export function buildSurgicalRequestHtml(data: SurgicalRequestData, signatureInfo?: Partial<SignatureInfo>): string {
   const parts: string[] = [];
-  parts.push(`<p>Solicito autorização para realização do procedimento abaixo:</p>`);
+  parts.push(
+    isPrivateFullCostBilling(data.billingType)
+      ? `<p>Solicito orçamento para realização do procedimento abaixo:</p>`
+      : `<p>Solicito autorização para realização do procedimento abaixo:</p>`,
+  );
+
 
   parts.push(`<h3>Identificação</h3>`);
   parts.push(`<p><strong>Paciente:</strong> ${escapeHtml(data.patientName)}${data.patientAge ? ` (${escapeHtml(data.patientAge)})` : ''}</p>`);
