@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { usePatientDocuments, useDeleteDocument, useDocumentDownloadUrl } from '@/hooks/useDocuments';
+import { usePatientDocuments, useDeleteDocument, useDocumentDownloadUrl, useRegenerateDocumentPdf } from '@/hooks/useDocuments';
 import { useSurgeonCertStatus, useSignDocument, useAuthorizeDocumentSignature } from '@/hooks/useSigning';
 import { useUserRole } from '@/hooks/useUserRole';
 import { DOCUMENT_TYPE_LABELS } from '@/data/documents';
 import { GenerateDocumentDialog } from './GenerateDocumentDialog';
 import { SignatureConfirmDialog } from './SignatureConfirmDialog';
-import { FileText, Plus, Download, Trash2, Loader2, ShieldCheck, PenLine, CheckCircle2 } from 'lucide-react';
+import { FileText, Plus, Download, Trash2, Loader2, ShieldCheck, PenLine, CheckCircle2, RefreshCw } from 'lucide-react';
+
 import { toast } from 'sonner';
 
 interface Props {
