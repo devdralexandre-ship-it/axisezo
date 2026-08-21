@@ -197,6 +197,7 @@ export function PatientCard({ patient, onClick, onCompleteTask, onDelete }: Pati
           <>
             <div
               className={`flex items-center gap-1.5 text-[11px] p-1.5 rounded ${
+                terminal ? 'bg-muted text-muted-foreground' :
                 urgency === 'red' ? 'bg-destructive/10 text-destructive' :
                 urgency === 'yellow' ? 'bg-pipeline-amber/10 text-pipeline-amber' :
                 'bg-pipeline-green/10 text-pipeline-green'
@@ -216,6 +217,7 @@ export function PatientCard({ patient, onClick, onCompleteTask, onDelete }: Pati
               <span className="shrink-0 ml-auto">{formatDate(nextTask.dueDate)}</span>
             </div>
             {(() => {
+              if (terminal) return null;
               const state = getTaskSlaState(nextTask);
               if (state === 'ok') return null;
               const chip = formatSlaChip(nextTask);
@@ -231,11 +233,17 @@ export function PatientCard({ patient, onClick, onCompleteTask, onDelete }: Pati
               );
             })()}
           </>
+        ) : terminal ? (
+          <div className="flex items-center gap-1.5 text-[11px] p-1.5 rounded bg-muted text-muted-foreground">
+            <CheckCircle2 className="h-3 w-3" />
+            <span>Sem pendências</span>
+          </div>
         ) : (
           <div className="flex items-center gap-1.5 text-[11px] p-1.5 rounded bg-destructive/10 text-destructive">
             <span>⚠ Sem próxima ação definida</span>
           </div>
         )}
+
       </CardContent>
     </Card>
   );
