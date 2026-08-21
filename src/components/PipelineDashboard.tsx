@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
-import { Patient, PIPELINE_STAGES, PipelineStage, DecisionStatus, Owner, Notification, PatientTask, PreOpChecklistItem, getNextPendingTask, getTaskUrgency, STAGE_LABELS, LossReason, getTaskSlaState } from '@/data/types';
+import { Patient, PIPELINE_STAGES, PipelineStage, DecisionStatus, Owner, Notification, PatientTask, PreOpChecklistItem, getNextPendingTask, getTaskUrgency, STAGE_LABELS, LossReason, getTaskSlaState, isTerminalStage } from '@/data/types';
 import { usePatients, useUpdatePatientStage, useUpdatePatientFields, useCompleteTask, useAddTask, useTogglePreOpItem, useAddPatient, useDeletePatient, useImportPatients } from '@/hooks/usePatients';
 import { PipelineColumn } from './PipelineColumn';
 import { PatientPanel } from './PatientPanel';
@@ -142,7 +142,7 @@ export function PipelineDashboard() {
   const notifications = useMemo(() => {
     const notifs: Notification[] = [];
     patients.forEach((p) => {
-      if (p.stage === 'lost') return;
+      if (isTerminalStage(p.stage)) return;
       const nextTask = getNextPendingTask(p);
       const urgency = getTaskUrgency(nextTask);
       if (urgency === 'red' && nextTask) {

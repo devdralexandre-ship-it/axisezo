@@ -256,6 +256,13 @@ export function getDaysSinceIndication(p: Patient): number {
   return Math.max(0, Math.floor((now.getTime() - entered.getTime()) / (1000 * 60 * 60 * 24)));
 }
 
+/** Stages where the patient's journey is over: no deadline alerts apply. */
+export const TERMINAL_STAGES: PipelineStage[] = ['surgery_completed', 'lost'];
+
+export function isTerminalStage(stage: PipelineStage | undefined | null): boolean {
+  return !!stage && TERMINAL_STAGES.includes(stage);
+}
+
 export function getNextPendingTask(patient: Patient): PatientTask | undefined {
   return patient.tasks
     .filter((t) => !t.completed)
@@ -277,6 +284,13 @@ export function getTaskUrgency(task: PatientTask | undefined): UrgencyLevel {
   if (dueDay.getTime() === today.getTime()) return 'yellow';
   return 'green';
 }
+
+/** Urgency taking the patient stage into account: terminal stages never alarm. */
+export function getPatientTaskUrgency(patient: Patient, task: PatientTask | undefined): UrgencyLevel {
+  if (isTerminalStage(patient.stage)) return 'green';
+  return getTaskUrgency(task);
+}
+
 
 export function getDaysInStage(stageEnteredAt: string): number {
   const entered = new Date(stageEnteredAt + 'T00:00:00');

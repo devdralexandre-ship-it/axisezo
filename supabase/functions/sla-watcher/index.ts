@@ -31,15 +31,33 @@ Deno.serve(async (req) => {
 
     const nowIso = new Date().toISOString();
 
+    // Patients whose journey is over never generate deadline alerts.
+    const TERMINAL_STAGES = ['surgery_completed', 'lost'];
+    const { data: terminalPatients, error: termErr } = await supabase
+      .from('patients')
+      .select('id')
+      .in('stage', TERMINAL_STAGES);
+    if (termErr) throw termErr;
+    const terminalIds = new Set((terminalPatients ?? []).map((p) => p.id as string));
+
     // 1) Mark breaches
-    const { data: breached, error: breachErr } = await supabase
+    const { data: breachedRows, error: breachErr } = await supabase
       .from('tasks')
-      .update({ sla_breached_at: nowIso })
+      .select('id, patient_id')
       .is('sla_breached_at', null)
       .eq('completed', false)
-      .lt('sla_due_at', nowIso)
-      .select('id');
+      .lt('sla_due_at', nowIso);
     if (breachErr) throw breachErr;
+
+    const toBreach = (breachedRows ?? []).filter((t) => !terminalIds.has(t.patient_id as string));
+    if (toBreach.length > 0) {
+      const { error: updBreachErr } = await supabase
+        .from('tasks')
+        .update({ sla_breached_at: nowIso })
+        .in('id', toBreach.map((t) => t.id));
+      if (updBreachErr) throw updBreachErr;
+    }
+    const breached = toBreach;
 
     // 2) Find escalation candidates (breached, not escalated, not completed, breach old enough)
     const { data: candidates, error: candErr } = await supabase
@@ -54,9 +72,11 @@ Deno.serve(async (req) => {
     const now = Date.now();
 
     for (const t of candidates ?? []) {
+      if (terminalIds.has(t.patient_id as string)) continue;
       const breachAt = new Date(t.sla_breached_at as string).getTime();
       const tolMs = (t.escalate_after_hours ?? 24) * 3600 * 1000;
       if (now - breachAt < tolMs) continue;
+
 
       // Resolve patient surgeon as escalation target; fallback to "admin"
       const { data: patient } = await supabase

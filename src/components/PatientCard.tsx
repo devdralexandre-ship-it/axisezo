@@ -1,4 +1,4 @@
-import { Patient, DECISION_LABELS, OWNER_INITIALS, OWNER_COLORS, getNextPendingTask, getTaskUrgency, getDaysInStage, getDaysSinceIndication, getTaskSlaState, formatSlaChip } from '@/data/types';
+import { Patient, DECISION_LABELS, OWNER_INITIALS, OWNER_COLORS, getNextPendingTask, getTaskUrgency, getDaysInStage, getDaysSinceIndication, getTaskSlaState, formatSlaChip, isTerminalStage } from '@/data/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Calendar, UserRound, Clock, CheckCircle2, MoreVertical, Trash2, MessageSquare } from 'lucide-react';
@@ -29,16 +29,18 @@ interface PatientCardProps {
 
 export function PatientCard({ patient, onClick, onCompleteTask, onDelete }: PatientCardProps) {
   const nextTask = getNextPendingTask(patient);
-  const urgency = getTaskUrgency(nextTask);
+  const terminal = isTerminalStage(patient.stage);
+  const urgency = terminal ? 'green' : getTaskUrgency(nextTask);
   const daysInStage = getDaysInStage(patient.stageEnteredAt);
   const daysSinceIndication = getDaysSinceIndication(patient);
 
-  // Count open tasks with breached/escalated tolerance
-  const breachedCount = patient.tasks.reduce((n, t) => {
+  // Count open tasks with breached/escalated tolerance (never in terminal stages)
+  const breachedCount = terminal ? 0 : patient.tasks.reduce((n, t) => {
     if (t.completed) return n;
     const s = getTaskSlaState(t);
     return s === 'breached' || s === 'escalated' ? n + 1 : n;
   }, 0);
+
 
   // "Novo": stays until the patient record is modified for the first time.
   // We compare updated_at vs created_at (with a 5s tolerance to absorb the
@@ -195,6 +197,7 @@ export function PatientCard({ patient, onClick, onCompleteTask, onDelete }: Pati
           <>
             <div
               className={`flex items-center gap-1.5 text-[11px] p-1.5 rounded ${
+                terminal ? 'bg-muted text-muted-foreground' :
                 urgency === 'red' ? 'bg-destructive/10 text-destructive' :
                 urgency === 'yellow' ? 'bg-pipeline-amber/10 text-pipeline-amber' :
                 'bg-pipeline-green/10 text-pipeline-green'
@@ -214,6 +217,7 @@ export function PatientCard({ patient, onClick, onCompleteTask, onDelete }: Pati
               <span className="shrink-0 ml-auto">{formatDate(nextTask.dueDate)}</span>
             </div>
             {(() => {
+              if (terminal) return null;
               const state = getTaskSlaState(nextTask);
               if (state === 'ok') return null;
               const chip = formatSlaChip(nextTask);
@@ -229,11 +233,17 @@ export function PatientCard({ patient, onClick, onCompleteTask, onDelete }: Pati
               );
             })()}
           </>
+        ) : terminal ? (
+          <div className="flex items-center gap-1.5 text-[11px] p-1.5 rounded bg-muted text-muted-foreground">
+            <CheckCircle2 className="h-3 w-3" />
+            <span>Sem pendências</span>
+          </div>
         ) : (
           <div className="flex items-center gap-1.5 text-[11px] p-1.5 rounded bg-destructive/10 text-destructive">
             <span>⚠ Sem próxima ação definida</span>
           </div>
         )}
+
       </CardContent>
     </Card>
   );

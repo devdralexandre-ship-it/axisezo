@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Patient, STAGE_LABELS, DECISION_LABELS, getDaysSinceIndication, getNextPendingTask, getTaskUrgency, LOSS_REASON_LABELS } from '@/data/types';
+import { Patient, STAGE_LABELS, DECISION_LABELS, getDaysSinceIndication, getNextPendingTask, getTaskUrgency, LOSS_REASON_LABELS, isTerminalStage } from '@/data/types';
 import { ArrowDown, ArrowUp, ArrowUpDown, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -169,7 +169,7 @@ export function PatientsTable({ patients, onPatientClick, canSeeFinancials = tru
               >
                 {visibleCols.map((c, i) => {
                   const content = c.render ? c.render(p) : (c.get(p) ?? '');
-                  const nextUrgent = c.key === 'nextTask' ? getTaskUrgency(getNextPendingTask(p)) : undefined;
+                  const nextUrgent = c.key === 'nextTask' && !isTerminalStage(p.stage) ? getTaskUrgency(getNextPendingTask(p)) : undefined;
                   return (
                     <td
                       key={c.key}
