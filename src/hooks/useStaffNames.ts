@@ -35,5 +35,7 @@ export function useStaffNames() {
     surgeons: merge(SURGEONS, rows.map((r) => r.surgeon_name)),
     concierges: merge(CONCIERGES, rows.map((r) => r.concierge_name)),
     loading: query.isLoading,
+    refetch: query.refetch,
   };
 }
+
