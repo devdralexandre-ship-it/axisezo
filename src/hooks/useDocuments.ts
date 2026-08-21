@@ -378,7 +378,7 @@ export function useGenerateDocument() {
         .select()
         .single();
       if (insertErr) {
-        await supabase.storage.from(BUCKET).remove([path]).catch?.(() => {});
+        try { await supabase.storage.from(BUCKET).remove([path]); } catch { /* noop */ }
         throw insertErr;
       }
       const docRow = inserted as unknown as PatientDocument;
@@ -389,7 +389,6 @@ export function useGenerateDocument() {
       }
 
       return { ...docRow, pdf_path: path };
-
     },
     onSuccess: (doc) => {
       qc.invalidateQueries({ queryKey: ['patient_documents', doc.patient_id] });
@@ -398,6 +397,39 @@ export function useGenerateDocument() {
     onError: (e: any) => toast.error(`Erro ao gerar: ${e.message}`),
   });
 }
+
+/** Regera o PDF de um documento já salvo (usado quando o upload falhou e o registro ficou sem arquivo). */
+export function useRegenerateDocumentPdf() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (doc: PatientDocument) => {
+      let template: DocumentTemplate | null = null;
+      if (doc.template_id) {
+        const { data } = await supabase
+          .from('document_templates' as any)
+          .select('*')
+          .eq('id', doc.template_id)
+          .maybeSingle();
+        template = (data as unknown as DocumentTemplate) ?? null;
+      }
+      const blob = await renderDocumentPdfBlob({ template, title: doc.title, body: doc.body_html });
+      const path = doc.pdf_path || `${doc.patient_id}/${doc.id}.pdf`;
+      await uploadPdfWithRetry(path, blob);
+      const { error } = await supabase
+        .from('patient_documents' as any)
+        .update({ pdf_path: path } as any)
+        .eq('id', doc.id);
+      if (error) throw error;
+      return { ...doc, pdf_path: path };
+    },
+    onSuccess: (doc) => {
+      qc.invalidateQueries({ queryKey: ['patient_documents', doc.patient_id] });
+      toast.success('PDF regerado!');
+    },
+    onError: (e: any) => toast.error(`Erro ao regerar: ${e.message}`),
+  });
+}
+
 
 export function useDeleteDocument() {
   const qc = useQueryClient();
