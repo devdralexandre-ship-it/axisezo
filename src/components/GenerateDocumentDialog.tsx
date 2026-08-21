@@ -106,7 +106,10 @@ export function GenerateDocumentDialog({ open, onClose, patient }: Props) {
           if (defaultsBundle.extraCbhpm.length && base.extraCbhpm.length === 0) base.extraCbhpm = [...defaultsBundle.extraCbhpm];
           if (defaultsBundle.cid.length && base.cid.length === 0) base.cid = [...defaultsBundle.cid];
           if (defaultsBundle.opme.length && base.opme.length === 0) base.opme = [...defaultsBundle.opme];
+          if (defaultsBundle.equipment.length && base.equipment.length === 0) base.equipment = [...defaultsBundle.equipment];
+          if (defaultsBundle.duration && !base.procedureDuration) base.procedureDuration = defaultsBundle.duration;
         }
+
         setStructured({ kind: 'surgical_request', data: base });
         break;
       }
