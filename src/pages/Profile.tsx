@@ -24,6 +24,9 @@ const KIND_LABEL: Record<string, string> = {
   cbhpm_extra: 'CBHPM extra',
   cid: 'CID',
   opme: 'OPME',
+  equipment: 'Equipamento',
+  duration: 'Duração',
+
 };
 
 export default function Profile() {

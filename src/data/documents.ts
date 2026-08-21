@@ -132,6 +132,8 @@ export interface CodeItem {
 export interface OpmeItem {
   description: string;
   quantity: number;
+  /** Up to 3 suppliers for this item */
+  suppliers?: string[];
 }
 
 export type AdmissionRegime = 'inpatient' | 'day_hospital';
@@ -151,6 +153,8 @@ export interface SurgicalRequestData {
   extraCbhpm: CodeItem[];
   cid: CodeItem[];
   opme: OpmeItem[];
+  equipment: OpmeItem[];
+  procedureDuration: string;
   surgicalDescription: string;
 
   // C — Regime + reservations
@@ -161,6 +165,7 @@ export interface SurgicalRequestData {
 
   // D — Billing
   billingType: string;
+  providerCode: string;
 
   // identification
   surgeon: string;
@@ -185,15 +190,24 @@ export function defaultSurgicalRequestData(patient: any, template?: DocumentTemp
     extraCbhpm: [],
     cid: [],
     opme: [],
+    equipment: [],
+    procedureDuration: seedDefaults.procedureDuration ?? '',
     surgicalDescription: seedDefaults.surgicalDescription ?? '',
     regime: (seedDefaults.regime as AdmissionRegime) ?? 'inpatient',
     icuReservation: seedDefaults.icuReservation ?? false,
     bloodReservation: seedDefaults.bloodReservation ?? false,
     bloodUnits: seedDefaults.bloodUnits ?? 0,
     billingType: patient?.billingType ?? '',
+    providerCode: '',
     surgeon: patient?.surgeon ?? '',
   };
 }
+
+/** True when the billing form means the document is a quote request, not an authorization. */
+export function isPrivateFullCostBilling(billingType: string | null | undefined): boolean {
+  return (billingType ?? '').toLowerCase().includes('custos totais particulares');
+}
+
 
 const REGIME_LABEL: Record<AdmissionRegime, string> = {
   inpatient: 'Hospitalar',
@@ -208,7 +222,12 @@ function buildSignature(data: { surgeon: string }, signatureInfo?: Partial<Signa
 
 export function buildSurgicalRequestHtml(data: SurgicalRequestData, signatureInfo?: Partial<SignatureInfo>): string {
   const parts: string[] = [];
-  parts.push(`<p>Solicito autorização para realização do procedimento abaixo:</p>`);
+  parts.push(
+    isPrivateFullCostBilling(data.billingType)
+      ? `<p>Solicito orçamento para realização do procedimento abaixo:</p>`
+      : `<p>Solicito autorização para realização do procedimento abaixo:</p>`,
+  );
+
 
   parts.push(`<h3>Identificação</h3>`);
   parts.push(`<p><strong>Paciente:</strong> ${escapeHtml(data.patientName)}${data.patientAge ? ` (${escapeHtml(data.patientAge)})` : ''}</p>`);
@@ -230,10 +249,24 @@ export function buildSurgicalRequestHtml(data: SurgicalRequestData, signatureInf
     parts.push(`<ul>${data.cid.map((c) => `<li><strong>${escapeHtml(c.code)}</strong> — ${escapeHtml(c.label)}</li>`).join('')}</ul>`);
   }
 
-  if (data.opme.length > 0) {
-    parts.push(`<h3>OPME / Materiais especiais</h3>`);
-    parts.push(`<ul>${data.opme.map((o) => `<li>${escapeHtml(o.description)} — <strong>Qtd: ${o.quantity}</strong></li>`).join('')}</ul>`);
+  if (data.procedureDuration && data.procedureDuration.trim()) {
+    parts.push(`<p><strong>Duração prevista:</strong> ${escapeHtml(data.procedureDuration)}</p>`);
   }
+
+  if ((data.opme ?? []).length > 0) {
+    parts.push(`<h3>OPME / Materiais especiais</h3>`);
+    parts.push(`<ul>${data.opme.map((o) => {
+      const sup = (o.suppliers ?? []).map((s) => (s || '').trim()).filter(Boolean);
+      const supText = sup.length ? ` <br/><em>Fornecedores: ${sup.map(escapeHtml).join(' · ')}</em>` : '';
+      return `<li>${escapeHtml(o.description)} — <strong>Qtd: ${o.quantity}</strong>${supText}</li>`;
+    }).join('')}</ul>`);
+  }
+
+  if ((data.equipment ?? []).length > 0) {
+    parts.push(`<h3>Equipamentos</h3>`);
+    parts.push(`<ul>${data.equipment.map((o) => `<li>${escapeHtml(o.description)} — <strong>Qtd: ${o.quantity}</strong></li>`).join('')}</ul>`);
+  }
+
 
   if (data.surgicalDescription && data.surgicalDescription.trim()) {
     parts.push(`<h3>Descrição cirúrgica</h3>`);
@@ -250,6 +283,10 @@ export function buildSurgicalRequestHtml(data: SurgicalRequestData, signatureInf
 
   parts.push(`<h3>Faturamento</h3>`);
   parts.push(`<p><strong>Forma de faturamento:</strong> ${escapeHtml(data.billingType || '—')}</p>`);
+  if (data.providerCode && data.providerCode.trim()) {
+    parts.push(`<p><strong>Código de prestador:</strong> ${escapeHtml(data.providerCode)}</p>`);
+  }
+
 
   parts.push(`<p>${formatCityDate('Salvador', new Date())}</p>`);
   parts.push(buildSignature(data, signatureInfo));

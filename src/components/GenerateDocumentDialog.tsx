@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { recordProcedureCodeSuggestions, CodeSuggestionEntry } from '@/hooks/useCodeSuggestions';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -106,7 +107,10 @@ export function GenerateDocumentDialog({ open, onClose, patient }: Props) {
           if (defaultsBundle.extraCbhpm.length && base.extraCbhpm.length === 0) base.extraCbhpm = [...defaultsBundle.extraCbhpm];
           if (defaultsBundle.cid.length && base.cid.length === 0) base.cid = [...defaultsBundle.cid];
           if (defaultsBundle.opme.length && base.opme.length === 0) base.opme = [...defaultsBundle.opme];
+          if (defaultsBundle.equipment.length && base.equipment.length === 0) base.equipment = [...defaultsBundle.equipment];
+          if (defaultsBundle.duration && !base.procedureDuration) base.procedureDuration = defaultsBundle.duration;
         }
+
         setStructured({ kind: 'surgical_request', data: base });
         break;
       }
@@ -156,6 +160,24 @@ export function GenerateDocumentDialog({ open, onClose, patient }: Props) {
 
   const runGenerate = async () => {
     if (!patient || !structured) return;
+    // Memorize everything typed so it becomes a suggestion next time
+    if (structured.kind === 'surgical_request' && patient?.procedure) {
+      const sd = structured.data;
+      const entries: CodeSuggestionEntry[] = [];
+      if (sd.mainCbhpm.code || sd.mainCbhpm.label) entries.push({ kind: 'cbhpm', value: sd.mainCbhpm.code, label: sd.mainCbhpm.label });
+      sd.extraCbhpm.forEach((c) => entries.push({ kind: 'cbhpm', value: c.code, label: c.label }));
+      sd.cid.forEach((c) => entries.push({ kind: 'cid', value: c.code, label: c.label }));
+      (sd.opme ?? []).forEach((o) => {
+        if (o.description) entries.push({ kind: 'opme', value: '', label: o.description });
+        (o.suppliers ?? []).forEach((s) => { if (s && s.trim()) entries.push({ kind: 'supplier', value: '', label: s.trim() }); });
+      });
+      (sd.equipment ?? []).forEach((o) => {
+        if (o.description) entries.push({ kind: 'equipment', value: '', label: o.description });
+      });
+      if (sd.procedureDuration?.trim()) entries.push({ kind: 'duration', value: '', label: sd.procedureDuration.trim() });
+      if (sd.providerCode?.trim()) entries.push({ kind: 'provider_code', value: sd.providerCode.trim(), label: sd.payer || '' });
+      void recordProcedureCodeSuggestions(patient.procedure, entries);
+    }
     await generate.mutateAsync({
       patient,
       type,
@@ -172,7 +194,10 @@ export function GenerateDocumentDialog({ open, onClose, patient }: Props) {
     // Only ask about saving defaults for surgical requests with at least one code
     if (structured.kind === 'surgical_request') {
       const sd = structured.data;
-      const hasAny = !!(sd.mainCbhpm.code || sd.mainCbhpm.label || sd.extraCbhpm.length || sd.cid.length || sd.opme.length);
+      const hasAny = !!(
+        sd.mainCbhpm.code || sd.mainCbhpm.label || sd.extraCbhpm.length || sd.cid.length ||
+        (sd.opme ?? []).length || (sd.equipment ?? []).length || sd.procedureDuration
+      );
       if (hasAny && (patient?.surgeon || patient?.concierge)) {
         setSaveDefaultsOpen(true);
         return;
@@ -180,6 +205,7 @@ export function GenerateDocumentDialog({ open, onClose, patient }: Props) {
     }
     runGenerate();
   };
+
 
   const handleSaveDefaultsConfirm = async (chosen: { surgeon: boolean; concierge: boolean }) => {
     setSaveDefaultsOpen(false);

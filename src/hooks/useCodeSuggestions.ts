@@ -1,6 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 
-export type SuggestionKind = 'cbhpm' | 'cid' | 'opme';
+export type SuggestionKind = 'cbhpm' | 'cid' | 'opme' | 'supplier' | 'equipment' | 'duration' | 'provider_code';
 
 export interface CodeSuggestionEntry {
   kind: SuggestionKind;

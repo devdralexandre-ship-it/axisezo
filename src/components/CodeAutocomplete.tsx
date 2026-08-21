@@ -3,7 +3,7 @@ import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 import { normalizeText } from '@/lib/utils';
 
-export type SuggestionKind = 'cbhpm' | 'cid' | 'opme';
+export type SuggestionKind = 'cbhpm' | 'cid' | 'opme' | 'supplier' | 'equipment' | 'duration' | 'provider_code';
 
 interface Suggestion {
   value: string;
