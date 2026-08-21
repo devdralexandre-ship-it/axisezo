@@ -1,4 +1,6 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useStaffNames } from '@/hooks/useStaffNames';
+
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -232,10 +234,25 @@ export function CsvImporter({ open, onClose, onImport, existingPatientNames }: C
   const [rows, setRows] = useState<ParsedRow[]>([]);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<{ success: number; failed: number }>({ success: 0, failed: 0 });
+  const { surgeons: staffSurgeons, concierges: staffConcierges } = useStaffNames();
   const [defaultSurgeon, setDefaultSurgeon] = useState('Dr Alexandre Ziomkowski');
   const [defaultResponsible, setDefaultResponsible] = useState('Margô');
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editDraft, setEditDraft] = useState<ParsedRow['mapped'] | null>(null);
+
+  const responsibleOptions = useMemo(
+    () => Array.from(new Set([...staffConcierges, 'Call Center', ...staffSurgeons])),
+    [staffConcierges, staffSurgeons],
+  );
+
+  // Keep the selected defaults valid if a name is no longer registered
+  useEffect(() => {
+    if (staffSurgeons.length && !staffSurgeons.includes(defaultSurgeon)) setDefaultSurgeon(staffSurgeons[0]);
+  }, [staffSurgeons, defaultSurgeon]);
+  useEffect(() => {
+    if (responsibleOptions.length && !responsibleOptions.includes(defaultResponsible)) setDefaultResponsible(responsibleOptions[0]);
+  }, [responsibleOptions, defaultResponsible]);
+
 
   const existingSet = useMemo(() => new Set(existingPatientNames.map(n => normalizeStr(n))), [existingPatientNames]);
 
@@ -435,9 +452,7 @@ export function CsvImporter({ open, onClose, onImport, existingPatientNames }: C
                     <Select value={defaultSurgeon} onValueChange={setDefaultSurgeon}>
                       <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Dr Alexandre Ziomkowski">Dr Alexandre Ziomkowski</SelectItem>
-                        <SelectItem value="Dr Evaristo Oliveira">Dr Evaristo Oliveira</SelectItem>
-                        <SelectItem value="Dr João Estrela">Dr João Estrela</SelectItem>
+                        {staffSurgeons.map((s) => (<SelectItem key={s} value={s}>{s}</SelectItem>))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -446,12 +461,9 @@ export function CsvImporter({ open, onClose, onImport, existingPatientNames }: C
                     <Select value={defaultResponsible} onValueChange={setDefaultResponsible}>
                       <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Margô">Margô</SelectItem>
-                        <SelectItem value="Call Center">Call Center</SelectItem>
-                        <SelectItem value="Dr Alexandre Ziomkowski">Dr Alexandre Ziomkowski</SelectItem>
-                        <SelectItem value="Dr Evaristo Oliveira">Dr Evaristo Oliveira</SelectItem>
-                        <SelectItem value="Dr João Estrela">Dr João Estrela</SelectItem>
+                        {responsibleOptions.map((r) => (<SelectItem key={r} value={r}>{r}</SelectItem>))}
                       </SelectContent>
+
                     </Select>
                   </div>
                 </div>

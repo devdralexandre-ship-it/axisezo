@@ -15,7 +15,8 @@ import {
   DEFAULT_TEMPLATE_BODIES,
   DocumentTemplate,
 } from '@/data/documents';
-import { SURGEONS } from '@/data/constants';
+
+import { useStaffNames } from '@/hooks/useStaffNames';
 import {
   useDocumentTemplates,
   useSaveTemplate,
@@ -36,6 +37,7 @@ const NO_SURGEON = '__none__';
 const BUCKET = 'patient-documents';
 
 export default function Templates() {
+  const { surgeons: staffSurgeons } = useStaffNames();
   const { data: templates = [], isLoading } = useDocumentTemplates();
   const saveMutation = useSaveTemplate();
   const deleteMutation = useDeleteTemplate();
@@ -281,7 +283,7 @@ export default function Templates() {
                     <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value={NO_SURGEON}>Genérico (qualquer cirurgião)</SelectItem>
-                      {SURGEONS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                      {staffSurgeons.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>

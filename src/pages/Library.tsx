@@ -23,7 +23,8 @@ import {
   MaterialPackage,
   MaterialPhase,
 } from '@/hooks/useMaterials';
-import { PROCEDURES, SURGEONS } from '@/data/constants';
+import { PROCEDURES } from '@/data/constants';
+import { useStaffNames } from '@/hooks/useStaffNames';
 import { ArrowLeft, Plus, Pencil, Trash2, FileText, Video, Type as TypeIcon, Upload, Package } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -132,6 +133,7 @@ function MaterialsTab() {
 }
 
 function MaterialEditor({ material, onClose }: { material: Partial<Material>; onClose: () => void }) {
+  const { surgeons: staffSurgeons } = useStaffNames();
   const [data, setData] = useState<Partial<Material>>(material);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -201,7 +203,7 @@ function MaterialEditor({ material, onClose }: { material: Partial<Material>; on
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value={NONE}>Todos</SelectItem>
-                  {SURGEONS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  {staffSurgeons.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -319,6 +321,7 @@ function PackagesTab() {
 }
 
 function PackageEditor({ pkg, onClose }: { pkg: Partial<MaterialPackage>; onClose: () => void }) {
+  const { surgeons: staffSurgeons } = useStaffNames();
   const { data: materials = [] } = useMaterials();
   const { data: allPM = [] } = useAllPackageMaterials();
   const [data, setData] = useState<Partial<MaterialPackage>>(pkg);
@@ -369,7 +372,7 @@ function PackageEditor({ pkg, onClose }: { pkg: Partial<MaterialPackage>; onClos
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value={NONE}>Todos</SelectItem>
-                  {SURGEONS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  {staffSurgeons.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>

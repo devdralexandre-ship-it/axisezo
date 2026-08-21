@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useStaffNames } from '@/hooks/useStaffNames';
+
 import { useUserRole, AppRole, Capability, ALL_CAPABILITIES, CapsMap } from '@/hooks/useUserRole';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -82,17 +84,22 @@ export default function AdminUsers() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<AdminUser | null>(null);
   const [creating, setCreating] = useState(false);
+  const queryClient = useQueryClient();
 
   const refresh = async () => {
     setLoading(true);
     try {
       const data = await callAdmin({ action: 'list' });
       setUsers(data.users ?? []);
+      // Operational names (surgeons / concierges) may have changed: refresh
+      // every menu across the app that lists staff names.
+      queryClient.invalidateQueries({ queryKey: ['staff-names'] });
     } catch (e) {
       toast.error((e as Error).message);
     }
     setLoading(false);
   };
+
 
   useEffect(() => {
     if (allowed) refresh();
