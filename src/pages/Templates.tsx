@@ -37,6 +37,7 @@ const NO_SURGEON = '__none__';
 const BUCKET = 'patient-documents';
 
 export default function Templates() {
+  const { surgeons: staffSurgeons } = useStaffNames();
   const { data: templates = [], isLoading } = useDocumentTemplates();
   const saveMutation = useSaveTemplate();
   const deleteMutation = useDeleteTemplate();

@@ -133,6 +133,7 @@ function MaterialsTab() {
 }
 
 function MaterialEditor({ material, onClose }: { material: Partial<Material>; onClose: () => void }) {
+  const { surgeons: staffSurgeons } = useStaffNames();
   const [data, setData] = useState<Partial<Material>>(material);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -320,6 +321,7 @@ function PackagesTab() {
 }
 
 function PackageEditor({ pkg, onClose }: { pkg: Partial<MaterialPackage>; onClose: () => void }) {
+  const { surgeons: staffSurgeons } = useStaffNames();
   const { data: materials = [] } = useMaterials();
   const { data: allPM = [] } = useAllPackageMaterials();
   const [data, setData] = useState<Partial<MaterialPackage>>(pkg);
