@@ -229,6 +229,90 @@ async function recordSuggestions(procedure: string, sd: SurgicalRequestData) {
   }
 }
 
+/* ---------- Network resilience helpers ---------- */
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** Cache do papel timbrado (PDF de fundo) por aba — evita rebaixar MBs a cada documento. */
+const templatePdfCache = new Map<string, ArrayBuffer>();
+
+async function fetchTemplatePdfBytes(path: string): Promise<ArrayBuffer> {
+  const cached = templatePdfCache.get(path);
+  if (cached) return cached.slice(0);
+
+  let lastErr: any;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const signedUrl = await getTemplatePdfSignedUrl(path);
+      if (!signedUrl) throw new Error('não foi possível obter o link do papel timbrado');
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 30000);
+      try {
+        const resp = await fetch(signedUrl, { signal: ctrl.signal });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const bytes = await resp.arrayBuffer();
+        if (!bytes || bytes.byteLength === 0) throw new Error('arquivo vazio');
+        templatePdfCache.set(path, bytes.slice(0));
+        return bytes;
+      } finally {
+        clearTimeout(timer);
+      }
+    } catch (e: any) {
+      lastErr = e;
+      if (attempt < 3) await sleep(attempt * 800);
+    }
+  }
+  throw new Error(
+    `Falha ao baixar o papel timbrado do template (${lastErr?.message || 'erro de rede'}). Verifique a conexão e tente novamente.`,
+  );
+}
+
+async function uploadPdfWithRetry(path: string, blob: Blob): Promise<void> {
+  let lastErr: any;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    const { error } = await supabase.storage
+      .from(BUCKET)
+      .upload(path, blob, { contentType: 'application/pdf', upsert: true });
+    if (!error) return;
+    lastErr = error;
+    if (attempt < 3) await sleep(attempt * 800);
+  }
+  throw new Error(
+    `Falha ao enviar o PDF para o armazenamento (${lastErr?.message || 'erro de rede'}). Verifique a conexão e tente novamente.`,
+  );
+}
+
+/** Renderiza o PDF final a partir do HTML do documento, respeitando o modo do template. */
+async function renderDocumentPdfBlob(params: {
+  template: DocumentTemplate | null;
+  title: string;
+  body: string;
+}): Promise<Blob> {
+  const { template, title, body } = params;
+  if (template?.mode === 'pdf' && template.pdf_template_path && template.content_box) {
+    const templatePdfBytes = await fetchTemplatePdfBytes(template.pdf_template_path);
+    const { renderInsidePdfTemplate, htmlToBlocks } = await loadPdfTemplateRenderer();
+    const blocks = htmlToBlocks(body);
+    const bytes = await renderInsidePdfTemplate({
+      templatePdfBytes,
+      contentBox: template.content_box,
+      blocks,
+      continuationStrategy: template.continuation_strategy ?? 'same_page',
+    });
+    return new Blob([bytes as BlobPart], { type: 'application/pdf' });
+  }
+  const logoUrl = await getSignedLogoUrl(template?.logo_path);
+  const { renderDocumentToBlob } = await loadPdfGenerator();
+  return renderDocumentToBlob({
+    title,
+    bodyHtml: body,
+    headerHtml: template?.header_html ?? '',
+    footerHtml: template?.footer_html ?? '',
+    logoUrl,
+  });
+}
+
+
 export function useGenerateDocument() {
   const qc = useQueryClient();
   return useMutation({
@@ -267,68 +351,39 @@ export function useGenerateDocument() {
         body = renderTemplate(rawBody, vars);
       }
 
-      const headerHtml = template?.header_html ?? '';
-      const footerHtml = template?.footer_html ?? '';
+      // 1. Render PDF (com retry/cache no papel timbrado)
+      const blob = await renderDocumentPdfBlob({ template, title, body });
 
-      // 1. Render PDF — branch by template mode
-      let blob: Blob;
-      if (template?.mode === 'pdf' && template.pdf_template_path && template.content_box) {
-        const signedUrl = await getTemplatePdfSignedUrl(template.pdf_template_path);
-        if (!signedUrl) throw new Error('Não foi possível baixar o PDF do template');
-        const resp = await fetch(signedUrl);
-        const templatePdfBytes = await resp.arrayBuffer();
-        const { renderInsidePdfTemplate, htmlToBlocks } = await loadPdfTemplateRenderer();
-        const blocks = htmlToBlocks(body);
-        const bytes = await renderInsidePdfTemplate({
-          templatePdfBytes,
-          contentBox: template.content_box,
-          blocks,
-          continuationStrategy: template.continuation_strategy ?? 'same_page',
-        });
-        blob = new Blob([bytes as BlobPart], { type: 'application/pdf' });
-      } else {
-        const logoUrl = await getSignedLogoUrl(template?.logo_path);
-        const { renderDocumentToBlob } = await loadPdfGenerator();
-        blob = await renderDocumentToBlob({
-          title,
-          bodyHtml: body,
-          headerHtml,
-          footerHtml,
-          logoUrl,
-        });
-      }
+      // 2. Upload PDF PRIMEIRO — evita registro órfão sem arquivo
+      const docId =
+        typeof crypto !== 'undefined' && 'randomUUID' in crypto
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      const path = `${patient.id}/${docId}.pdf`;
+      await uploadPdfWithRetry(path, blob);
 
-      // 2. Insert document row
+      // 3. Insert document row já com pdf_path
       const { data: inserted, error: insertErr } = await supabase
         .from('patient_documents' as any)
         .insert({
+          id: docId,
           patient_id: patient.id,
           template_id: template?.id ?? null,
           type,
           title,
           body_html: body,
           data: dataPayload,
+          pdf_path: path,
         } as any)
         .select()
         .single();
-      if (insertErr) throw insertErr;
+      if (insertErr) {
+        try { await supabase.storage.from(BUCKET).remove([path]); } catch { /* noop */ }
+        throw insertErr;
+      }
       const docRow = inserted as unknown as PatientDocument;
 
-      // 3. Upload PDF
-      const path = `${patient.id}/${docRow.id}.pdf`;
-      const { error: upErr } = await supabase.storage
-        .from(BUCKET)
-        .upload(path, blob, { contentType: 'application/pdf', upsert: true });
-      if (upErr) throw upErr;
-
-      // 4. Update with pdf_path
-      const { error: updErr } = await supabase
-        .from('patient_documents' as any)
-        .update({ pdf_path: path } as any)
-        .eq('id', docRow.id);
-      if (updErr) throw updErr;
-
-      // 5. Record suggestions (best effort)
+      // 4. Record suggestions (best effort)
       if (structuredData?.kind === 'surgical_request' && patient?.procedure) {
         try { await recordSuggestions(patient.procedure, structuredData.data); } catch (e) { console.warn('suggestions', e); }
       }
@@ -342,6 +397,39 @@ export function useGenerateDocument() {
     onError: (e: any) => toast.error(`Erro ao gerar: ${e.message}`),
   });
 }
+
+/** Regera o PDF de um documento já salvo (usado quando o upload falhou e o registro ficou sem arquivo). */
+export function useRegenerateDocumentPdf() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (doc: PatientDocument) => {
+      let template: DocumentTemplate | null = null;
+      if (doc.template_id) {
+        const { data } = await supabase
+          .from('document_templates' as any)
+          .select('*')
+          .eq('id', doc.template_id)
+          .maybeSingle();
+        template = (data as unknown as DocumentTemplate) ?? null;
+      }
+      const blob = await renderDocumentPdfBlob({ template, title: doc.title, body: doc.body_html });
+      const path = doc.pdf_path || `${doc.patient_id}/${doc.id}.pdf`;
+      await uploadPdfWithRetry(path, blob);
+      const { error } = await supabase
+        .from('patient_documents' as any)
+        .update({ pdf_path: path } as any)
+        .eq('id', doc.id);
+      if (error) throw error;
+      return { ...doc, pdf_path: path };
+    },
+    onSuccess: (doc) => {
+      qc.invalidateQueries({ queryKey: ['patient_documents', doc.patient_id] });
+      toast.success('PDF regerado!');
+    },
+    onError: (e: any) => toast.error(`Erro ao regerar: ${e.message}`),
+  });
+}
+
 
 export function useDeleteDocument() {
   const qc = useQueryClient();

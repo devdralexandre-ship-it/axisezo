@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { usePatientDocuments, useDeleteDocument, useDocumentDownloadUrl } from '@/hooks/useDocuments';
+import { usePatientDocuments, useDeleteDocument, useDocumentDownloadUrl, useRegenerateDocumentPdf } from '@/hooks/useDocuments';
 import { useSurgeonCertStatus, useSignDocument, useAuthorizeDocumentSignature } from '@/hooks/useSigning';
 import { useUserRole } from '@/hooks/useUserRole';
 import { DOCUMENT_TYPE_LABELS } from '@/data/documents';
 import { GenerateDocumentDialog } from './GenerateDocumentDialog';
 import { SignatureConfirmDialog } from './SignatureConfirmDialog';
-import { FileText, Plus, Download, Trash2, Loader2, ShieldCheck, PenLine, CheckCircle2 } from 'lucide-react';
+import { FileText, Plus, Download, Trash2, Loader2, ShieldCheck, PenLine, CheckCircle2, RefreshCw } from 'lucide-react';
+
 import { toast } from 'sonner';
 
 interface Props {
@@ -66,6 +67,8 @@ function DownloadDocumentButton({ pdfPath, title, signed = false }: { pdfPath: s
 export function PatientDocuments({ patient }: Props) {
   const { data: docs = [], isLoading } = usePatientDocuments(patient?.id);
   const deleteDoc = useDeleteDocument();
+  const regenDoc = useRegenerateDocumentPdf();
+
   const { data: certStatus } = useSurgeonCertStatus(patient?.id);
   const signDoc = useSignDocument();
   const authorizeDoc = useAuthorizeDocumentSignature();
@@ -140,8 +143,27 @@ export function PatientDocuments({ patient }: Props) {
                 {d.signed_at && (
                   <span className="ml-1 text-pipeline-green">• Assinado em {formatDate(d.signed_at)}</span>
                 )}
+                {!d.pdf_path && (
+                  <span className="ml-1 text-destructive">• PDF pendente (upload falhou)</span>
+                )}
               </p>
             </div>
+            {!d.pdf_path && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-[11px] gap-1"
+                disabled={regenDoc.isPending}
+                onClick={() => regenDoc.mutate(d)}
+                title="Regerar o PDF deste documento"
+              >
+                {regenDoc.isPending
+                  ? <Loader2 className="h-3 w-3 animate-spin" />
+                  : <RefreshCw className="h-3 w-3" />}
+                Regerar PDF
+              </Button>
+            )}
+
             {d.pdf_path && !d.signed_pdf_path && certStatus?.has_cert && canDelegateSign(d) && (
               <Button
                 variant="ghost"

@@ -164,6 +164,12 @@ export default function Templates() {
       setEditing(updated);
       await saveMutation.mutateAsync(updated as any);
       toast.success('PDF enviado! Agora demarque a área de conteúdo.');
+      if (file.size > 1024 * 1024) {
+        toast.warning(
+          `Papel timbrado pesado (${(file.size / (1024 * 1024)).toFixed(1)} MB). Prefira uma versão comprimida: arquivos grandes aumentam o risco de falha ao gerar documentos em conexões móveis.`,
+        );
+      }
+
     } catch (e: any) {
       toast.error(`Erro: ${e.message}`);
     } finally {
@@ -489,7 +495,13 @@ export default function Templates() {
                           </Button>
                         )}
                       </div>
+
                     </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      Dica: use um PDF de fundo leve (idealmente abaixo de 1 MB). Arquivos grandes
+                      são baixados pelo navegador a cada sessão e aumentam o risco de falha ao gerar documentos.
+                    </p>
+
                     {pdfPreviewUrl && (
                       <div className="pt-2">
                         <PdfTemplateEditor
