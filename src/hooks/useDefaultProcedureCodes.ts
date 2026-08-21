@@ -154,9 +154,19 @@ export function useSaveDefaults() {
       data.cid.forEach((c, i) => {
         if (c.code || c.label) rows.push({ procedure, scope, scope_owner, kind: 'cid', code: c.code, label: c.label, quantity: 1, position: i, created_by });
       });
-      data.opme.forEach((o, i) => {
-        if (o.description) rows.push({ procedure, scope, scope_owner, kind: 'opme', code: '', label: o.description, quantity: o.quantity || 1, position: i, created_by });
+      (data.opme ?? []).forEach((o, i) => {
+        if (o.description) {
+          const suppliers = (o.suppliers ?? []).map((s) => (s || '').trim()).filter(Boolean).join('|');
+          rows.push({ procedure, scope, scope_owner, kind: 'opme', code: suppliers, label: o.description, quantity: o.quantity || 1, position: i, created_by });
+        }
       });
+      (data.equipment ?? []).forEach((o, i) => {
+        if (o.description) rows.push({ procedure, scope, scope_owner, kind: 'equipment', code: '', label: o.description, quantity: o.quantity || 1, position: i, created_by });
+      });
+      if (data.procedureDuration && data.procedureDuration.trim()) {
+        rows.push({ procedure, scope, scope_owner, kind: 'duration', code: '', label: data.procedureDuration.trim(), quantity: 1, position: 0, created_by });
+      }
+
 
       if (rows.length === 0) return;
 
