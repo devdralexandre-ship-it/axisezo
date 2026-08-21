@@ -351,73 +351,45 @@ export function useGenerateDocument() {
         body = renderTemplate(rawBody, vars);
       }
 
-      const headerHtml = template?.header_html ?? '';
-      const footerHtml = template?.footer_html ?? '';
+      // 1. Render PDF (com retry/cache no papel timbrado)
+      const blob = await renderDocumentPdfBlob({ template, title, body });
 
-      // 1. Render PDF — branch by template mode
-      let blob: Blob;
-      if (template?.mode === 'pdf' && template.pdf_template_path && template.content_box) {
-        const signedUrl = await getTemplatePdfSignedUrl(template.pdf_template_path);
-        if (!signedUrl) throw new Error('Não foi possível baixar o PDF do template');
-        const resp = await fetch(signedUrl);
-        const templatePdfBytes = await resp.arrayBuffer();
-        const { renderInsidePdfTemplate, htmlToBlocks } = await loadPdfTemplateRenderer();
-        const blocks = htmlToBlocks(body);
-        const bytes = await renderInsidePdfTemplate({
-          templatePdfBytes,
-          contentBox: template.content_box,
-          blocks,
-          continuationStrategy: template.continuation_strategy ?? 'same_page',
-        });
-        blob = new Blob([bytes as BlobPart], { type: 'application/pdf' });
-      } else {
-        const logoUrl = await getSignedLogoUrl(template?.logo_path);
-        const { renderDocumentToBlob } = await loadPdfGenerator();
-        blob = await renderDocumentToBlob({
-          title,
-          bodyHtml: body,
-          headerHtml,
-          footerHtml,
-          logoUrl,
-        });
-      }
+      // 2. Upload PDF PRIMEIRO — evita registro órfão sem arquivo
+      const docId =
+        typeof crypto !== 'undefined' && 'randomUUID' in crypto
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      const path = `${patient.id}/${docId}.pdf`;
+      await uploadPdfWithRetry(path, blob);
 
-      // 2. Insert document row
+      // 3. Insert document row já com pdf_path
       const { data: inserted, error: insertErr } = await supabase
         .from('patient_documents' as any)
         .insert({
+          id: docId,
           patient_id: patient.id,
           template_id: template?.id ?? null,
           type,
           title,
           body_html: body,
           data: dataPayload,
+          pdf_path: path,
         } as any)
         .select()
         .single();
-      if (insertErr) throw insertErr;
+      if (insertErr) {
+        await supabase.storage.from(BUCKET).remove([path]).catch?.(() => {});
+        throw insertErr;
+      }
       const docRow = inserted as unknown as PatientDocument;
 
-      // 3. Upload PDF
-      const path = `${patient.id}/${docRow.id}.pdf`;
-      const { error: upErr } = await supabase.storage
-        .from(BUCKET)
-        .upload(path, blob, { contentType: 'application/pdf', upsert: true });
-      if (upErr) throw upErr;
-
-      // 4. Update with pdf_path
-      const { error: updErr } = await supabase
-        .from('patient_documents' as any)
-        .update({ pdf_path: path } as any)
-        .eq('id', docRow.id);
-      if (updErr) throw updErr;
-
-      // 5. Record suggestions (best effort)
+      // 4. Record suggestions (best effort)
       if (structuredData?.kind === 'surgical_request' && patient?.procedure) {
         try { await recordSuggestions(patient.procedure, structuredData.data); } catch (e) { console.warn('suggestions', e); }
       }
 
       return { ...docRow, pdf_path: path };
+
     },
     onSuccess: (doc) => {
       qc.invalidateQueries({ queryKey: ['patient_documents', doc.patient_id] });
