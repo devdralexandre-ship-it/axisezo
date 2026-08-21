@@ -66,6 +66,8 @@ function DownloadDocumentButton({ pdfPath, title, signed = false }: { pdfPath: s
 export function PatientDocuments({ patient }: Props) {
   const { data: docs = [], isLoading } = usePatientDocuments(patient?.id);
   const deleteDoc = useDeleteDocument();
+  const regenDoc = useRegenerateDocumentPdf();
+
   const { data: certStatus } = useSurgeonCertStatus(patient?.id);
   const signDoc = useSignDocument();
   const authorizeDoc = useAuthorizeDocumentSignature();
