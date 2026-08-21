@@ -229,6 +229,90 @@ async function recordSuggestions(procedure: string, sd: SurgicalRequestData) {
   }
 }
 
+/* ---------- Network resilience helpers ---------- */
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** Cache do papel timbrado (PDF de fundo) por aba — evita rebaixar MBs a cada documento. */
+const templatePdfCache = new Map<string, ArrayBuffer>();
+
+async function fetchTemplatePdfBytes(path: string): Promise<ArrayBuffer> {
+  const cached = templatePdfCache.get(path);
+  if (cached) return cached.slice(0);
+
+  let lastErr: any;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const signedUrl = await getTemplatePdfSignedUrl(path);
+      if (!signedUrl) throw new Error('não foi possível obter o link do papel timbrado');
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 30000);
+      try {
+        const resp = await fetch(signedUrl, { signal: ctrl.signal });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const bytes = await resp.arrayBuffer();
+        if (!bytes || bytes.byteLength === 0) throw new Error('arquivo vazio');
+        templatePdfCache.set(path, bytes.slice(0));
+        return bytes;
+      } finally {
+        clearTimeout(timer);
+      }
+    } catch (e: any) {
+      lastErr = e;
+      if (attempt < 3) await sleep(attempt * 800);
+    }
+  }
+  throw new Error(
+    `Falha ao baixar o papel timbrado do template (${lastErr?.message || 'erro de rede'}). Verifique a conexão e tente novamente.`,
+  );
+}
+
+async function uploadPdfWithRetry(path: string, blob: Blob): Promise<void> {
+  let lastErr: any;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    const { error } = await supabase.storage
+      .from(BUCKET)
+      .upload(path, blob, { contentType: 'application/pdf', upsert: true });
+    if (!error) return;
+    lastErr = error;
+    if (attempt < 3) await sleep(attempt * 800);
+  }
+  throw new Error(
+    `Falha ao enviar o PDF para o armazenamento (${lastErr?.message || 'erro de rede'}). Verifique a conexão e tente novamente.`,
+  );
+}
+
+/** Renderiza o PDF final a partir do HTML do documento, respeitando o modo do template. */
+async function renderDocumentPdfBlob(params: {
+  template: DocumentTemplate | null;
+  title: string;
+  body: string;
+}): Promise<Blob> {
+  const { template, title, body } = params;
+  if (template?.mode === 'pdf' && template.pdf_template_path && template.content_box) {
+    const templatePdfBytes = await fetchTemplatePdfBytes(template.pdf_template_path);
+    const { renderInsidePdfTemplate, htmlToBlocks } = await loadPdfTemplateRenderer();
+    const blocks = htmlToBlocks(body);
+    const bytes = await renderInsidePdfTemplate({
+      templatePdfBytes,
+      contentBox: template.content_box,
+      blocks,
+      continuationStrategy: template.continuation_strategy ?? 'same_page',
+    });
+    return new Blob([bytes as BlobPart], { type: 'application/pdf' });
+  }
+  const logoUrl = await getSignedLogoUrl(template?.logo_path);
+  const { renderDocumentToBlob } = await loadPdfGenerator();
+  return renderDocumentToBlob({
+    title,
+    bodyHtml: body,
+    headerHtml: template?.header_html ?? '',
+    footerHtml: template?.footer_html ?? '',
+    logoUrl,
+  });
+}
+
+
 export function useGenerateDocument() {
   const qc = useQueryClient();
   return useMutation({
