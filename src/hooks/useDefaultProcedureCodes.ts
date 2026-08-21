@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { CodeItem, OpmeItem, SurgicalRequestData } from '@/data/documents';
 
 export type DefaultScope = 'surgeon' | 'concierge';
-export type DefaultKind = 'cbhpm_main' | 'cbhpm_extra' | 'cid' | 'opme';
+export type DefaultKind = 'cbhpm_main' | 'cbhpm_extra' | 'cid' | 'opme' | 'equipment' | 'duration';
 
 export interface DefaultCodeRow {
   id: string;
@@ -26,15 +26,19 @@ export interface DefaultsBundle {
   extraCbhpm: CodeItem[];
   cid: CodeItem[];
   opme: OpmeItem[];
+  equipment: OpmeItem[];
+  duration: string;
 }
 
-const EMPTY: DefaultsBundle = { mainCbhpm: null, extraCbhpm: [], cid: [], opme: [] };
+const EMPTY: DefaultsBundle = { mainCbhpm: null, extraCbhpm: [], cid: [], opme: [], equipment: [], duration: '' };
 
 function mergeBundle(rows: DefaultCodeRow[]): DefaultsBundle {
   const seenMain = new Map<string, CodeItem>();
   const seenExtra = new Map<string, CodeItem>();
   const seenCid = new Map<string, CodeItem>();
   const seenOpme = new Map<string, OpmeItem>();
+  const seenEquipment = new Map<string, OpmeItem>();
+  let duration = '';
 
   // surgeon scope first (priority), then concierge
   const ordered = [...rows].sort((a, b) => {
@@ -52,7 +56,17 @@ function mergeBundle(rows: DefaultCodeRow[]): DefaultsBundle {
       if (!seenCid.has(key)) seenCid.set(key, { code: r.code, label: r.label });
     } else if (r.kind === 'opme') {
       const opmeKey = r.label;
-      if (!seenOpme.has(opmeKey)) seenOpme.set(opmeKey, { description: r.label, quantity: r.quantity || 1 });
+      if (!seenOpme.has(opmeKey)) {
+        seenOpme.set(opmeKey, {
+          description: r.label,
+          quantity: r.quantity || 1,
+          suppliers: (r.code || '').split('|').map((s) => s.trim()).filter(Boolean),
+        });
+      }
+    } else if (r.kind === 'equipment') {
+      if (!seenEquipment.has(r.label)) seenEquipment.set(r.label, { description: r.label, quantity: r.quantity || 1 });
+    } else if (r.kind === 'duration') {
+      if (!duration) duration = r.label;
     }
   });
 
@@ -61,8 +75,11 @@ function mergeBundle(rows: DefaultCodeRow[]): DefaultsBundle {
     extraCbhpm: Array.from(seenExtra.values()),
     cid: Array.from(seenCid.values()),
     opme: Array.from(seenOpme.values()),
+    equipment: Array.from(seenEquipment.values()),
+    duration,
   };
 }
+
 
 /** Fetch defaults for a procedure/surgeon/concierge combo, merged with surgeon precedence. */
 export function useDefaultProcedureCodes(procedure: string | null | undefined, surgeon: string | null | undefined, concierge: string | null | undefined) {
