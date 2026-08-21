@@ -274,13 +274,13 @@ export function PatientPanel({ patient, open, onClose, onCompleteTask, onAddTask
 
         <div className="p-6 space-y-6">
           {/* Alerts */}
-          {patient.alerts && (
+          {patient.alerts?.trim() && (
             <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20">
               <div className="flex items-center gap-1.5 text-xs font-semibold text-destructive mb-1">
                 <AlertTriangle className="h-3.5 w-3.5" />
                 Alertas
               </div>
-              <p className="text-sm text-destructive">{patient.alerts}</p>
+              <p className="text-sm text-destructive">{patient.alerts.trim()}</p>
             </div>
           )}
 
