@@ -44,8 +44,14 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   if (loading) return <PageFallback />;
   if (!user) return <Navigate to="/auth" replace />;
-  return <>{children}</>;
+  return (
+    <>
+      {children}
+      <HelpAgent />
+    </>
+  );
 }
+
 
 function IndexGate() {
   const { user } = useAuth();
