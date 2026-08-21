@@ -283,6 +283,10 @@ export function buildSurgicalRequestHtml(data: SurgicalRequestData, signatureInf
 
   parts.push(`<h3>Faturamento</h3>`);
   parts.push(`<p><strong>Forma de faturamento:</strong> ${escapeHtml(data.billingType || '—')}</p>`);
+  if (data.providerCode && data.providerCode.trim()) {
+    parts.push(`<p><strong>Código de prestador:</strong> ${escapeHtml(data.providerCode)}</p>`);
+  }
+
 
   parts.push(`<p>${formatCityDate('Salvador', new Date())}</p>`);
   parts.push(buildSignature(data, signatureInfo));
