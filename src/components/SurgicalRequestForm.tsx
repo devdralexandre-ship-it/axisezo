@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
@@ -8,7 +8,10 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CodeAutocomplete } from './CodeAutocomplete';
 import { SurgicalRequestData, buildSurgicalRequestHtml } from '@/data/documents';
+import { findProviderCodeRule } from '@/data/providerCodes';
+import { normalizeText } from '@/lib/utils';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
+
 
 const BILLING_OPTIONS = [
   'Cooperuro',
@@ -61,6 +64,21 @@ function PatientField({ label, value, onChange }: PatientFieldProps) {
 export function SurgicalRequestForm({ data, onChange, procedureKey }: Props) {
   const set = <K extends keyof SurgicalRequestData>(key: K, v: SurgicalRequestData[K]) =>
     onChange({ ...data, [key]: v });
+
+  const isCooperuro = normalizeText(data.billingType || '').includes('cooperuro');
+  const providerRule = useMemo(() => findProviderCodeRule(data.payer), [data.payer]);
+  const lastAuto = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!isCooperuro || !providerRule) return;
+    const current = data.providerCode ?? '';
+    if (current && current !== lastAuto.current) return; // manual edit wins
+    if (current === providerRule.code) return;
+    lastAuto.current = providerRule.code;
+    onChange({ ...data, providerCode: providerRule.code });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCooperuro, providerRule?.code]);
+
 
   return (
     <div className="space-y-5">
