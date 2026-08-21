@@ -164,6 +164,12 @@ export default function Templates() {
       setEditing(updated);
       await saveMutation.mutateAsync(updated as any);
       toast.success('PDF enviado! Agora demarque a área de conteúdo.');
+      if (file.size > 1024 * 1024) {
+        toast.warning(
+          `Papel timbrado pesado (${(file.size / (1024 * 1024)).toFixed(1)} MB). Prefira uma versão comprimida: arquivos grandes aumentam o risco de falha ao gerar documentos em conexões móveis.`,
+        );
+      }
+
     } catch (e: any) {
       toast.error(`Erro: ${e.message}`);
     } finally {
