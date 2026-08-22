@@ -327,6 +327,19 @@ export function PatientUploads({ patientId }: Props) {
       </div>
 
       <ViewerDialog upload={viewing} onClose={() => setViewing(null)} />
+      <ScanToPdfDialog
+        open={scanOpen}
+        onClose={() => setScanOpen(false)}
+        onConfirm={async (pdf) => {
+          const item: PendingUpload = { tempId: crypto.randomUUID(), file: pdf, category, status: 'uploading' };
+          setPending((prev) => [item, ...prev]);
+          const ok = await runUpload(item);
+          await qc.invalidateQueries({ queryKey: ['patient-uploads', patientId] });
+          if (ok) toast.success('PDF digitalizado anexado');
+          else toast.error('Falha ao anexar o PDF digitalizado');
+        }}
+      />
+
     </div>
   );
 }
