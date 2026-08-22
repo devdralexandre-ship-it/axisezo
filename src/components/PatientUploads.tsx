@@ -264,6 +264,10 @@ export function PatientUploads({ patientId }: Props) {
         <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => cameraRef.current?.click()} disabled={busy}>
           <Camera className="h-3 w-3 mr-1" /> Foto
         </Button>
+        <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setScanOpen(true)} disabled={busy} title="Várias fotos em um único PDF">
+          <Layers className="h-3 w-3 mr-1" /> Digitalizar
+        </Button>
+
         <input
           ref={fileRef}
           type="file"
