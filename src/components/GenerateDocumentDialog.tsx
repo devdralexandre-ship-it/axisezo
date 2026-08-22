@@ -256,9 +256,10 @@ export function GenerateDocumentDialog({ open, onClose, patient }: Props) {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 flex-1 overflow-hidden">
+            <div className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-2'} flex-1 overflow-hidden`}>
               {/* Form */}
-              <div className="overflow-y-auto p-6 border-r border-border">
+              <div className={`overflow-y-auto p-6 ${isMobile ? '' : 'border-r border-border'}`}>
+
                 <div className="space-y-1 mb-4">
                   <label className="text-xs font-semibold text-muted-foreground">Título do documento</label>
                   <Input
