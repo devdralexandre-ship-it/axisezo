@@ -15,9 +15,11 @@ import {
 } from '@/hooks/usePatientUploads';
 import {
   Camera, Upload, FileText, Image as ImageIcon, Download, Trash2, Loader2,
-  Eye, AlertTriangle, RotateCw, X, CheckCircle2,
+  Eye, AlertTriangle, RotateCw, X, CheckCircle2, Layers,
 } from 'lucide-react';
+import { ScanToPdfDialog } from './ScanToPdfDialog';
 import { toast } from 'sonner';
+
 
 interface Props {
   patientId: string;
