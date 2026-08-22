@@ -47,12 +47,29 @@ export function usePatientUploads(patientId: string | undefined) {
   });
 }
 
+const COMPRESS_ABOVE = 2 * 1024 * 1024;
+
+function isNetworkError(e: any) {
+  const msg = String(e?.message ?? e ?? '').toLowerCase();
+  return (
+    e instanceof TypeError ||
+    msg.includes('failed to fetch') ||
+    msg.includes('load failed') ||
+    msg.includes('networkerror') ||
+    msg.includes('network request failed') ||
+    msg.includes('timeout')
+  );
+}
+
+const NETWORK_MSG = 'Falha de conexão ao enviar o arquivo. Verifique a internet e toque em tentar novamente.';
+
 export async function uploadPatientFile(params: {
   patientId: string;
   file: File;
   category: UploadCategory;
 }): Promise<PatientUpload> {
-  const { patientId, file, category } = params;
+  const { patientId, category } = params;
+  let file = params.file;
   if (file.size > MAX_BYTES) throw new Error(`Arquivo "${file.name}" excede 20 MB.`);
 
   const nameLower = file.name.toLowerCase();
@@ -61,14 +78,26 @@ export async function uploadPatientFile(params: {
     throw new Error('Formato HEIC/HEIF do iPhone não é suportado. No iPhone: Ajustes → Câmera → Formatos → "Mais Compatível", ou envie como JPEG/PNG.');
   }
 
+  // Large photos over mobile networks are the main cause of dropped uploads —
+  // shrink them before sending.
+  if ((file.type || '').startsWith('image/') && file.size > COMPRESS_ABOVE) {
+    try {
+      const { compressImage } = await import('@/lib/images-to-pdf');
+      file = await compressImage(file, { maxSide: 2200, quality: 0.8 });
+    } catch {
+      /* keep original file */
+    }
+  }
+
   // Some iPhones / cameras send an empty MIME — infer from extension so the
   // browser actually treats it as an image when downloading.
   let contentType = file.type || '';
   if (!contentType) {
-    if (nameLower.endsWith('.jpg') || nameLower.endsWith('.jpeg')) contentType = 'image/jpeg';
-    else if (nameLower.endsWith('.png')) contentType = 'image/png';
-    else if (nameLower.endsWith('.webp')) contentType = 'image/webp';
-    else if (nameLower.endsWith('.pdf')) contentType = 'application/pdf';
+    const n = file.name.toLowerCase();
+    if (n.endsWith('.jpg') || n.endsWith('.jpeg')) contentType = 'image/jpeg';
+    else if (n.endsWith('.png')) contentType = 'image/png';
+    else if (n.endsWith('.webp')) contentType = 'image/webp';
+    else if (n.endsWith('.pdf')) contentType = 'application/pdf';
     else contentType = 'application/octet-stream';
   }
 
@@ -76,17 +105,32 @@ export async function uploadPatientFile(params: {
   const uid = userData?.user?.id ?? null;
 
   const path = `${patientId}/${category}/${crypto.randomUUID()}_${safeName(file.name)}`;
-  const up = await supabase.storage.from('patient-uploads').upload(path, file, {
-    contentType,
-    upsert: false,
-  });
-  if (up.error) {
-    const e: any = up.error;
-    // eslint-disable-next-line no-console
-    console.error('[uploadPatientFile] storage error', { name: file.name, type: contentType, size: file.size, error: e });
-    const code = e?.statusCode || e?.status || e?.error || '';
-    throw new Error(`${e?.message || 'falha ao enviar'}${code ? ` (${code})` : ''}`);
+
+  // Retry with backoff on transient network failures.
+  let lastErr: any = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const up = await supabase.storage.from('patient-uploads').upload(path, file, {
+        contentType,
+        upsert: true,
+      });
+      if (up.error) throw up.error;
+      lastErr = null;
+      break;
+    } catch (e: any) {
+      lastErr = e;
+      // eslint-disable-next-line no-console
+      console.error('[uploadPatientFile] storage error', { attempt, name: file.name, type: contentType, size: file.size, error: e });
+      if (!isNetworkError(e) || attempt === 2) break;
+      await new Promise((r) => setTimeout(r, 800 * (attempt + 1)));
+    }
   }
+  if (lastErr) {
+    if (isNetworkError(lastErr)) throw new Error(NETWORK_MSG);
+    const code = lastErr?.statusCode || lastErr?.status || lastErr?.error || '';
+    throw new Error(`${lastErr?.message || 'falha ao enviar'}${code ? ` (${code})` : ''}`);
+  }
+
 
   const { data, error } = await supabase
     .from('patient_uploads')

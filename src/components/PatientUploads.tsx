@@ -15,9 +15,11 @@ import {
 } from '@/hooks/usePatientUploads';
 import {
   Camera, Upload, FileText, Image as ImageIcon, Download, Trash2, Loader2,
-  Eye, AlertTriangle, RotateCw, X, CheckCircle2,
+  Eye, AlertTriangle, RotateCw, X, CheckCircle2, Layers,
 } from 'lucide-react';
+import { ScanToPdfDialog } from './ScanToPdfDialog';
 import { toast } from 'sonner';
+
 
 interface Props {
   patientId: string;
@@ -185,6 +187,8 @@ export function PatientUploads({ patientId }: Props) {
   const [pending, setPending] = useState<PendingUpload[]>([]);
   const [recentIds, setRecentIds] = useState<string[]>([]);
   const [viewing, setViewing] = useState<PatientUpload | null>(null);
+  const [scanOpen, setScanOpen] = useState(false);
+
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
 
@@ -264,6 +268,10 @@ export function PatientUploads({ patientId }: Props) {
         <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => cameraRef.current?.click()} disabled={busy}>
           <Camera className="h-3 w-3 mr-1" /> Foto
         </Button>
+        <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setScanOpen(true)} disabled={busy} title="Várias fotos em um único PDF">
+          <Layers className="h-3 w-3 mr-1" /> Digitalizar
+        </Button>
+
         <input
           ref={fileRef}
           type="file"
@@ -319,6 +327,19 @@ export function PatientUploads({ patientId }: Props) {
       </div>
 
       <ViewerDialog upload={viewing} onClose={() => setViewing(null)} />
+      <ScanToPdfDialog
+        open={scanOpen}
+        onClose={() => setScanOpen(false)}
+        onConfirm={async (pdf) => {
+          const item: PendingUpload = { tempId: crypto.randomUUID(), file: pdf, category, status: 'uploading' };
+          setPending((prev) => [item, ...prev]);
+          const ok = await runUpload(item);
+          await qc.invalidateQueries({ queryKey: ['patient-uploads', patientId] });
+          if (ok) toast.success('PDF digitalizado anexado');
+          else toast.error('Falha ao anexar o PDF digitalizado');
+        }}
+      />
+
     </div>
   );
 }

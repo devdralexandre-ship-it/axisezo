@@ -37,6 +37,8 @@ import { ReportForm } from './ReportForm';
 import { BudgetForm } from './BudgetForm';
 import { SaveDefaultsDialog } from './SaveDefaultsDialog';
 import { Loader2 } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
+
 
 interface Props {
   open: boolean;
@@ -52,6 +54,8 @@ type AnyStructured =
   | { kind: 'budget'; data: BudgetData };
 
 export function GenerateDocumentDialog({ open, onClose, patient }: Props) {
+  const isMobile = useIsMobile();
+
   const { data: templates = [] } = useDocumentTemplates();
   const generate = useGenerateDocument();
   const saveDefaults = useSaveDefaults();
@@ -256,9 +260,10 @@ export function GenerateDocumentDialog({ open, onClose, patient }: Props) {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 flex-1 overflow-hidden">
+            <div className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-2'} flex-1 overflow-hidden`}>
               {/* Form */}
-              <div className="overflow-y-auto p-6 border-r border-border">
+              <div className={`overflow-y-auto p-6 ${isMobile ? '' : 'border-r border-border'}`}>
+
                 <div className="space-y-1 mb-4">
                   <label className="text-xs font-semibold text-muted-foreground">Título do documento</label>
                   <Input
@@ -303,17 +308,20 @@ export function GenerateDocumentDialog({ open, onClose, patient }: Props) {
                 )}
               </div>
 
-              {/* Preview */}
-              <div className="overflow-y-auto p-6 bg-muted/20">
-                <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">Preview</p>
-                <div className="bg-background border border-border rounded-lg p-6 shadow-sm">
-                  <h4 className="font-bold text-base mb-3">{previewTitle}</h4>
-                  <div
-                    className="prose prose-sm max-w-none text-sm [&_p]:my-2 [&_h3]:mt-3 [&_h3]:mb-1 [&_h3]:font-semibold [&_ul]:list-disc [&_ul]:pl-5"
-                    dangerouslySetInnerHTML={{ __html: previewBody }}
-                  />
+              {/* Preview (oculto no mobile) */}
+              {!isMobile && (
+                <div className="overflow-y-auto p-6 bg-muted/20">
+                  <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">Preview</p>
+                  <div className="bg-background border border-border rounded-lg p-6 shadow-sm">
+                    <h4 className="font-bold text-base mb-3">{previewTitle}</h4>
+                    <div
+                      className="prose prose-sm max-w-none text-sm [&_p]:my-2 [&_h3]:mt-3 [&_h3]:mb-1 [&_h3]:font-semibold [&_ul]:list-disc [&_ul]:pl-5"
+                      dangerouslySetInnerHTML={{ __html: previewBody }}
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
+
             </div>
           </div>
 
