@@ -187,6 +187,8 @@ export function PatientUploads({ patientId }: Props) {
   const [pending, setPending] = useState<PendingUpload[]>([]);
   const [recentIds, setRecentIds] = useState<string[]>([]);
   const [viewing, setViewing] = useState<PatientUpload | null>(null);
+  const [scanOpen, setScanOpen] = useState(false);
+
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
 
