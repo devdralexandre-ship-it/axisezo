@@ -54,6 +54,8 @@ type AnyStructured =
   | { kind: 'budget'; data: BudgetData };
 
 export function GenerateDocumentDialog({ open, onClose, patient }: Props) {
+  const isMobile = useIsMobile();
+
   const { data: templates = [] } = useDocumentTemplates();
   const generate = useGenerateDocument();
   const saveDefaults = useSaveDefaults();
