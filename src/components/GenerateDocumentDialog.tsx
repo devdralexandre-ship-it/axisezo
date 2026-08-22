@@ -37,6 +37,8 @@ import { ReportForm } from './ReportForm';
 import { BudgetForm } from './BudgetForm';
 import { SaveDefaultsDialog } from './SaveDefaultsDialog';
 import { Loader2 } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
+
 
 interface Props {
   open: boolean;
